@@ -1,21 +1,10 @@
 import { NextResponse } from "next/server";
 import { healthResponse } from "@/lib/health-response";
-import { env } from "@/lib/env";
-import { MAX_UPLOAD_MB_CEILING } from "@/lib/upload-limits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
-  // Validate MAX_UPLOAD_MB at runtime: if the configured value exceeds the ceiling,
-  // log and fail the deep probe so an misconfigured Railway deployment is caught immediately.
-  const uploadLimitValid = env.MAX_UPLOAD_MB <= MAX_UPLOAD_MB_CEILING && env.MAX_UPLOAD_MB > 0;
-  if (!uploadLimitValid) {
-    console.error(
-      `[health] MAX_UPLOAD_MB misconfigured: ${env.MAX_UPLOAD_MB}MB exceeds ceiling of ${MAX_UPLOAD_MB_CEILING}MB`,
-    );
-  }
-
   const response = await healthResponse(request);
 
   // #L29: an anonymous `GET /api/health?deep=1` folded `checks.supabase =

@@ -7,14 +7,25 @@ set -e
 
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 REGISTRY="${REGISTRY:-ghcr.io}"
-REPO_OWNER="${REPO_OWNER:-$(git remote get-url origin | sed 's|.*/||; s|\.git||')}"
+# Extract GitHub owner (e.g., "BigSimmo") from git remote URL, fallback to "BigSimmo"
+DETECTED_OWNER="$(git remote get-url origin 2>/dev/null | sed -E 's|.*[:/]([^/]+)/[^/]+(\.git)?$|\1|' || echo "BigSimmo")"
+REPO_OWNER="${REPO_OWNER:-$DETECTED_OWNER}"
 TARGET="${1:-all}"
 PUSH="${PUSH:-false}"  # Set PUSH=true to push to registry
 BUILD_TAG="${BUILD_TAG:-$(git rev-parse --short HEAD)}"
 
+# Multi-platform builds cannot be exported with --load directly to local docker daemon
+OUTPUT_FLAG=""
+if [ "$PUSH" = "true" ]; then
+    OUTPUT_FLAG="--push"
+elif [[ "$PLATFORMS" != *","* ]]; then
+    OUTPUT_FLAG="--load"
+fi
+
 echo "🐳 Docker Multi-Platform Build"
 echo "  Platforms: $PLATFORMS"
 echo "  Registry: $REGISTRY"
+echo "  Repo Owner: $REPO_OWNER"
 echo "  Target: $TARGET"
 echo "  Push: $PUSH"
 echo "  Tag: $BUILD_TAG"
@@ -37,7 +48,7 @@ build_app() {
         --tag "$REGISTRY/$REPO_OWNER/psychsift-app:$BUILD_TAG" \
         --tag "$REGISTRY/$REPO_OWNER/psychsift-app:latest" \
         --build-arg "ALLOW_LOW_RAM_BUILD=1" \
-        $([ "$PUSH" = "true" ] && echo "--push" || echo "--load") \
+        $OUTPUT_FLAG \
         .
     echo "✅ App tier build complete"
 }
@@ -53,7 +64,7 @@ build_worker() {
         --tag "$REGISTRY/$REPO_OWNER/psychsift-worker:$BUILD_TAG" \
         --tag "$REGISTRY/$REPO_OWNER/psychsift-worker:latest" \
         --build-arg "ALLOW_LOW_RAM_BUILD=1" \
-        $([ "$PUSH" = "true" ] && echo "--push" || echo "--load") \
+        $OUTPUT_FLAG \
         .
     echo "✅ Worker tier build complete"
 }

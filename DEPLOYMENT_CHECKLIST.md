@@ -9,6 +9,7 @@
 ## Pre-Deployment Verification ✅
 
 ### Code Changes
+
 - ✅ `worker/health.ts` — New health check server (4.3 KB)
 - ✅ `worker/main.ts` — Integrated health server startup + claim tracking
 - ✅ `Dockerfile` — Added resource labels, ownership, SBOM
@@ -18,11 +19,13 @@
 - ✅ `railway.app.json` — No changes (already configured)
 
 ### Documentation
+
 - ✅ `docs/docker-optimization-guide.md` — Usage guide
 - ✅ `OPTIMIZATION_SUMMARY.md` — Previous DHI changes
 - ✅ `IMPLEMENTATION_COMPLETE.md` — Summary
 
 ### Testing
+
 - ✅ Dockerfile syntax valid (dry-run checked)
 - ✅ Dockerfile.worker syntax valid (dry-run checked)
 - ✅ TypeScript imports correct
@@ -33,14 +36,17 @@
 ## What's Being Deployed
 
 ### 1. Worker Health Endpoint
+
 **File:** `worker/health.ts`
 
 Provides HTTP `/health` endpoint on port 3001 that validates:
+
 - Supabase connectivity (RPC probe)
 - Python venv availability (version check)
 - Last claim processed (staleness detector, 5-min threshold)
 
 **Response:**
+
 ```json
 {
   "status": "ok|degraded|error",
@@ -54,13 +60,16 @@ Provides HTTP `/health` endpoint on port 3001 that validates:
 ```
 
 **HTTP Status:**
+
 - 200 OK for "ok" or "degraded"
 - 503 Service Unavailable for "error"
 
 ### 2. Worker Health Integration
+
 **File:** `worker/main.ts`
 
 **Changes:**
+
 - Start health server on port 3001 (or `WORKER_HEALTH_PORT` env var)
 - Record last successful claim after `completeJob()`
 - Clean shutdown of health server on SIGTERM/SIGINT
@@ -68,9 +77,11 @@ Provides HTTP `/health` endpoint on port 3001 that validates:
 **No change to claim processing logic or performance.**
 
 ### 3. Railway Configuration
+
 **File:** `railway.worker.json`
 
 **Added:**
+
 ```json
 {
   "deploy": {
@@ -90,9 +101,11 @@ Provides HTTP `/health` endpoint on port 3001 that validates:
 **Effect:** Railway will now probe worker health every 30s and auto-restart after 3 failures (90s).
 
 ### 4. Docker Image Improvements
+
 **Files:** `Dockerfile`, `Dockerfile.worker`, `.dockerignore`
 
 **Resource Labels:**
+
 ```dockerfile
 org.opencontainers.image.cpu="1"        # App
 org.opencontainers.image.memory="512m"  # App
@@ -114,6 +127,7 @@ Optimized `.dockerignore` reduces context by ~15-20%
 ## Deployment Steps
 
 ### Step 1: Git Commit
+
 ```bash
 git add -A
 git commit -m "feat: Worker health endpoint + Docker optimizations
@@ -132,12 +146,15 @@ Closes: (ticket if applicable)"
 ```
 
 ### Step 2: Push to Main
+
 ```bash
 git push origin main
 ```
 
 ### Step 3: Verify CI/CD
+
 **GitHub Actions will:**
+
 1. ✅ Build app image (amd64, arm64)
 2. ✅ Build worker image (amd64, arm64)
 3. ✅ Run image validation tests
@@ -147,12 +164,15 @@ git push origin main
 **Expected time:** ~15-25 minutes
 
 ### Step 4: Deploy to Railway
+
 **Option A: Automatic (Recommended)**
+
 - Railway detects main push
 - Redeploys app tier (canary 25%, 5-min duration)
 - Redeploys worker tier with new health config
 
 **Option B: Manual**
+
 ```bash
 railway up --force
 ```
@@ -160,6 +180,7 @@ railway up --force
 **Expected time:** ~5-10 minutes per service
 
 ### Step 5: Verify Deployment
+
 ```bash
 # Check health endpoint is responding
 curl https://your-worker-url/health
@@ -182,6 +203,7 @@ curl https://your-worker-url/health
 If issues arise, rollback is simple:
 
 **Option 1: Revert Commit**
+
 ```bash
 git revert <commit-hash>
 git push origin main
@@ -189,6 +211,7 @@ git push origin main
 ```
 
 **Option 2: Disable Health Check**
+
 ```bash
 # Set env var in Railway dashboard:
 WORKER_HEALTH_PORT=""
@@ -196,6 +219,7 @@ WORKER_HEALTH_PORT=""
 ```
 
 **Option 3: Manual Rollback**
+
 ```bash
 # Go to Railway dashboard
 # Select worker service
@@ -211,24 +235,29 @@ WORKER_HEALTH_PORT=""
 ## Post-Deployment Monitoring
 
 ### What to Watch
+
 1. **Worker auto-restarts:** Should be fewer than before (health probes now catch issues early)
 2. **Health check response times:** Should be <100ms
 3. **No alerts on slow claims:** Degraded status is expected if no claims processed for 5+ min
 4. **Supabase connectivity:** Should consistently show "ok" in health response
 
 ### Metrics to Track
+
 - Worker uptime (should increase)
 - Health check error rate (should be <1%)
 - Claim processing latency (should be unchanged)
 - Memory usage (should be unchanged, ~2GB)
 
 ### How to Check Health Endpoint
+
 **Local (after starting worker):**
+
 ```bash
 curl http://localhost:3001/health | jq
 ```
 
 **Production (Railway):**
+
 ```bash
 # Get worker URL from Railway dashboard
 curl https://your-worker-url/health | jq
@@ -239,6 +268,7 @@ railway open worker
 ```
 
 ### Example Healthy Response
+
 ```json
 {
   "status": "ok",
@@ -252,6 +282,7 @@ railway open worker
 ```
 
 ### Example Degraded Response (No Recent Claims)
+
 ```json
 {
   "status": "degraded",
@@ -264,6 +295,7 @@ railway open worker
 ```
 
 ### Example Error Response (Unhealthy)
+
 ```json
 {
   "status": "error",
@@ -293,15 +325,15 @@ railway open worker
 
 ## Risk Assessment
 
-| Risk | Severity | Mitigation |
-|------|----------|-----------|
-| Health server memory overhead | Low | ~5MB, negligible vs 2GB allocation |
-| Health check latency | Low | Non-blocking, ~<100ms, timeout 10s |
-| Port 3001 conflict | Very Low | Configurable via `WORKER_HEALTH_PORT` |
-| Supabase health probe impact | Low | Lightweight RPC, <1ms, cached |
-| Python venv check failure | Low | Graceful degradation, reports error |
-| Dockerfile layer changes | Very Low | Meta-only changes (labels, ownership) |
-| Build context bloat | None | 15-20% reduction actually |
+| Risk                          | Severity | Mitigation                            |
+| ----------------------------- | -------- | ------------------------------------- |
+| Health server memory overhead | Low      | ~5MB, negligible vs 2GB allocation    |
+| Health check latency          | Low      | Non-blocking, ~<100ms, timeout 10s    |
+| Port 3001 conflict            | Very Low | Configurable via `WORKER_HEALTH_PORT` |
+| Supabase health probe impact  | Low      | Lightweight RPC, <1ms, cached         |
+| Python venv check failure     | Low      | Graceful degradation, reports error   |
+| Dockerfile layer changes      | Very Low | Meta-only changes (labels, ownership) |
+| Build context bloat           | None     | 15-20% reduction actually             |
 
 **Overall Risk: VERY LOW** ✅
 
@@ -314,6 +346,7 @@ railway open worker
 **Status:** Ready for Production ✅
 
 **Checklist:**
+
 - [x] Code reviewed
 - [x] Tests passed
 - [x] Documentation updated
@@ -338,6 +371,7 @@ railway open worker
 ## Questions?
 
 Refer to:
+
 - `docs/docker-optimization-guide.md` — Full usage guide
 - `OPTIMIZATION_SUMMARY.md` — Previous optimization details
 - `IMPLEMENTATION_COMPLETE.md` — Technical summary

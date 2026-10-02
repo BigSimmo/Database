@@ -57,7 +57,7 @@ import { buildTableFactRows } from "./table-facts";
 import { enrichmentRepairDecision, ingestionFailureDecision, visionImageRejectionSkipReason } from "./behavior";
 import { WorkerRuntimeControl, WorkerAbortError } from "./runtime-control";
 import { runWorkerLoop } from "./run-loop";
-import { recordClaimProcessed } from "./health";
+import { recordClaimProcessed, startWorkerHealthServerIfConfigured } from "./health";
 import type { JobDocument, JobRow } from "./types";
 
 /** Upper bound on the fatal-exit alert, so a stalled webhook cannot delay the exit and restart. */
@@ -2092,6 +2092,7 @@ async function main() {
   const once = process.argv.includes("--once");
   // The bootstrap entrypoint owns the health server. Keep claim tracking here
   // so /health can report ingestion progress without binding a second port.
+  const healthServer = startWorkerHealthServerIfConfigured();
   const controller = new WorkerRuntimeControl();
   controller.attachSignals();
 
@@ -2117,19 +2118,23 @@ async function main() {
     }
   }
 
-  await runWorkerLoop({
-    once,
-    pollMs: env.WORKER_POLL_MS,
-    healthBackoffMs: env.WORKER_HEALTH_BACKOFF_MS,
-    maxClaimFailures: env.WORKER_MAX_CLAIM_FAILURES,
-    claim: claimJobs,
-    process: processJob,
-    probe: () => probeSupabaseHealth(supabase),
-    backoff: workerBackoffMs,
-    controller,
-    log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
-    captureException: captureWorkerException,
-  });
+  try {
+    await runWorkerLoop({
+      once,
+      pollMs: env.WORKER_POLL_MS,
+      healthBackoffMs: env.WORKER_HEALTH_BACKOFF_MS,
+      maxClaimFailures: env.WORKER_MAX_CLAIM_FAILURES,
+      claim: claimJobs,
+      process: processJob,
+      probe: () => probeSupabaseHealth(supabase),
+      backoff: workerBackoffMs,
+      controller,
+      log: (message, level, extra) => (extra ? console[level](message, extra) : console[level](message)),
+      captureException: captureWorkerException,
+    });
+  } finally {
+    healthServer?.close();
+  }
   console.log("PsychSift worker stopped gracefully");
   // Flush before exit so any buffered claim/process events are not dropped.
   await flushWorkerErrorTracking();

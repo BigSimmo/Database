@@ -41,6 +41,36 @@ export function getLastClaimProcessedAt(): Date | null {
   return lastClaimProcessedAt;
 }
 
+let cachedPythonStatus: { status: "ok" | "error"; message?: string } | null = null;
+let lastPythonCheckAt = 0;
+const PYTHON_CHECK_TTL_MS = 5 * 60 * 1000;
+
+async function checkPythonVenvAvailability(): Promise<{ status: "ok" | "error"; message?: string }> {
+  const now = Date.now();
+  if (cachedPythonStatus && now - lastPythonCheckAt < PYTHON_CHECK_TTL_MS) {
+    return cachedPythonStatus;
+  }
+
+  try {
+    const pythonBin = process.env.WORKER_DOCLING_PYTHON_BIN || "/opt/ocr-venv/bin/python";
+    const { execFile } = await import("node:child_process");
+    await new Promise<void>((resolve, reject) => {
+      execFile(pythonBin, ["--version"], { timeout: 5000 }, (error) => {
+        if (error) reject(error);
+        else resolve();
+      });
+    });
+    cachedPythonStatus = { status: "ok" };
+  } catch (error) {
+    cachedPythonStatus = {
+      status: "error",
+      message: `Python unavailable: ${safeErrorLogDetails(error)}`,
+    };
+  }
+  lastPythonCheckAt = now;
+  return cachedPythonStatus;
+}
+
 async function performHealthCheck(): Promise<HealthResponse> {
   const checks: HealthResponse["checks"] = {
     supabase: { status: "ok" },
@@ -61,17 +91,9 @@ async function performHealthCheck(): Promise<HealthResponse> {
     hasErrors = true;
   }
 
-  // Check 2: Python venv availability
-  try {
-    const pythonBin = process.env.WORKER_DOCLING_PYTHON_BIN || "/opt/ocr-venv/bin/python";
-    const { execSync } = await import("node:child_process");
-    execSync(`${pythonBin} --version`, { encoding: "utf-8", timeout: 5000 });
-    checks.python_venv = { status: "ok" };
-  } catch (error) {
-    checks.python_venv = {
-      status: "error",
-      message: `Python unavailable: ${safeErrorLogDetails(error)}`,
-    };
+  // Check 2: Python venv availability (async + cached)
+  checks.python_venv = await checkPythonVenvAvailability();
+  if (checks.python_venv.status === "error") {
     hasErrors = true;
   }
 
@@ -125,18 +147,32 @@ export function createHealthCheckServer(port: number = 3001) {
   return server;
 }
 
-// Start health check server if WORKER_HEALTH_PORT is set (e.g., Railway env var)
-if (import.meta.main) {
-  const port = parseInt(process.env.WORKER_HEALTH_PORT || "3001", 10);
-  const server = createHealthCheckServer(port);
+/**
+ * Start health check server if WORKER_HEALTH_PORT is configured.
+ * Returns the running HTTP server instance, or null if unconfigured.
+ */
+export function startWorkerHealthServerIfConfigured() {
+  const portStr = process.env.WORKER_HEALTH_PORT;
+  if (!portStr) return null;
+  const port = parseInt(portStr, 10);
+  if (isNaN(port) || port <= 0) return null;
 
+  const server = createHealthCheckServer(port);
   server.listen(port, "0.0.0.0", () => {
     console.log(`Worker health check server listening on http://0.0.0.0:${port}/health`);
   });
 
-  process.on("SIGTERM", () => {
-    console.log("SIGTERM received, shutting down health check server");
-    server.close();
-    process.exit(0);
-  });
+  return server;
+}
+
+// Direct CLI invocation fallback
+if (import.meta.main) {
+  const server = startWorkerHealthServerIfConfigured();
+  if (server) {
+    process.on("SIGTERM", () => {
+      console.log("SIGTERM received, shutting down health check server");
+      server.close();
+      process.exit(0);
+    });
+  }
 }

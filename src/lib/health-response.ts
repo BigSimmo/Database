@@ -104,11 +104,9 @@ export async function healthResponse(request: Request, options: HealthResponseOp
   const operatorDiagnostics = tokenAuthorized && probeEnabled(options.includeOperatorDiagnostics);
   const supabaseConfigured = Boolean(env.NEXT_PUBLIC_SUPABASE_URL && env.SUPABASE_SERVICE_ROLE_KEY);
   const openAIConfigured = Boolean(env.OPENAI_API_KEY);
-  const uploadLimitConfigured = Boolean(env.MAX_UPLOAD_MB && env.MAX_UPLOAD_MB > 0);
   const checks: Record<string, "ok" | "missing" | "error" | "timeout" | "skipped" | "unauthorized"> = {
     supabaseConfig: supabaseConfigured ? "ok" : "missing",
     openaiConfig: openAIConfigured ? "ok" : env.RAG_PROVIDER_MODE === "offline" ? "skipped" : "missing",
-    uploadLimit: uploadLimitConfigured ? "ok" : "missing",
     siteContent: "skipped",
   };
   let slo: AnswerSloSnapshot | null = null;

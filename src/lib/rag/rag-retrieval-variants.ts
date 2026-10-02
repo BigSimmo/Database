@@ -65,8 +65,9 @@ const ragAliasCache: RagAliasCache = ((globalThis as { [ragAliasCacheKey]?: RagA
 
 /** Pending requests by cache key to prevent concurrent fetches for the same scope. */
 const ragAliasCacheRequestsKey = Symbol.for("psychsift.ragAliasCacheRequests");
-const ragAliasCacheRequests: Map<string, Promise<RagAliasInput[]>> = ((globalThis as { [ragAliasCacheRequestsKey]?: Map<string, Promise<RagAliasInput[]>> })[ragAliasCacheRequestsKey] ??=
-  new Map());
+const ragAliasCacheRequests: Map<string, Promise<RagAliasInput[]>> = ((
+  globalThis as { [ragAliasCacheRequestsKey]?: Map<string, Promise<RagAliasInput[]>> }
+)[ragAliasCacheRequestsKey] ??= new Map());
 
 /** Normalize retrieval variant. */
 export function normalizeRetrievalVariant(value: string) {
