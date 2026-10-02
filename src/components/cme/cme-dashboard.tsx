@@ -1,15 +1,11 @@
 "use client";
 
-import { CmeYearEndActions } from "@/components/cme/cme-year-close-panel";
-import type { CmePlanGoal } from "@/lib/cme/plan-goals";
-import { canOfferCmeYearEnd } from "@/lib/cme/year-close-actions";
 import {
   BellOff,
   CalendarClock,
   CalendarDays,
   CalendarRange,
   ChevronRight,
-  ClipboardCheck,
   ClipboardCopy,
   GraduationCap,
   ListChecks,
@@ -22,13 +18,19 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
-import { Button } from "@/components/ui/button";
-import { Sheet } from "@/components/ui/sheet";
+import { CmeCatchUpCard } from "@/components/cme/cme-dashboard-catch-up";
+import { CmeTodayDetailSheet, type CmeTodayDetail } from "@/components/cme/cme-dashboard-detail-sheet";
+import { CmeNextStepRow, computeCmeNextStep, formatCmeHours } from "@/components/cme/cme-dashboard-next-step";
+import { CmeTodayShortcuts } from "@/components/cme/cme-dashboard-shortcuts";
+import { CmeWhatsLeft } from "@/components/cme/cme-dashboard-whats-left";
 import { CmeHeroSummary } from "@/components/cme/cme-hero-summary";
-import { CmePaceChart, CmeRequirementMeter } from "@/components/cme/cme-progress-visuals";
+import { CmePaceChart } from "@/components/cme/cme-progress-visuals";
+import { Button } from "@/components/ui/button";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
+import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
+import { cmeCalendarEvents } from "@/lib/cme/calendar-events";
+import { buildCmeCatchUpPlan } from "@/lib/cme/catch-up-plan";
 import {
-  CPD_PACE_MINIMUM_ELAPSED_DAYS,
   cpdYearBounds,
   cpdYearOf,
   daysElapsedInCpdYear,
@@ -37,14 +39,10 @@ import {
   perthCalendarDate,
 } from "@/lib/cme/cpd-year";
 import { evaluateYear } from "@/lib/cme/evaluate";
-import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
-import { cmeCalendarEvents } from "@/lib/cme/calendar-events";
-import { buildCmeYearCheck } from "@/lib/cme/year-check";
 import { cmeDashboardModuleLabels, useCmeModuleOrder, type CmeDashboardModuleId } from "@/lib/cme/module-order";
+import { cmeRoutineGapScenarios, cmeWeeklyPace } from "@/lib/cme/pace";
+import type { CmePlanGoal } from "@/lib/cme/plan-goals";
 import { describeConfirmedSource } from "@/lib/cme/presets";
-import { buildCmeTodo } from "@/lib/cme/todo";
-import { cmeRoutineGapScenarios } from "@/lib/cme/pace";
-import type { TrainingPosition } from "@/lib/cme/training-timeline";
 import {
   cmeRoutineCadenceLabels,
   formatRoutineDueDate,
@@ -54,16 +52,11 @@ import {
   type CmeRoutine,
   type CmeRoutineLogPrefill,
 } from "@/lib/cme/routines";
-import {
-  cmeCategories,
-  cmeCategoryLabels,
-  type CmeEntry,
-  type CmeRequirement,
-  type CmeRequirementSet,
-  type CmeRequirementSpec,
-  type CmeRequirementStatus,
-} from "@/lib/cme/types";
-import { CME_CLOSE_WINDOW_DAYS } from "@/lib/cme/year-close";
+import { buildCmeTodo } from "@/lib/cme/todo";
+import type { TrainingPosition } from "@/lib/cme/training-timeline";
+import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+import { buildCmeYearCheck } from "@/lib/cme/year-check";
+import { canOfferCmeYearEnd } from "@/lib/cme/year-close-actions";
 import {
   DEFAULT_REMINDER_SETTINGS,
   REMINDER_TYPE_LABELS,
@@ -73,30 +66,28 @@ import {
 } from "@/lib/reminders/settings";
 
 /**
- * THE DASHBOARD — the screen the whole mode is judged by.
+ * TODAY — the screen the whole mode is judged by.
  *
- * Three things sit above the fold, unconditionally, in this order: the hero
- * summary (`CmeHeroSummary`: the season, hours, logged weeks and weekly pace)
- * and the first two actions. Everything below that line is a module the owner can
- * reorder or hide — see `useCmeModuleOrder` and `CmeCustomisePage`.
+ * Read top to bottom on a phone, one idea per block:
+ *   1. the hero summary (`CmeHeroSummary`: the season, hours, logged weeks
+ *      and weekly pace), beside the catch-up planner (`CmeCatchUpCard`: what
+ *      the owner's routines would likely add by 31 December, and what is
+ *      still to find);
+ *   2. the one next step, when it is not already the first row of "What's
+ *      left" (`CmeNextStepRow`: a closed year, the year-end checklist, the
+ *      early-year plan, or the total alone still short);
+ *   3. a row of small things to finish (`CmeTodayShortcuts`);
+ *   4. the modules the owner can reorder or hide — "What's left" (every
+ *      requirement once, biggest gap first, met ones folded), routines due,
+ *      logged today, year dates, provenance — see `useCmeModuleOrder` and
+ *      `CmeCustomisePage`;
+ *   5. the pace chart, then the calendar and Teaching.
  *
- * The screen has three seasons, driven entirely by `now` against the CPD
- * year in `set`, never by anything this component decides on its own:
- *   - **Early year** (fewer than `CPD_PACE_MINIMUM_ELAPSED_DAYS` elapsed): no
- *     pace mark, no pace sentence — a rate from a handful of days is noise —
- *     and the next action points at the development plan.
- *   - **Tracking** (the rest of the year): the mark, the sentence, and a next
- *     action computed from whichever requirement is furthest from met.
- *   - **Closing the year** (the last fortnight): the next action becomes the
- *     year-end checklist, regardless of what is or is not yet met.
- *
- * Nothing here is a status colour. Shortfall reads through position (an unmet
- * requirement sorts first), weight (its label is bold) and wording (the
- * summary sentence says how far short) — never through red, amber or green.
+ * The seasons are driven entirely by `now` against the CPD year in `set` —
+ * see `computeCmeNextStep`. Nothing here is a status colour. Shortfall reads
+ * through position (an unmet requirement sorts first) and wording (the
+ * summary says how far short) — never through red, amber or green.
  */
-
-/** How close to 31 December the one action turns from tracking into the year-end checklist. */
-const CLOSE_YEAR_WINDOW_DAYS = CME_CLOSE_WINDOW_DAYS;
 
 const FULL_MONTH_NAMES = [
   "January",
@@ -118,35 +109,6 @@ function formatDayFullMonth(dateIso: string): string {
   const [, month, day] = dateIso.split("-");
   const monthIndex = Number.parseInt(month, 10) - 1;
   return `${Number.parseInt(day, 10)} ${FULL_MONTH_NAMES[monthIndex]}`;
-}
-
-/** "32.5", never "32.50" — and a whole number drops its decimal point, so a legitimate zero reads as a plain "0". */
-function formatCmeHours(hours: number): string {
-  return Number(hours.toFixed(2)).toString();
-}
-
-function contribution(entry: CmeEntry, requirement?: CmeRequirement): number {
-  if (!requirement) return entry.allocations.reduce((sum, item) => sum + item.hours, 0);
-  const { spec } = requirement;
-  if (spec.shape === "hours-in-category")
-    return entry.allocations
-      .filter((item) => item.category === spec.category)
-      .reduce((sum, item) => sum + item.hours, 0);
-  if (spec.shape === "hours-across-categories")
-    return entry.allocations
-      .filter((item) => spec.categories.includes(item.category))
-      .reduce((sum, item) => sum + item.hours, 0);
-  if (spec.shape === "credited-hours")
-    return Math.min(
-      entry.formalPeerReviewHours ?? 0,
-      entry.allocations.filter((item) => item.category === "reviewing").reduce((sum, item) => sum + item.hours, 0),
-    );
-  return 0;
-}
-
-function filteredLogHref(year: number, requirement?: CmeRequirement): string {
-  const category = requirement?.spec.shape === "hours-in-category" ? requirement.spec.category : null;
-  return `/cme/log?year=${year}${category ? `&category=${category}` : ""}`;
 }
 
 const MODULE_ICONS: Record<CmeDashboardModuleId, LucideIcon> = {
@@ -193,7 +155,7 @@ export type CmeDashboardProps = {
   readonly reminders?: ReminderSettings;
   /** Snoozes one reminder type for a week. Omitted: no snooze buttons. */
   readonly onSnoozeReminder?: (type: ReminderType) => void;
-  /** Saved drafts whose next step is the owner's own. Shown first in the Next row; never hours. */
+  /** Saved drafts whose next step is the owner's own. Shown as a chip to finish; never hours. */
   readonly draftsToFinish?: number;
   /** Current owner-scoped training position, when the server has loaded one. */
   readonly currentTrainingPosition?: TrainingPosition | null;
@@ -213,101 +175,6 @@ export type CmeReportingReminder = {
   readonly closesOn: string;
 };
 
-/**
- * How far short of met one unmet requirement is, on a scale that can be
- * compared ONLY against other requirements in the same tier — see
- * `furthestFromMet` below for why the tiers themselves are not comparable.
- */
-type ShortfallTier = 0 | 1 | 2;
-
-function shortfallTier(shape: CmeRequirementSpec["shape"]): ShortfallTier {
-  if (shape === "hours-in-category" || shape === "hours-across-categories" || shape === "credited-hours") return 0;
-  if (shape === "activity-count") return 1;
-  return 2; // "task"
-}
-
-/**
- * Picks whichever unmet requirement is furthest from being met — never
- * simply the first unmet requirement in `set.requirements` order, which is
- * an authoring order, not a distance-from-met order, and can put the
- * requirement that is barely short ahead of one still almost untouched.
- *
- * The four requirement shapes are not on one comparable scale — "3 hours
- * short" and "2 activities still have nothing against them" are different
- * units, and a `task` has no magnitude at all, only done-or-not — so this
- * orders by tier first, then by size of gap within a tier:
- *
- *   1. Hours requirements (`hours-in-category`, `hours-across-categories`),
- *      by hours remaining (`progress.target - progress.value`), largest
- *      first. Hours accrue gradually across the whole year, so a large
- *      hours gap needs the most lead time to close and is the most
- *      consequential thing to surface.
- *   2. `activity-count` requirements, by buckets still empty
- *      (`progress.target - progress.value`), most empty first. These are
- *      usually closable in a single sitting once the owner notices them.
- *   3. Not-started `task` requirements last — `progress` is null, so there
- *      is no gap to compare; ties within this tier keep list order.
- *
- * The sort is stable, so two requirements tied on tier and gap keep their
- * `set.requirements` order — this is what makes the fix degrade to the old
- * "first unmet in list order" behaviour exactly when every unmet
- * requirement in the winning tier is equally far short, rather than
- * changing an answer that was already right.
- */
-function furthestFromMet(
-  set: CmeRequirementSet,
-  unmet: readonly CmeRequirementStatus[],
-): CmeRequirementStatus | undefined {
-  const ranked = unmet.map((status, index) => {
-    const shape = set.requirements.find((requirement) => requirement.id === status.requirementId)?.spec.shape;
-    const tier = shape ? shortfallTier(shape) : 2;
-    const gap = status.progress ? status.progress.target - status.progress.value : 0;
-    return { status, index, tier, gap };
-  });
-  ranked.sort((a, b) => a.tier - b.tier || b.gap - a.gap || a.index - b.index);
-  return ranked[0]?.status;
-}
-
-function computeNextAction(args: {
-  set: CmeRequirementSet;
-  unmet: readonly CmeRequirementStatus[];
-  now: Date;
-  totalHours: number;
-}): string {
-  const { set, unmet, now, totalHours } = args;
-  const inRequestedYear = cpdYearOf(now) === set.year;
-
-  if (set.closedAt) {
-    return "This CPD year is closed. Open the annual summary for its snapshot and any amendments.";
-  }
-
-  if (unmet.length === 0 && totalHours >= set.totalHours) {
-    return "Every target is reached for this year. Keep logging activities as you go.";
-  }
-
-  if (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS) {
-    // Closing happens on the annual summary, which also shows what the year looks like
-    // before it is frozen, so the action sends the owner there rather than closing from here.
-    return "Year end: check each entry against the records you keep, then close the year from your annual summary.";
-  }
-
-  const earlyTask = set.requirements.find(
-    (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
-  );
-  if (inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask) {
-    return `It's early in the year for a pace projection — a good place to start is ${earlyTask.label.toLowerCase()}.`;
-  }
-
-  if (unmet.length === 0) {
-    return `Next: Total CPD hours — ${formatCmeHours(set.totalHours - totalHours)} h to go`;
-  }
-
-  const next = furthestFromMet(set, unmet)!;
-  const label =
-    set.requirements.find((requirement) => requirement.id === next.requirementId)?.label ?? "Next requirement";
-  return `Next: ${label} — ${next.summary}`;
-}
-
 export function CmeDashboard({
   set,
   entries,
@@ -325,7 +192,7 @@ export function CmeDashboard({
   nextYearConfirmed = null,
   nextYearGoals,
 }: CmeDashboardProps) {
-  const [detail, setDetail] = useState<"hours" | "gap" | string | null>(null);
+  const [detail, setDetail] = useState<CmeTodayDetail>(null);
   const { moduleIds } = useCmeModuleOrder();
   const { totalHours, statuses, unmet } = evaluateYear({ set, entries });
   const inRequestedYear = cpdYearOf(now) === set.year;
@@ -372,20 +239,23 @@ export function CmeDashboard({
       </Button>
     );
   }
-  const nextRequirementStatus = furthestFromMet(set, unmet);
-  const nextRequirement = nextRequirementStatus
-    ? set.requirements.find((requirement) => requirement.id === nextRequirementStatus.requirementId)
-    : undefined;
-  const earlyTask = set.requirements.find(
-    (requirement) => requirement.spec.shape === "task" && requirement.completedOn === null,
-  );
+
   // A due routine is listed, with its own Log button, in the "Routines due"
-  // module. It used to take this slot too, which hid the requirement gap and
-  // the year-end reminder whenever anything recurring was due.
-  const nextAction = computeNextAction({ set, unmet, now, totalHours });
-  // Stable sort: unmet first. Position is one of the three channels this mode uses for
-  // shortfall instead of colour — see the file-level note above.
-  const sortedStatuses = [...statuses].sort((a, b) => Number(a.met) - Number(b.met));
+  // module, never in the next-step slot, which would hide the requirement gap
+  // and the year-end reminder whenever anything recurring was due.
+  const nextStep = computeCmeNextStep({ set, unmet, now, totalHours });
+  // The year-end checklist (copying, self-evaluation, goal carry, next year, summary) opens from Today.
+  const offerYearEnd = canOfferCmeYearEnd(set, now);
+  const nextStepInList = nextStep.inList && !offerYearEnd;
+  const { toFinish } = buildCmeTodo({
+    set,
+    entries,
+    routines,
+    statuses,
+    now,
+    draftsToFinish,
+    nextStep: { id: "next", label: nextStep.label, href: nextStep.href },
+  });
 
   const yearCheck = buildCmeYearCheck(set, entries);
   const nextDate = expandEvents(cmeCalendarEvents({ set, entries, routines }).exported, {
@@ -393,74 +263,19 @@ export function CmeDashboard({
     end: addDays(today, 400),
   })[0];
 
-  function requirementLabel(requirementId: string): string {
-    return set.requirements.find((requirement) => requirement.id === requirementId)?.label ?? requirementId;
-  }
+  const catchUp = buildCmeCatchUpPlan({ set, entries, routines, today });
+  // The same rule as the hero's pace line: no weekly figure in the first four weeks or the last week.
+  const weeklyPace = cmeWeeklyPace({ targetHours: set.totalHours, loggedHours: totalHours, today, year: set.year });
+  const totalGap = catchUp.hoursToGo;
+  const gapScenarios = cmeRoutineGapScenarios(routines, totalGap, undefined, { today, year: set.year });
 
   function handleLogRoutine(routine: CmeRoutine) {
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
-  // The year-end checklist (copying, self-evaluation, goal carry, next year, summary) opens from Today.
-  const offerYearEnd = canOfferCmeYearEnd(set, now);
-  const nextActionHref =
-    set.closedAt || (inRequestedYear && daysRemainingInCpdYear(now, set.year) <= CLOSE_YEAR_WINDOW_DAYS)
-      ? `/cme/summary?year=${set.year}`
-      : inRequestedYear && daysElapsedInCpdYear(now, set.year) < CPD_PACE_MINIMUM_ELAPSED_DAYS && earlyTask
-        ? `/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(earlyTask.id)}`
-        : nextRequirement?.spec.shape === "task"
-          ? `/cme/setup?year=${set.year}#cme-requirement-${encodeURIComponent(nextRequirement.id)}`
-          : `/cme/new?year=${set.year}`;
-  const todo = buildCmeTodo({
-    set,
-    entries,
-    routines,
-    statuses,
-    now,
-    draftsToFinish,
-    nextStep: { id: "next", label: nextAction, href: nextActionHref },
-    nextRequirementId: nextRequirement?.id,
-  });
-  const factStatuses = statuses
-    .filter((status) => {
-      const requirement = set.requirements.find((item) => item.id === status.requirementId);
-      return (
-        requirement?.source === "national" &&
-        (requirement.spec.shape === "hours-in-category" || requirement.spec.shape === "hours-across-categories")
-      );
-    })
-    .slice(0, 2);
-  const totalGap = Math.max(0, Number((set.totalHours - totalHours).toFixed(2)));
-  const gapScenarios = cmeRoutineGapScenarios(routines, totalGap, undefined, { today, year: set.year });
-  const detailRequirement =
-    detail && detail !== "hours" && detail !== "gap"
-      ? set.requirements.find((requirement) => requirement.id === detail)
-      : undefined;
-  const detailStatus = detailRequirement
-    ? statuses.find((status) => status.requirementId === detailRequirement.id)
-    : undefined;
-  const detailedEntries = yearEntries.filter((entry) => contribution(entry, detailRequirement) > 0);
-  const detailHours = detailRequirement ? (detailStatus?.progress?.value ?? 0) : totalHours;
-
   const moduleContent: Record<CmeDashboardModuleId, ReactNode> = {
     requirements: (
-      <ul className="space-y-2">
-        {sortedStatuses.map((status) => (
-          <li
-            key={status.requirementId}
-            data-met={status.met ? "true" : "false"}
-            className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}
-          >
-            <div className="min-w-0">
-              <p className={cn("text-sm text-[color:var(--text)]", !status.met && "font-semibold")}>
-                {requirementLabel(status.requirementId)}
-              </p>
-              <p className={cn(textMuted, "text-sm")}>{status.summary}</p>
-            </div>
-            <CmeRequirementMeter progress={status.progress} met={status.met} />
-          </li>
-        ))}
-      </ul>
+      <CmeWhatsLeft set={set} statuses={statuses} nextStepInList={nextStepInList} onOpenRequirement={setDetail} />
     ),
     "routines-due":
       dueRoutines.length > 0 ? (
@@ -468,7 +283,7 @@ export function CmeDashboard({
           {dueRoutines.map((routine) => (
             <li key={routine.id} className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}>
               <div className="min-w-0">
-                <p className="truncate text-sm font-semibold text-[color:var(--text)]">{routine.title}</p>
+                <p className="truncate text-sm font-medium text-[color:var(--text)]">{routine.title}</p>
                 <p className={cn(textMuted, "text-xs")}>
                   {cmeRoutineCadenceLabels[routine.cadence]} · usually {formatRoutineHours(routine.usualHours)} h
                 </p>
@@ -506,10 +321,10 @@ export function CmeDashboard({
   };
 
   return (
-    <main className="mx-auto w-full max-w-5xl px-4 pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)] pt-6 sm:px-6">
+    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)] pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[color:var(--text)]">CPD</h1>
+          <h1 className="text-xl font-semibold text-[color:var(--text)]">Today</h1>
           <p data-testid="cme-data-freshness" className={cn(textMuted, "mt-1 flex items-center gap-1.5 text-xs")}>
             <span
               aria-hidden="true"
@@ -558,7 +373,7 @@ export function CmeDashboard({
           >
             <ClipboardCopy aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
             <span className="min-w-0 flex-1 text-sm text-[color:var(--text)]">
-              <span className="font-semibold">
+              <span className="font-medium">
                 {reportingReminder.notCopied} {reportingReminder.notCopied === 1 ? "activity" : "activities"} from{" "}
                 {reportingReminder.year} not yet copied to MyCPD.
               </span>{" "}
@@ -570,7 +385,7 @@ export function CmeDashboard({
         </div>
       ) : null}
 
-      <div className="mt-4 grid gap-3 lg:grid-cols-2">
+      <div className="mt-4 grid gap-3 md:grid-cols-2">
         <CmeHeroSummary
           year={set.year}
           today={today}
@@ -580,120 +395,38 @@ export function CmeDashboard({
           closed={Boolean(set.closedAt)}
           onOpenDetail={() => setDetail("hours")}
         />
-        <section className={cn(cardSurface, "p-4")} aria-labelledby="cme-next-to-log-heading">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="cme-next-to-log-heading" className="text-base font-semibold text-[color:var(--text)]">
-              Next to log
-            </h2>
-            <Link
-              href={`/cme/log?year=${set.year}`}
-              className="inline-flex min-h-tap items-center text-sm text-[color:var(--text)] underline underline-offset-2"
-            >
-              Log
-            </Link>
-          </div>
-          <ul className="divide-y divide-[color:var(--border)]">
-            {todo.nextToLog.slice(0, 2).map((item) =>
-              item.id === "next" && offerYearEnd ? (
-                <li key={item.id} className="py-2" data-testid="cme-next-action">
-                  <CmeYearEndActions
-                    set={set}
-                    entries={entries}
-                    goals={goals}
-                    now={now}
-                    nextYearConfirmed={nextYearConfirmed}
-                    nextYearGoals={nextYearGoals}
-                  />
-                </li>
-              ) : (
-                <li key={item.id}>
-                  <Link
-                    data-testid={item.id === "next" ? "cme-next-action" : undefined}
-                    href={item.href}
-                    className="flex min-h-tap flex-col justify-center py-2 text-sm text-[color:var(--text)]"
-                  >
-                    <span className="font-medium">{item.label}</span>
-                    {item.detail ? <span className={textMuted}>{item.detail}</span> : null}
-                  </Link>
-                </li>
-              ),
-            )}
-          </ul>
-        </section>
+        <CmeCatchUpCard
+          plan={catchUp}
+          showWeekly={weeklyPace !== null && weeklyPace.weeksLeft >= 1}
+          onOpenDetail={() => setDetail("gap")}
+        />
       </div>
 
-      {factStatuses.length > 0 ? (
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2" data-testid="cme-fact-tiles">
-          {factStatuses.map((status) => {
-            const requirement = set.requirements.find((item) => item.id === status.requirementId)!;
-            return (
-              <button
-                type="button"
-                key={requirement.id}
-                onClick={() => setDetail(requirement.id)}
-                className={cn(
-                  cardSurface,
-                  "flex min-h-tap w-full flex-col justify-center gap-1 rounded-xl p-3 text-left text-[color:var(--text)]",
-                )}
-              >
-                <span className={cn(eyebrowText, "line-clamp-2")}>{requirement.label}</span>
-                <span className="text-sm">
-                  {status.progress
-                    ? `${formatCmeHours(status.progress.value)} of ${formatCmeHours(status.progress.target)} h`
-                    : status.summary}
-                </span>
-                <span className={cn(textMuted, "text-xs")}>{status.summary}</span>
-              </button>
-            );
-          })}
+      {!nextStepInList ? (
+        <div className="mt-3">
+          <CmeNextStepRow
+            step={nextStep}
+            offerYearEnd={offerYearEnd}
+            set={set}
+            entries={entries}
+            goals={goals}
+            now={now}
+            nextYearConfirmed={nextYearConfirmed}
+            nextYearGoals={nextYearGoals}
+          />
         </div>
       ) : null}
 
-      {totalGap > 0 && !set.closedAt ? (
-        <button
-          type="button"
-          data-testid="cme-close-gap"
-          onClick={() => setDetail("gap")}
-          className={cn(cardSurface, "mt-3 flex min-h-tap w-full items-center justify-between gap-3 p-4 text-left")}
-        >
-          <span>
-            <span className="block text-sm font-semibold text-[color:var(--text)]">Close the gap</span>
-            <span className={cn(textMuted, "block text-sm")}>
-              {formatCmeHours(totalGap)} h to your recorded {formatCmeHours(set.totalHours)} h target
-            </span>
-          </span>
-          <ChevronRight aria-hidden="true" className="size-icon-sm shrink-0 text-[color:var(--text-muted)]" />
-        </button>
-      ) : null}
-
-      {todo.toFinish.length > 0 ? (
-        <section className={cn(cardSurface, "mt-3 p-4")} aria-labelledby="cme-to-finish-heading">
-          <div className="flex items-center justify-between gap-3">
-            <h2 id="cme-to-finish-heading" className="text-base font-semibold text-[color:var(--text)]">
-              To finish
-            </h2>
-            <Link
-              href={`/cme/log?year=${set.year}&tab=finish`}
-              className="inline-flex min-h-tap items-center text-sm text-[color:var(--text)] underline underline-offset-2"
-            >
-              See log
-            </Link>
-          </div>
-          <ul className="divide-y divide-[color:var(--border)]">
-            {todo.toFinish.slice(0, 2).map((item) => (
-              <li key={item.id}>
-                <Link
-                  href={item.href}
-                  className="flex min-h-tap items-center justify-between gap-3 py-2 text-sm text-[color:var(--text)]"
-                >
-                  <span>{item.label}</span>
-                  <span className={textMuted}>{item.count}</span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <div className="mt-3">
+        <CmeTodayShortcuts
+          toFinish={toFinish}
+          yearCheck={{
+            href: `/cme/check?year=${set.year}`,
+            readyCount: yearCheck.readyCount,
+            rowCount: yearCheck.rows.length,
+          }}
+        />
+      </div>
 
       {culturallySafePracticeToLog ? (
         <Link
@@ -702,70 +435,12 @@ export function CmeDashboard({
           className={cn(cardSurface, "mt-3 flex min-h-tap items-center justify-between gap-3 p-4")}
         >
           <span className="min-w-0 text-sm text-[color:var(--text)]">
-            <span className="block font-semibold">Optional learning: First Nations Talking</span>
+            <span className="block font-medium">Optional learning: First Nations Talking</span>
             <span className={cn(textMuted, "block")}>Opening this resource does not log a CPD activity.</span>
           </span>
           <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
         </Link>
       ) : null}
-
-      <section className={cn(cardSurface, "mt-3 p-4")}>
-        {pace && entries.length > 0 ? (
-          <div>
-            <CmePaceChart
-              entries={entries}
-              year={set.year}
-              targetHours={set.totalHours}
-              todayIndex={daysElapsedInCpdYear(now, set.year) - 1}
-            />
-          </div>
-        ) : null}
-        <Link
-          href={`/cme/check?year=${set.year}`}
-          className="inline-flex min-h-tap items-center text-sm text-[color:var(--text)] underline underline-offset-2"
-        >
-          Review the year check
-        </Link>
-      </section>
-
-      <div className="mt-3 grid grid-cols-2 gap-3">
-        <Link
-          href={`/cme/check?year=${set.year}`}
-          data-testid="cme-year-check-link"
-          className={cn(cardSurface, "flex min-h-tap flex-col gap-1 p-3")}
-        >
-          <span className={cn(eyebrowText, "flex items-center gap-1.5")}>
-            <ClipboardCheck aria-hidden="true" className="size-icon-sm" />
-            Year check
-          </span>
-          <span className="text-sm font-semibold text-[color:var(--text)]">
-            {yearCheck.readyCount} of {yearCheck.rows.length} done
-          </span>
-        </Link>
-        <Link
-          href={`/cme/calendar?year=${set.year}`}
-          data-testid="cme-calendar-link"
-          className={cn(cardSurface, "flex min-h-tap flex-col gap-1 p-3")}
-        >
-          <span className={cn(eyebrowText, "flex items-center gap-1.5")}>
-            <CalendarRange aria-hidden="true" className="size-icon-sm" />
-            Calendar
-          </span>
-          <span className="line-clamp-2 text-sm font-semibold text-[color:var(--text)]">
-            {nextDate ? `${formatRoutineDueDate(nextDate.date)}: ${nextDate.title}` : "Nothing coming up"}
-          </span>
-        </Link>
-      </div>
-
-      <Link
-        href="/teaching"
-        data-testid="cme-teaching-link"
-        className={cn(cardSurface, "mt-3 flex min-h-tap items-center gap-3 px-4 py-3")}
-      >
-        <GraduationCap aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
-        <span className="min-w-0 flex-1 text-sm font-semibold text-[color:var(--text)]">Teaching sessions</span>
-        <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
-      </Link>
 
       <div className="mt-6 space-y-6">
         {moduleIds.map((moduleId) => {
@@ -783,93 +458,54 @@ export function CmeDashboard({
           );
         })}
       </div>
-      <Sheet
-        open={detail !== null}
+
+      {pace && entries.length > 0 ? (
+        <section className={cn(cardSurface, "mt-6 p-4")} aria-label={`Hours against an even pace, ${set.year}`}>
+          <CmePaceChart
+            entries={entries}
+            year={set.year}
+            targetHours={set.totalHours}
+            todayIndex={daysElapsedInCpdYear(now, set.year) - 1}
+          />
+        </section>
+      ) : null}
+
+      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+        <Link
+          href={`/cme/calendar?year=${set.year}`}
+          data-testid="cme-calendar-link"
+          className={cn(cardSurface, "flex min-h-tap items-center gap-3 px-4 py-3")}
+        >
+          <CalendarRange aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-medium text-[color:var(--text)]">Calendar</span>
+            <span className={cn(textMuted, "line-clamp-2 block text-sm")}>
+              {nextDate ? `${formatRoutineDueDate(nextDate.date)}: ${nextDate.title}` : "Nothing coming up"}
+            </span>
+          </span>
+          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+        </Link>
+        <Link
+          href="/teaching"
+          data-testid="cme-teaching-link"
+          className={cn(cardSurface, "flex min-h-tap items-center gap-3 px-4 py-3")}
+        >
+          <GraduationCap aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+          <span className="min-w-0 flex-1 text-sm font-medium text-[color:var(--text)]">Teaching sessions</span>
+          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+        </Link>
+      </div>
+
+      <CmeTodayDetailSheet
+        detail={detail}
         onClose={() => setDetail(null)}
-        title={detail === "gap" ? "Close the gap" : (detailRequirement?.label ?? "CPD hours")}
-        description={detail === "gap" ? "Illustrative routine scenarios" : "What makes up this figure"}
-        testId="cme-today-detail-sheet"
-      >
-        {detail === "gap" ? (
-          <div className="space-y-4 text-sm text-[color:var(--text)]">
-            <p>
-              {formatCmeHours(totalGap)} h remain to your {formatCmeHours(set.totalHours)} h target. This is based on
-              your saved entries and the target you confirmed on {formatRoutineDueDate(set.confirmedOn)}.
-            </p>
-            {gapScenarios.length ? (
-              <ul className="space-y-2" data-testid="cme-gap-scenarios">
-                {gapScenarios.map((scenario) => (
-                  <li key={scenario.routineId} className={cn(cardSurface, "p-3")}>
-                    <strong>{scenario.title}</strong>: {scenario.occurrences} ×{" "}
-                    {formatCmeHours(scenario.hoursPerOccurrence)} h
-                    {` = ${formatCmeHours(scenario.projectedHours)} h`}
-                    {scenario.closesGap ? null : " by 31 Dec, short of the gap on its own"}
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p>No active routine with usual hours is saved. You can still log individual activities.</p>
-            )}
-            <p className={textMuted}>
-              These are examples using your routine templates. Only activities you actually do and save count as CPD; a
-              routine never logs itself. Category and other requirements may still need attention.
-            </p>
-            <Link
-              href={`/cme/routines?year=${set.year}`}
-              className="inline-flex min-h-tap items-center underline underline-offset-2"
-            >
-              Review routines
-            </Link>
-          </div>
-        ) : (
-          <div className="space-y-4 text-sm text-[color:var(--text)]">
-            <p data-testid="cme-today-detail-total">
-              <strong>{formatCmeHours(detailHours)} h</strong> from {detailedEntries.length}{" "}
-              {detailedEntries.length === 1 ? "saved activity" : "saved activities"} in {set.year}.
-            </p>
-            {detailRequirement ? (
-              <p>
-                This {detailRequirement.source === "national" ? "national" : "college"} target was recorded by you on{" "}
-                {formatRoutineDueDate(set.confirmedOn)} from {describeConfirmedSource(set.confirmedSource)}. It is not
-                independently certified by this app.
-              </p>
-            ) : (
-              <>
-                <p>
-                  Target recorded by you on {formatRoutineDueDate(set.confirmedOn)} from{" "}
-                  {describeConfirmedSource(set.confirmedSource)}. This app does not independently certify it.
-                </p>
-                <ul className="space-y-1" aria-label="Hours by category">
-                  {cmeCategories.map((category) => {
-                    const hours = yearEntries.reduce(
-                      (sum, entry) =>
-                        sum +
-                        entry.allocations
-                          .filter((item) => item.category === category)
-                          .reduce((part, item) => part + item.hours, 0),
-                      0,
-                    );
-                    return (
-                      <li key={category} className="flex justify-between gap-3">
-                        <span>{cmeCategoryLabels[category]}</span>
-                        <span>{formatCmeHours(hours)} h</span>
-                      </li>
-                    );
-                  })}
-                </ul>
-              </>
-            )}
-            <Link
-              href={filteredLogHref(set.year, detailRequirement)}
-              className="inline-flex min-h-tap items-center underline underline-offset-2"
-            >
-              {detailRequirement?.spec.shape === "hours-in-category"
-                ? `View ${cmeCategoryLabels[detailRequirement.spec.category].toLowerCase()} in Log`
-                : "View this year's Log"}
-            </Link>
-          </div>
-        )}
-      </Sheet>
+        set={set}
+        statuses={statuses}
+        yearEntries={yearEntries}
+        totalHours={totalHours}
+        totalGap={totalGap}
+        gapScenarios={gapScenarios}
+      />
     </main>
   );
 }
