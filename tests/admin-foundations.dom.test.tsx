@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
 import { ADMIN_LIST_PREVIEW_ROWS, AdminShowAll } from "@/components/admin/admin-show-all";
@@ -215,6 +215,27 @@ describe("AdminShowAll", () => {
     render(<AdminShowAll items={rows} renderItem={renderRow} anchorIdOf={(row) => row} label="Rows" testId="rows" />);
     expect(document.getElementById("row-10")).toBeTruthy();
     window.history.replaceState(null, "", "#");
+  });
+
+  it("scrolls to a folded row once a hash change reveals it, since the browser's own jump came too early", () => {
+    const scrolled: string[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element) {
+      scrolled.push(this.id);
+    };
+    try {
+      render(<AdminShowAll items={rows} renderItem={renderRow} anchorIdOf={(row) => row} label="Rows" testId="rows" />);
+      expect(document.getElementById("row-9")).toBeNull();
+      act(() => {
+        window.history.replaceState(null, "", "#row-9");
+        window.dispatchEvent(new HashChangeEvent("hashchange"));
+      });
+      expect(document.getElementById("row-9")).toBeTruthy();
+      expect(scrolled).toEqual(["row-9"]);
+    } finally {
+      Element.prototype.scrollIntoView = original;
+      window.history.replaceState(null, "", "#");
+    }
   });
 
   it("still opens once the anchored row arrives after the first render (M5)", () => {
