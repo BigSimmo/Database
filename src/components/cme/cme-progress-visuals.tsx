@@ -102,6 +102,46 @@ export function CmeCategoryBar({ entries, targetHours }: { entries: readonly Cme
 }
 
 /**
+ * A plain fraction bar for the eye only (always `aria-hidden`): the sentence
+ * beside it carries the figure. Drawn as an SVG rect like the meters here, so
+ * a data-driven length never needs an inline style.
+ */
+export function CmeFractionBar({
+  fraction,
+  className,
+  testId,
+}: {
+  /** 0–1; clamped. */
+  fraction: number;
+  /** Track size and spacing, e.g. "h-1 w-full". */
+  className?: string;
+  testId?: string;
+}) {
+  const clamped = Number.isFinite(fraction) ? Math.max(0, Math.min(1, fraction)) : 0;
+  return (
+    <span
+      aria-hidden="true"
+      data-testid={testId}
+      data-fraction={clamped}
+      className={cn(
+        "block overflow-hidden rounded-full bg-[color:var(--surface-inset)] forced-colors:border",
+        className,
+      )}
+    >
+      <svg viewBox="0 0 100 10" preserveAspectRatio="none" className="block h-full w-full">
+        <rect
+          x={0}
+          y={0}
+          height={10}
+          width={clamped * 100}
+          className="fill-[color:var(--clinical-accent)] forced-colors:fill-[CanvasText]"
+        />
+      </svg>
+    </span>
+  );
+}
+
+/**
  * A slim bar under one requirement, with a tick once it is met. The summary
  * sentence beside it ("3 hours short") stays the thing that is read out; the
  * bar is only for the eye.

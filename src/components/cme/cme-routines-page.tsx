@@ -1,10 +1,12 @@
 "use client";
 
-import { CalendarClock, Plus } from "lucide-react";
+import { CalendarClock, ChevronDown, Plus } from "lucide-react";
 
+import { cmePageTitle, cmePageWidth } from "@/components/cme/cme-page-frame";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { modeSecondaryText } from "@/components/mode-kit/type";
 import { Button } from "@/components/ui/button";
+import { Chip } from "@/components/ui/chip";
 import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import {
   cmeRoutineCadenceLabels,
@@ -62,58 +64,54 @@ export function CmeRoutinesPage({
   onEditRoutine,
 }: CmeRoutinesPageProps) {
   const dueRoutines = routinesDueOn(routines, now);
+  const dueIds = new Set(dueRoutines.map((routine) => routine.id));
+  // ONE list. A due routine used to appear twice — under "Due now" and again
+  // under "Your routines". Now due routines sort first and carry a Due chip;
+  // after them, routines with a scheduled date, soonest first; unscheduled
+  // ones trail the list rather than sorting arbitrarily by insertion order.
   const activeRoutines = routines
     .filter((routine) => routine.archivedAt === null)
     .slice()
-    // Routines with a scheduled date first, soonest first; unscheduled ones trail the list
-    // rather than sorting arbitrarily by insertion order.
-    .sort((a, b) => (a.nextDue ?? "9999-99-99").localeCompare(b.nextDue ?? "9999-99-99"));
+    .sort(
+      (a, b) =>
+        Number(dueIds.has(b.id)) - Number(dueIds.has(a.id)) ||
+        (a.nextDue ?? "9999-99-99").localeCompare(b.nextDue ?? "9999-99-99"),
+    );
 
   function handleLog(routine: CmeRoutine) {
     onLogRoutine(routineLogPrefill(routine, now));
   }
 
   return (
-    <main className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <h1 className="text-xl font-semibold text-[color:var(--text)]">Routines</h1>
+    <main className={cn(cmePageWidth, "px-4 py-6 sm:px-6")}>
+      <h1 className={cmePageTitle}>Routines</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         The things you do every month or term. Log one whenever it happens.
       </p>
 
-      {dueRoutines.length > 0 && (
-        <ModeGroupedList eyebrow="Due now" testId="cme-routines-due" className="mt-6">
-          {dueRoutines.map((routine) => (
-            <ModeRow
-              key={routine.id}
-              title={routine.title}
-              subtitle={`${cmeRoutineCadenceLabels[routine.cadence]} · usually ${formatRoutineHours(routine.usualHours)} h`}
-              trailing={
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  aria-label={`Log ${formatRoutineHours(routine.usualHours)} h for ${routine.title}`}
-                  onClick={() => handleLog(routine)}
-                >
-                  {`Log ${formatRoutineHours(routine.usualHours)} h`}
-                </Button>
-              }
-            />
-          ))}
-        </ModeGroupedList>
-      )}
+      {/* Folded, wording unchanged: read once, then out of the way. The note
+          stays in the DOM, so the promise is still there for anyone who opens it. */}
+      <details data-testid="cme-routines-how" className="group mt-3">
+        <summary className="inline-flex min-h-tap cursor-pointer list-none items-center gap-1.5 text-sm font-medium text-[color:var(--clinical-accent)] [&::-webkit-details-marker]:hidden">
+          How this works
+          <ChevronDown
+            aria-hidden="true"
+            className="size-icon-sm transition-transform motion-reduce:transition-none group-open:rotate-180"
+          />
+        </summary>
+        <div data-testid="cme-routines-confirmation-note" className="mt-1">
+          <InlineNotice tone="neutral">
+            A routine only ever suggests. Tapping Log opens a pre-filled entry for you to check — nothing is recorded
+            until you confirm and save it.
+          </InlineNotice>
+        </div>
+      </details>
 
       {dueRoutines.length === 0 && activeRoutines.length > 0 && (
-        <p data-testid="cme-routines-due-empty" className={cn(textMuted, "mt-6 text-sm")}>
+        <p data-testid="cme-routines-due-empty" className={cn(textMuted, "mt-4 text-sm")}>
           Nothing is due right now.
         </p>
       )}
-
-      <div data-testid="cme-routines-confirmation-note" className="mt-6">
-        <InlineNotice tone="neutral">
-          A routine only ever suggests. Tapping Log opens a pre-filled entry for you to check — nothing is recorded
-          until you confirm and save it.
-        </InlineNotice>
-      </div>
 
       {activeRoutines.length === 0 ? (
         <section aria-labelledby="cme-routines-list-heading" className="mt-6">
@@ -131,40 +129,60 @@ export function CmeRoutinesPage({
         </section>
       ) : (
         <ModeGroupedList eyebrow="Your routines" testId="cme-routines-list" className="mt-6">
-          {activeRoutines.map((routine) => (
-            <ModeRow
-              key={routine.id}
-              title={routine.title}
-              subtitle={`${cmeRoutineCadenceLabels[routine.cadence]} · usually ${formatRoutineHours(routine.usualHours)} h`}
-              meta={
-                <span className={cn(modeSecondaryText, "leading-5")}>
-                  {routine.nextDue ? `Next due ${formatRoutineDueDate(routine.nextDue)}` : "Not scheduled yet"}
-                </span>
-              }
-              trailing={
-                <>
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    aria-label={`Log now for ${routine.title}`}
-                    onClick={() => handleLog(routine)}
-                  >
-                    Log now
-                  </Button>
-                  {onEditRoutine ? (
-                    <Button
-                      variant="toolbar"
-                      size="sm"
-                      aria-label={`Edit ${routine.title}`}
-                      onClick={() => onEditRoutine(routine)}
-                    >
-                      Edit
-                    </Button>
-                  ) : null}
-                </>
-              }
-            />
-          ))}
+          {activeRoutines.map((routine) => {
+            const due = dueIds.has(routine.id);
+            return (
+              <ModeRow
+                key={routine.id}
+                testId={due ? "cme-routines-due-row" : undefined}
+                title={routine.title}
+                subtitle={`${cmeRoutineCadenceLabels[routine.cadence]} · usually ${formatRoutineHours(routine.usualHours)} h`}
+                meta={
+                  <span className={cn(modeSecondaryText, "flex flex-wrap items-center gap-2 leading-5")}>
+                    {due ? (
+                      <Chip size="compact" appearance={{ kind: "information", tone: "accent" }}>
+                        Due
+                      </Chip>
+                    ) : null}
+                    {routine.nextDue ? `Next due ${formatRoutineDueDate(routine.nextDue)}` : "Not scheduled yet"}
+                  </span>
+                }
+                trailing={
+                  <>
+                    {due ? (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-label={`Log ${formatRoutineHours(routine.usualHours)} h for ${routine.title}`}
+                        onClick={() => handleLog(routine)}
+                      >
+                        {`Log ${formatRoutineHours(routine.usualHours)} h`}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        aria-label={`Log now for ${routine.title}`}
+                        onClick={() => handleLog(routine)}
+                      >
+                        Log now
+                      </Button>
+                    )}
+                    {onEditRoutine ? (
+                      <Button
+                        variant="toolbar"
+                        size="sm"
+                        aria-label={`Edit ${routine.title}`}
+                        onClick={() => onEditRoutine(routine)}
+                      >
+                        Edit
+                      </Button>
+                    ) : null}
+                  </>
+                }
+              />
+            );
+          })}
         </ModeGroupedList>
       )}
 
