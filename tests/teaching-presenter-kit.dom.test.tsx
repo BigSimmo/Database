@@ -8,8 +8,10 @@ vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({ Account
 // The header portals into the app header's slot, which these tests do not mount.
 vi.mock("@/components/teaching/teaching-nav-header", () => ({ TeachingNavHeader: () => null }));
 
+import { CheckinQr } from "@/components/teaching/checkin-qr";
 import { TeachingCheckinScreen } from "@/components/teaching/teaching-checkin";
 import { TeachingDisplayScreen } from "@/components/teaching/teaching-display";
+import { TeachingSwitch } from "@/components/teaching/teaching-modules";
 import { TeachingScanLanding } from "@/components/teaching/teaching-scan-landing";
 import { useCheckinCode } from "@/components/teaching/use-checkin-code";
 
@@ -235,5 +237,34 @@ describe("the scan landing", () => {
     await waitFor(() => expect(authState.signInWithEmail).toHaveBeenCalledTimes(2));
     fireEvent.click(screen.getByRole("button", { name: "Use a different email" }));
     expect(screen.getByLabelText("Email")).toBeInTheDocument();
+  });
+});
+
+// The `--teaching-qr-*` and `--teaching-segment-*` colours live only in the
+// `[data-mode-identity="teaching"]` block. The shared display screen sits
+// outside every Teaching page, where an unscoped QR painted as one black
+// square no camera could read, and an unscoped switch lost its selected fill.
+describe("Teaching colours resolve wherever the parts are drawn", () => {
+  it("scopes the QR to the Teaching identity on the SVG itself", () => {
+    render(<CheckinQr value="https://example.test/c" label="Check-in QR code" />);
+    expect(screen.getByTestId("teaching-checkin-qr")).toHaveAttribute("data-mode-identity", "teaching");
+  });
+
+  it("scopes the switch's segment colours on a wrapper, not on the scroller that overrides the accent", () => {
+    render(
+      <TeachingSwitch
+        value="all"
+        onChange={() => undefined}
+        options={[
+          { value: "all", label: "All" },
+          { value: "online", label: "Online" },
+        ]}
+        label="Show"
+      />,
+    );
+    const scroller = screen.getByTestId("teaching-switch");
+    expect(scroller).not.toHaveAttribute("data-mode-identity");
+    expect(scroller.parentElement).toHaveAttribute("data-mode-identity", "teaching");
+    expect(scroller.parentElement).toHaveClass("contents");
   });
 });
