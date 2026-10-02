@@ -91,7 +91,8 @@ describe("Archive, annual record and learning journeys", () => {
     await user.click(screen.getByRole("button", { name: /^Missing evidence/ }));
     expect(screen.queryByText("With evidence")).toBeNull();
     expect(screen.getByText("Synthetic activity")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show archived entries" }));
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    await user.click(screen.getByRole("button", { name: "Show archived activities" }));
     expect(screen.getByText("Archived record")).toBeInTheDocument();
   });
   it("learning prefill requires explicit duration and allocations and never saves on opening", async () => {

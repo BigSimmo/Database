@@ -1,35 +1,32 @@
 "use client";
 
-import { Check, Copy, ListFilter, Plus } from "lucide-react";
+import { Check, Copy, Download, Ellipsis, FileText, ListFilter, Plus } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { CmeDraftsSection } from "@/components/cme/cme-drafts-section";
+import { CmeLogCopySheet } from "@/components/cme/cme-log-copy-sheet";
+import { CmeLogMonthList, CmeLogMonthStrip } from "@/components/cme/cme-log-entry-list";
+import { CmeLogFilterPanel, useWideLogLayout } from "@/components/cme/cme-log-filter-panel";
+import {
+  ATTENTION_FILTERS,
+  groupByMonth,
+  type CategoryFilter,
+  type CmeLogAttention,
+} from "@/components/cme/cme-log-shared";
 import { CmeMissedSessionsSection } from "@/components/cme/cme-missed-sessions-section";
 import { CmeQuickLog } from "@/components/cme/cme-quick-log";
-import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
-import { ModeStateLabel } from "@/components/mode-kit/state-label";
-import { modeNumberText } from "@/components/mode-kit/type";
 import { buttonFaceClass } from "@/components/ui/button";
-import { SegmentedControl, type SegmentedControlOption } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
-import { Tabs } from "@/components/ui/tabs";
 import { SearchField } from "@/components/ui/text-field";
 import { cn, EmptyState, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
-import { formatCalendarMonthLabel, formatCmeRowDate, perthCalendarDate } from "@/lib/cme/cpd-year";
-import { formatEntryForCpdHome } from "@/lib/cme/clipboard";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import type { CmeDraft } from "@/lib/cme/drafts";
-import { totalAllocatedHours } from "@/lib/cme/evaluate";
 import type { CmeMissedSession } from "@/lib/cme/missed-sessions";
 import type { CmeRoutine } from "@/lib/cme/routines";
-import {
-  cmeCategories,
-  cmeCertificateMissing,
-  cmeCategoryLabels,
-  type CmeCategory,
-  type CmeEntry,
-  type CmeRequirementSet,
-} from "@/lib/cme/types";
+import type { CmeCategory, CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
+
+export type { CmeLogAttention } from "@/components/cme/cme-log-shared";
 
 export type CmeLogPageProps = {
   /** Every entry the owner has recorded, any year — loaded from the owner-scoped API / repository. */
@@ -62,107 +59,19 @@ export type CmeLogPageProps = {
   readonly routines?: readonly CmeRoutine[];
 };
 
-/** The three things an audit asks for per activity, as log filters. */
-export type CmeLogAttention = "evidence" | "reflection" | "copy";
-
-const ATTENTION_FILTERS: readonly { value: CmeLogAttention; label: string; matches: (entry: CmeEntry) => boolean }[] = [
-  { value: "evidence", label: "Missing evidence", matches: cmeCertificateMissing },
-  { value: "reflection", label: "No reflection", matches: (entry) => entry.reflection.trim() === "" },
-  { value: "copy", label: "Not copied", matches: (entry) => !entry.transcribed },
-];
-
-type CategoryFilter = "all" | CmeCategory;
-
-type MonthGroup = {
-  readonly key: string;
-  readonly label: string;
-  readonly hours: number;
-  readonly entries: readonly CmeEntry[];
-};
-
-function round2(value: number): number {
-  return Math.round(value * 100) / 100;
-}
-
-/** The distinct category labels an entry's allocations touch, in canonical order. */
-function categoryNames(entry: CmeEntry): string {
-  const present = new Set(entry.allocations.map((allocation) => allocation.category));
-  return cmeCategories
-    .filter((category) => present.has(category))
-    .map((category) => cmeCategoryLabels[category])
-    .join(" + ");
-}
-
-/**
- * Most-recent-month-first groups over an already-filtered, already-sorted
- * list. Grouping — never a chip that hides the other months — is the same
- * choice `onCallEntryGroups` documents for On Call: a reader wants to GET to
- * August, not have July and September removed from the screen while they
- * look at it. The category chip row above filters across these groups
- * instead of duplicating them, which is why the two coexist here without the
- * problem that got the On Call chip row removed.
- */
-function groupByMonth(entries: readonly CmeEntry[]): MonthGroup[] {
-  const byMonth = new Map<string, CmeEntry[]>();
-  for (const entry of entries) {
-    const key = entry.date.slice(0, 7);
-    const existing = byMonth.get(key);
-    if (existing) existing.push(entry);
-    else byMonth.set(key, [entry]);
-  }
-  return [...byMonth.entries()]
-    .sort(([a], [b]) => b.localeCompare(a))
-    .map(([key, monthEntries]) => ({
-      key,
-      label: formatCalendarMonthLabel(key),
-      hours: round2(totalAllocatedHours(monthEntries)),
-      entries: monthEntries,
-    }));
-}
-
-/** One decimal, so the hours column lines up ("1.0", "9.5"); a finer value such as 0.25 keeps its digits rather than rounding. */
-function formatLogHours(hours: number): string {
-  const rounded = round2(hours);
-  return Number.isInteger(rounded * 10) ? rounded.toFixed(1) : String(rounded);
-}
-
-/**
- * One activity as a 52 px row in its month's hairline list (`ModeRow`: the
- * title at 500, the second line at 13 px muted): the day and the category,
- * then "No certificate" only when something is known to be missing, and the
- * hours at 400 beside the row's link. "No certificate" shows only when the log
- * has counted active certificates and found none (`cmeCertificateMissing`); an activity
- * whose evidence was not counted says nothing rather than guessing.
- */
-function EntryRow({ entry, today }: { entry: CmeEntry; today: string }) {
-  return (
-    <ModeRow
-      href={`/cme/log/${entry.id}`}
-      testId={`cme-log-row-${entry.id}`}
-      title={entry.title}
-      subtitle={`${formatCmeRowDate(entry.date, today)} · ${categoryNames(entry)}`}
-      meta={cmeCertificateMissing(entry) ? <ModeStateLabel>No certificate</ModeStateLabel> : null}
-      trailing={
-        // `nums font-normal` are repeated from the recipe so Task 7's scanner, which reads literal classes, sees 400.
-        <span className={cn(modeNumberText, "nums font-normal pr-2 text-base-minus text-[color:var(--text)]")}>
-          {entry.archivedAt ? "Archived" : `${formatLogHours(totalAllocatedHours([entry]))} h`}
-        </span>
-      }
-    />
-  );
-}
-
 /**
  * LOG — every activity the owner has recorded, by year.
  *
- * Year tabs (`Tabs`, real view-switching semantics — a different year is a
- * different panel of data, not a sort order) sit above a search field over
- * titles and reflections and a category filter row (`SegmentedControl`,
- * per COMPONENTS.md §9.18 — a filter over an already-visible list is a
- * one-of-many choice, never `Tabs`). Entries below are grouped by month,
- * most recent first; each row is a single link to its own entry screen
- * (`/cme/log/[id]`), because that screen carries the control this mode's
- * owner presses most.
+ * Built for one hand on a phone: the search field and one Filters button share
+ * the first row, so the first activity sits near the top of the screen. The
+ * year, another year by number, the category and archived records live in the
+ * filter sheet (a side column at `lg+`), and the button says which year is
+ * showing and how many filters are on. The three audit questions (evidence,
+ * reflection, copied) stay one tap away as a single sideways-scrolling chip
+ * row. A twelve-bar month strip jumps through the year; entries below are
+ * grouped by month, most recent first, under headers that stay pinned while
+ * their month scrolls. Each row is a single link to its own entry screen
+ * (`/cme/log/[id]`). Download CSV and the annual summary sit behind "More".
  *
  * **No colour carries status here.** Design decision §12 bans red, amber and
  * green from this mode outright, so a row says what is missing in grey words
@@ -191,6 +100,7 @@ export function CmeLogPage({
   routines = [],
 }: CmeLogPageProps) {
   const showFinish = initialTab === "finish";
+  const wide = useWideLogLayout();
   const availableYears = useMemo(() => {
     const years = new Set<number>((allYearsEntries ?? entries).map((entry) => Number(entry.date.slice(0, 4))));
     for (const year of navigationYears ?? []) years.add(year);
@@ -205,6 +115,8 @@ export function CmeLogPage({
   const [allYears, setAllYears] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const moreButtonRef = useRef<HTMLButtonElement>(null);
   const [attention, setAttention] = useState<CmeLogAttention | null>(initialAttention);
   const attentionFilter = ATTENTION_FILTERS.find((filter) => filter.value === attention) ?? null;
   const [showArchived, setShowArchived] = useState(false);
@@ -212,6 +124,9 @@ export function CmeLogPage({
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>(initialCategory ?? "all");
   const [copiedOverride, setCopiedOverride] = useState<Record<string, boolean>>({});
   const [lastCopiedId, setLastCopiedId] = useState<string | null>(null);
+  const [copyOpen, setCopyOpen] = useState(false);
+  const [copySession, setCopySession] = useState(0);
+  const copyButtonRef = useRef<HTMLButtonElement>(null);
   const [copyBusy, setCopyBusy] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
   const visibleEntries = useMemo(
@@ -221,12 +136,14 @@ export function CmeLogPage({
       ),
     [allYearsEntries, entries, copiedOverride],
   );
+  const entriesById = useMemo(() => new Map(visibleEntries.map((entry) => [entry.id, entry])), [visibleEntries]);
 
+  // The page's Undo fades after a few seconds; while the copy sheet is open its own Undo stays until the next step.
   useEffect(() => {
-    if (!lastCopiedId) return;
+    if (!lastCopiedId || copyOpen) return;
     const timer = window.setTimeout(() => setLastCopiedId(null), 6000);
     return () => window.clearTimeout(timer);
-  }, [lastCopiedId]);
+  }, [lastCopiedId, copyOpen]);
 
   const yearEntries = useMemo(
     () =>
@@ -256,58 +173,43 @@ export function CmeLogPage({
 
   const sorted = useMemo(() => [...filtered].sort((a, b) => b.date.localeCompare(a.date)), [filtered]);
   const groups = useMemo(() => groupByMonth(sorted), [sorted]);
+  const uncopied = useMemo(() => sorted.filter((entry) => !entry.transcribed && !entry.archivedAt), [sorted]);
 
-  const categoryOptions: SegmentedControlOption<CategoryFilter>[] = [
-    { value: "all", label: "All" },
-    ...cmeCategories.map((category) => ({ value: category, label: cmeCategoryLabels[category] })),
-  ];
+  // Only what the sheet hides counts here: the year is already in the button's words, and the chips show themselves.
+  const activeFilterCount = (categoryFilter !== "all" ? 1 : 0) + (showArchived ? 1 : 0);
+  const yearLabel = allYears ? "All years" : String(effectiveYear);
 
-  async function copyNext() {
-    const next = sorted.find((entry) => !entry.transcribed && !entry.archivedAt);
-    if (!next || copyBusy) return;
-    if (demoMode) {
-      setCopyError("Sign in to copy and track activities in your private CPD record.");
-      return;
-    }
-    setCopyBusy(true);
-    setCopyError(null);
-    try {
-      await navigator.clipboard.writeText(formatEntryForCpdHome(next, { ...set, year: Number(next.date.slice(0, 4)) }));
-    } catch {
-      setCopyError("Could not copy. Check clipboard permission and try again.");
-      setCopyBusy(false);
-      return;
-    }
-    try {
-      const response = await fetch(`/api/cme/entries/${next.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcribed: true }),
-      });
-      if (!response.ok) throw new Error("Could not mark this activity as copied.");
-      setCopiedOverride((current) => ({ ...current, [next.id]: true }));
-      setLastCopiedId(next.id);
-    } catch {
-      setCopyError("Copied to your clipboard, but this record could not be marked as copied. Try again.");
-    } finally {
-      setCopyBusy(false);
-    }
+  async function patchCopied(id: string, transcribed: boolean) {
+    const response = await fetch(`/api/cme/entries/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ transcribed }),
+    });
+    if (!response.ok) throw new Error("Could not save the copied status.");
   }
 
-  async function undoCopy() {
-    if (!lastCopiedId || copyBusy) return;
+  /** Called only from the copy sheet's "Mark copied, next" — never on a copy alone. */
+  async function markCopied(id: string) {
+    if (demoMode) throw new Error("Demo records are read-only.");
+    await patchCopied(id, true);
+    setCopiedOverride((current) => ({ ...current, [id]: true }));
+    setLastCopiedId(id);
+  }
+
+  async function undoCopied() {
+    if (!lastCopiedId) return;
     const copiedId = lastCopiedId;
+    await patchCopied(copiedId, false);
+    setCopiedOverride((current) => ({ ...current, [copiedId]: false }));
+    setLastCopiedId(null);
+  }
+
+  async function undoFromPage() {
+    if (!lastCopiedId || copyBusy) return;
     setCopyBusy(true);
     setCopyError(null);
     try {
-      const response = await fetch(`/api/cme/entries/${copiedId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ transcribed: false }),
-      });
-      if (!response.ok) throw new Error("Could not undo the copied status.");
-      setCopiedOverride((current) => ({ ...current, [copiedId]: false }));
-      setLastCopiedId(null);
+      await undoCopied();
     } catch {
       setCopyError("Could not undo the copied status. Try again.");
     } finally {
@@ -315,13 +217,62 @@ export function CmeLogPage({
     }
   }
 
+  function openCopySheet() {
+    if (uncopied.length === 0) return;
+    setCopyError(null);
+    setCopySession((session) => session + 1);
+    setCopyOpen(true);
+  }
+
+  const filterPanel = (
+    <CmeLogFilterPanel
+      availableYears={availableYears}
+      navigationYears={navigationYears}
+      effectiveYear={effectiveYear}
+      setYear={set.year}
+      allYears={allYears}
+      onAllYears={setAllYears}
+      onSelectYear={setSelectedYear}
+      visibleEntries={visibleEntries}
+      yearEntries={yearEntries}
+      hasAllYears={Boolean(allYearsEntries)}
+      categoryFilter={categoryFilter}
+      onCategory={setCategoryFilter}
+      showArchived={showArchived}
+      onToggleArchived={() => setShowArchived((value) => !value)}
+    />
+  );
+
   return (
     <main
       data-testid="cme-log-page"
-      className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6"
+      className={cn(
+        "mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,env(safe-area-inset-bottom))+6rem)] pt-6 sm:px-6",
+        !showFinish && "lg:max-w-5xl",
+      )}
     >
-      <h1 className="text-xl font-semibold text-[color:var(--text)]">Log</h1>
-      <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-xl font-semibold text-[color:var(--text)]">{showFinish ? "To finish" : "Log"}</h1>
+          {showFinish ? null : (
+            <p className={cn(textMuted, "mt-1 text-sm")}>Every activity you have recorded, by year.</p>
+          )}
+        </div>
+        {showFinish ? null : (
+          // A native button rather than `IconButton`, which takes no ref: the More sheet returns focus here.
+          <button
+            ref={moreButtonRef}
+            type="button"
+            aria-label="More log actions"
+            aria-haspopup="dialog"
+            onClick={() => setMoreOpen(true)}
+            data-testid="cme-log-more"
+            className="-mr-2 grid size-tap min-h-tap shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] transition-colors duration-[var(--duration-instant)] hover:bg-[color:var(--surface-subtle)] hover:text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+          >
+            <Ellipsis aria-hidden="true" className="size-icon-md" />
+          </button>
+        )}
+      </div>
       <div role="status" data-testid="cme-log-saved">
         {justSaved ? (
           <p className="mt-3 inline-flex min-h-tap items-center gap-2 rounded-lg bg-[color:var(--clinical-accent-soft)] px-3 text-sm font-semibold text-[color:var(--clinical-accent)]">
@@ -345,121 +296,70 @@ export function CmeLogPage({
       ) : null}
 
       {!showFinish ? (
-        <Sheet
-          open={filterOpen}
-          onClose={() => setFilterOpen(false)}
-          title="Filter your log"
-          placement="responsive-right"
-          mobilePlacement="bottom"
-          returnFocusRef={filterButtonRef}
-          testId="cme-log-filter-sheet"
-          footer={
-            <button
-              type="button"
-              onClick={() => setFilterOpen(false)}
-              className={cn(buttonFaceClass({ variant: "primary", block: true }))}
-            >
-              Show {filtered.length} {filtered.length === 1 ? "activity" : "activities"}
-            </button>
-          }
-        >
-          <div className="grid gap-5 text-sm">
-            <fieldset className="grid gap-2">
-              <legend className={eyebrowText}>Year</legend>
-              {allYearsEntries ? (
-                <button
-                  type="button"
-                  aria-pressed={allYears}
-                  onClick={() => setAllYears(true)}
-                  className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-left"
-                >
-                  All years · {visibleEntries.filter((entry) => Boolean(entry.archivedAt) === showArchived).length}
-                </button>
-              ) : null}
-              {availableYears.map((year) => {
-                const count = visibleEntries.filter(
-                  (entry) => entry.date.startsWith(`${year}-`) && Boolean(entry.archivedAt) === showArchived,
-                ).length;
-                return navigationYears && year !== effectiveYear ? (
-                  <Link
-                    key={year}
-                    href={`/cme/log?year=${year}${categoryFilter !== "all" ? `&category=${categoryFilter}` : ""}`}
-                    className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3"
-                  >
-                    <span>{year}</span>
-                    <span>{count || "Open"}</span>
-                  </Link>
-                ) : (
-                  <button
-                    key={year}
-                    type="button"
-                    aria-pressed={!allYears && effectiveYear === year}
-                    onClick={() => {
-                      setAllYears(false);
-                      if (!navigationYears) setSelectedYear(year);
-                    }}
-                    className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3"
-                  >
-                    <span>{year}</span>
-                    <span>{count}</span>
-                  </button>
-                );
-              })}
-            </fieldset>
-            <fieldset className="grid gap-2">
-              <legend className={eyebrowText}>Category</legend>
-              {categoryOptions.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  aria-pressed={categoryFilter === option.value}
-                  onClick={() => setCategoryFilter(option.value)}
-                  className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3 text-left"
-                >
-                  <span>{option.label}</span>
-                  <span>
-                    {option.value === "all"
-                      ? yearEntries.length
-                      : yearEntries.filter((entry) =>
-                          entry.allocations.some((allocation) => allocation.category === option.value),
-                        ).length}
-                  </span>
-                </button>
-              ))}
-            </fieldset>
-            <fieldset className="grid gap-2">
-              <legend className={eyebrowText}>Needs attention</legend>
+        <>
+          <Sheet
+            open={moreOpen}
+            onClose={() => setMoreOpen(false)}
+            title="Log actions"
+            placement="responsive-right"
+            mobilePlacement="bottom"
+            returnFocusRef={moreButtonRef}
+            testId="cme-log-more-sheet"
+          >
+            <div className="grid gap-2 text-sm">
+              <a
+                href={`/api/cme/export?year=${effectiveYear}`}
+                download
+                data-testid="cme-log-download-csv"
+                className={moreRow}
+              >
+                <Download aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
+                Download CSV
+              </a>
+              <Link
+                href={`/cme/summary?year=${effectiveYear}`}
+                data-testid="cme-log-annual-summary"
+                className={moreRow}
+              >
+                <FileText aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
+                Annual summary
+              </Link>
+            </div>
+          </Sheet>
+          <Sheet
+            open={filterOpen && !wide}
+            onClose={() => setFilterOpen(false)}
+            title="Filter your log"
+            placement="responsive-right"
+            mobilePlacement="bottom"
+            returnFocusRef={filterButtonRef}
+            testId="cme-log-filter-sheet"
+            footer={
               <button
                 type="button"
-                aria-pressed={attention === null}
-                onClick={() => setAttention(null)}
-                className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-left"
+                onClick={() => setFilterOpen(false)}
+                className={cn(buttonFaceClass({ variant: "primary", block: true }))}
               >
-                All activities · {yearEntries.length}
+                Show {filtered.length} {filtered.length === 1 ? "activity" : "activities"}
               </button>
-              {ATTENTION_FILTERS.map((filter) => (
-                <button
-                  key={filter.value}
-                  type="button"
-                  aria-pressed={attention === filter.value}
-                  onClick={() => setAttention(filter.value)}
-                  className="flex min-h-tap items-center justify-between rounded-lg border border-[color:var(--border)] px-3 text-left"
-                >
-                  <span>{filter.label}</span>
-                  <span>{yearEntries.filter(filter.matches).length}</span>
-                </button>
-              ))}
-            </fieldset>
-            <button
-              type="button"
-              aria-pressed={showArchived}
-              onClick={() => setShowArchived((value) => !value)}
-              className="min-h-tap rounded-lg border border-[color:var(--border)] px-3 text-left"
-            >
-              {showArchived ? "Showing archived activities" : "Show archived activities"}
-            </button>
-          </div>
-        </Sheet>
+            }
+          >
+            {filterPanel}
+          </Sheet>
+          <CmeLogCopySheet
+            key={copySession}
+            open={copyOpen}
+            onClose={() => setCopyOpen(false)}
+            candidates={uncopied}
+            lookup={(id) => entriesById.get(id)}
+            set={set}
+            demoMode={demoMode}
+            onMark={markCopied}
+            onUndo={undoCopied}
+            lastMarkedId={lastCopiedId}
+            returnFocusRef={copyButtonRef}
+          />
+        </>
       ) : null}
 
       {showFinish ? (
@@ -497,259 +397,174 @@ export function CmeLogPage({
       ) : null}
 
       {!showFinish ? (
-        <>
-          {navigationYears && navigationYears.length > 1 ? (
-            <nav aria-label="Select year" data-testid="cme-log-year-tabs" className="mt-4 flex flex-wrap gap-2">
-              {[...new Set(navigationYears)]
-                .sort((a, b) => b - a)
-                .map((year) => (
-                  <Link
-                    key={year}
-                    href={`/cme/log?year=${year}${categoryFilter !== "all" ? `&category=${categoryFilter}` : ""}`}
-                    aria-current={!allYears && year === effectiveYear ? "page" : undefined}
-                    className={cn(
-                      "inline-flex min-h-tap items-center rounded-lg border px-4 text-sm font-semibold",
-                      !allYears && year === effectiveYear
-                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                        : "border-[color:var(--border)] text-[color:var(--text)]",
-                    )}
-                  >
-                    {year}
-                  </Link>
-                ))}
-            </nav>
-          ) : availableYears.length > 1 ? (
-            <div data-testid="cme-log-year-tabs" className="mt-4">
-              <Tabs
-                label="Select year"
-                items={availableYears.map((year) => ({ id: String(year), label: String(year) }))}
-                value={String(selectedYear)}
-                onChange={(id) => setSelectedYear(Number(id))}
-              />
-            </div>
-          ) : null}
-
-          {navigationYears ? (
-            <form
-              action="/cme/log"
-              method="get"
-              className="mt-3 flex flex-wrap items-end gap-2"
-              data-testid="cme-log-year-jump"
+        <div className="mt-4 lg:grid lg:grid-cols-[16rem_minmax(0,1fr)] lg:items-start lg:gap-8">
+          {wide ? (
+            <aside
+              aria-label="Filter your log"
+              data-testid="cme-log-filter-column"
+              className="hidden lg:sticky lg:top-4 lg:block"
             >
-              <label className="text-sm font-medium text-[color:var(--text)]" htmlFor="cme-log-year-input">
-                Open another year
-                <input
-                  key={set.year}
-                  id="cme-log-year-input"
-                  name="year"
-                  type="number"
-                  min="2000"
-                  max="2100"
-                  defaultValue={set.year}
-                  className="mt-1 block min-h-tap w-32 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
+              {filterPanel}
+            </aside>
+          ) : null}
+          <div className="min-w-0">
+            <div className="flex items-center gap-2">
+              <div data-testid="cme-log-search" className="min-w-0 flex-1">
+                <SearchField
+                  label="Search your log"
+                  placeholder="Search titles and reflections"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  onClear={() => setQuery("")}
+                  clearLabel="Clear the log search"
                 />
-              </label>
+              </div>
               <button
-                type="submit"
-                className="inline-flex min-h-tap items-center rounded-lg border border-[color:var(--border)] px-4 text-sm font-semibold text-[color:var(--text)]"
-              >
-                Open year
-              </button>
-            </form>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <button
-              ref={filterButtonRef}
-              type="button"
-              onClick={() => setFilterOpen(true)}
-              data-testid="cme-log-open-filters"
-              className={buttonFaceClass({ variant: "secondary" })}
-            >
-              <ListFilter aria-hidden="true" className="size-icon-sm" />
-              Filters
-            </button>
-            {attention === "copy" && !showArchived ? (
-              <button
+                ref={filterButtonRef}
                 type="button"
-                onClick={() => void copyNext()}
-                disabled={copyBusy || !sorted.some((entry) => !entry.transcribed)}
-                data-testid="cme-log-copy-next"
-                className={buttonFaceClass({ variant: "primary" })}
+                onClick={() => setFilterOpen(true)}
+                data-testid="cme-log-open-filters"
+                aria-haspopup="dialog"
+                className={cn(buttonFaceClass({ variant: "secondary" }), "shrink-0 gap-1.5 px-3 lg:hidden")}
               >
-                <Copy aria-hidden="true" className="size-icon-sm" />
-                {copyBusy ? "Copying…" : "Copy next"}
-              </button>
-            ) : null}
-          </div>
-          {attention === "copy" && lastCopiedId ? (
-            <div
-              role="status"
-              data-testid="cme-log-copy-done"
-              className="mt-2 flex flex-wrap items-center gap-2 text-sm"
-            >
-              <span>Copied to your clipboard and marked copied.</span>
-              <button
-                type="button"
-                disabled={copyBusy}
-                onClick={() => void undoCopy()}
-                className="min-h-tap font-semibold underline underline-offset-2"
-              >
-                Undo
-              </button>
-            </div>
-          ) : null}
-          {copyError ? (
-            <p role="alert" className="mt-2 text-sm">
-              {copyError}
-            </p>
-          ) : null}
-
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-            <button
-              type="button"
-              className="min-h-tap rounded-lg border border-[color:var(--border)] px-3"
-              aria-pressed={showArchived}
-              onClick={() => setShowArchived(!showArchived)}
-            >
-              {showArchived ? "Show active entries" : "Show archived entries"}
-            </button>
-            <a
-              href={`/api/cme/export?year=${effectiveYear}`}
-              download
-              className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
-            >
-              Download CSV
-            </a>
-            <Link
-              href={`/cme/summary?year=${effectiveYear}`}
-              className="min-h-tap inline-flex items-center font-semibold text-[color:var(--clinical-accent)]"
-            >
-              Annual summary
-            </Link>
-          </div>
-          {!showArchived ? (
-            <div
-              role="group"
-              aria-label="Needs attention"
-              data-testid="cme-log-attention"
-              className="mt-3 flex flex-wrap gap-2"
-            >
-              {ATTENTION_FILTERS.map((filter) => {
-                const count = yearEntries.filter(filter.matches).length;
-                const pressed = attention === filter.value;
-                return (
-                  <button
-                    key={filter.value}
-                    type="button"
-                    aria-pressed={pressed}
-                    data-testid={`cme-log-attention-${filter.value}`}
-                    onClick={() => setAttention(pressed ? null : filter.value)}
-                    className={cn(
-                      "inline-flex min-h-tap items-center gap-1.5 rounded-lg border px-3 text-sm font-semibold",
-                      pressed
-                        ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
-                        : "border-[color:var(--border)] text-[color:var(--text)]",
-                    )}
+                <ListFilter aria-hidden="true" className="size-icon-sm" />
+                <span>
+                  Filters<span aria-hidden="true"> ·</span> <span className="nums font-normal">{yearLabel}</span>
+                </span>
+                {activeFilterCount > 0 ? (
+                  <span
+                    data-testid="cme-log-filter-count"
+                    className="nums grid min-w-5 place-items-center rounded-full bg-[color:var(--clinical-accent-soft)] px-1.5 text-xs font-normal text-[color:var(--clinical-accent)]"
                   >
-                    {filter.label}
-                    <span className="nums text-xs font-normal opacity-80">{count}</span>
-                  </button>
-                );
-              })}
+                    <span className="sr-only">, </span>
+                    {activeFilterCount}
+                    <span className="sr-only"> on</span>
+                  </span>
+                ) : null}
+              </button>
             </div>
-          ) : null}
-          {attention === "copy" ? (
-            <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-log-copy-help">
-              Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into
-              your CPD home&rsquo;s own record. Each is ticked off here as you copy it.
-            </p>
-          ) : null}
-          {showArchived ? (
-            <p className={cn(textMuted, "mt-2 text-sm")}>
-              Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
-              summaries. Open an entry to restore it.
-            </p>
-          ) : null}
-          <div data-testid="cme-log-search" className="mt-4">
-            <SearchField
-              label="Search your log"
-              placeholder="Search titles and reflections"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              onClear={() => setQuery("")}
-              clearLabel="Clear the log search"
-            />
-          </div>
 
-          {yearEntries.length > 0 ? (
-            <div data-testid="cme-log-filter" className="mt-3">
-              <SegmentedControl
-                label="Filter by category"
-                options={categoryOptions}
-                value={categoryFilter}
-                onChange={setCategoryFilter}
-              />
-            </div>
-          ) : null}
-
-          <div className="mt-5 flex flex-col gap-5">
-            {groups.length === 0 ? (
-              <EmptyState
-                testId="cme-log-empty"
-                title={
-                  yearEntries.length === 0
-                    ? `Nothing logged for ${effectiveYear} yet.`
-                    : "Nothing matched your search and filter."
-                }
-                body={
-                  yearEntries.length === 0
-                    ? "Log your first activity for this year to see it here."
-                    : "Try a shorter word, or clear the category filter."
-                }
-              />
-            ) : (
-              groups.map((group) => (
-                <section
-                  key={group.key}
-                  data-testid={`cme-log-month-${group.key}`}
-                  aria-labelledby={`${group.key}-heading`}
-                  className="grid gap-2"
-                >
-                  <div className="flex items-baseline justify-between gap-3 px-3">
-                    <h2 id={`${group.key}-heading`} className={eyebrowText}>
-                      {group.label}
-                    </h2>
-                    <span
+            {!showArchived ? (
+              <div
+                role="group"
+                aria-label="Needs attention"
+                data-testid="cme-log-attention"
+                className="-mx-4 mt-3 flex flex-nowrap gap-2 overflow-x-auto px-4 pb-1 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0"
+              >
+                {ATTENTION_FILTERS.map((filter) => {
+                  const count = yearEntries.filter(filter.matches).length;
+                  const pressed = attention === filter.value;
+                  return (
+                    <button
+                      key={filter.value}
+                      type="button"
+                      aria-pressed={pressed}
+                      data-testid={`cme-log-attention-${filter.value}`}
+                      onClick={() => setAttention(pressed ? null : filter.value)}
                       className={cn(
-                        modeNumberText,
-                        "nums font-normal text-2xs normal-case text-[color:var(--text-muted)]",
+                        "inline-flex min-h-tap shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3 text-sm font-medium",
+                        pressed
+                          ? "border-[color:var(--clinical-accent-border)] bg-[color:var(--clinical-accent-soft)] text-[color:var(--clinical-accent)]"
+                          : "border-[color:var(--border)] text-[color:var(--text)]",
                       )}
                     >
-                      {`${formatLogHours(group.hours)} h`}
-                    </span>
-                  </div>
-                  <ModeGroupedList>
-                    {group.entries.map((entry) => (
-                      <EntryRow key={entry.id} entry={entry} today={today} />
-                    ))}
-                  </ModeGroupedList>
-                </section>
-              ))
-            )}
-          </div>
+                      {filter.label}
+                      <span className="nums text-xs font-normal opacity-80">{count}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : null}
 
-          <div className="mt-6 flex justify-center">
-            <Link
-              href={`/cme/new?year=${set.year}`}
-              data-testid="cme-log-new-entry"
-              className={cn(buttonFaceClass({ variant: "secondary" }))}
-            >
-              <Plus aria-hidden="true" className="size-icon-md shrink-0" />
-              <span>New entry</span>
-            </Link>
+            {attention === "copy" && !showArchived ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  ref={copyButtonRef}
+                  type="button"
+                  onClick={openCopySheet}
+                  disabled={uncopied.length === 0}
+                  aria-haspopup="dialog"
+                  data-testid="cme-log-copy-next"
+                  className={buttonFaceClass({ variant: "primary" })}
+                >
+                  <Copy aria-hidden="true" className="size-icon-sm" />
+                  Copy next
+                </button>
+              </div>
+            ) : null}
+            {attention === "copy" && lastCopiedId && !copyOpen ? (
+              <div
+                role="status"
+                data-testid="cme-log-copy-done"
+                className="mt-2 flex flex-wrap items-center gap-2 text-sm"
+              >
+                <span>Marked as copied.</span>
+                <button
+                  type="button"
+                  disabled={copyBusy}
+                  onClick={() => void undoFromPage()}
+                  className="min-h-tap font-semibold underline underline-offset-2"
+                >
+                  Undo
+                </button>
+              </div>
+            ) : null}
+            {copyError ? (
+              <p role="alert" className="mt-2 text-sm">
+                {copyError}
+              </p>
+            ) : null}
+            {attention === "copy" ? (
+              <p className={cn(textMuted, "mt-2 text-sm")} data-testid="cme-log-copy-help">
+                Open each one and tap <span className="font-semibold">Copy for your CPD home</span>, then paste it into
+                your CPD home&rsquo;s own record. Each is ticked off here as you copy it.
+              </p>
+            ) : null}
+            {showArchived ? (
+              <p className={cn(textMuted, "mt-2 text-sm")}>
+                Archived entries retain their records and evidence. They contribute zero to totals, downloads and annual
+                summaries. Open an entry to restore it.
+              </p>
+            ) : null}
+
+            {!allYears && groups.length > 0 ? (
+              <div className="mt-4">
+                <CmeLogMonthStrip year={effectiveYear} groups={groups} today={today} />
+              </div>
+            ) : null}
+
+            <div className="mt-4 flex flex-col gap-5">
+              {groups.length === 0 ? (
+                <EmptyState
+                  testId="cme-log-empty"
+                  title={
+                    yearEntries.length === 0
+                      ? `Nothing logged for ${effectiveYear} yet.`
+                      : "Nothing matched your search and filter."
+                  }
+                  body={
+                    yearEntries.length === 0
+                      ? "Log your first activity for this year to see it here."
+                      : "Try a shorter word, or clear the category filter."
+                  }
+                />
+              ) : (
+                <CmeLogMonthList groups={groups} today={today} />
+              )}
+            </div>
+
+            <div className="mt-6 flex justify-center">
+              <Link
+                href={`/cme/new?year=${set.year}`}
+                data-testid="cme-log-new-entry"
+                className={cn(buttonFaceClass({ variant: "secondary" }))}
+              >
+                <Plus aria-hidden="true" className="size-icon-md shrink-0" />
+                <span>New entry</span>
+              </Link>
+            </div>
           </div>
-        </>
+        </div>
       ) : null}
       {showFinish ? (
         <div className="mt-8">
@@ -769,3 +584,7 @@ export function CmeLogPage({
     </main>
   );
 }
+
+/** One row of the More sheet: a full-width 48 px choice, the label at 500 beside its icon. */
+const moreRow =
+  "flex min-h-tap w-full items-center gap-2.5 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-3 text-left font-medium text-[color:var(--text-heading)] transition-colors duration-[var(--duration-instant)] hover:border-[color:var(--border-strong)] hover:bg-[color:var(--surface-raised)]";
