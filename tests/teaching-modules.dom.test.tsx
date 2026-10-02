@@ -408,6 +408,13 @@ describe("TeachingStateNotice", () => {
     expect(names).toEqual(["Sign in", "Open the demo"]);
     fireEvent.click(screen.getByRole("button", { name: "Open the demo" }));
     expect(onOpenDemo).toHaveBeenCalledOnce();
+    rerender(
+      <TeachingStateNotice state="signed-out" onSignIn={onSignIn} demoHref="/teaching/sample?next=%2Fteaching" />,
+    );
+    expect(screen.getByRole("link", { name: "Open the demo" })).toHaveAttribute(
+      "href",
+      "/teaching/sample?next=%2Fteaching",
+    );
     rerender(<TeachingStateNotice state="empty" serviceName="Demo service" />);
     expect(screen.queryByRole("button", { name: "Switch service" })).toBeNull();
     rerender(<TeachingStateNotice state="no-team" />);

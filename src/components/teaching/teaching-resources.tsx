@@ -42,24 +42,21 @@ const itemCount = (n: number) => withUnit(n, n === 1 ? "item" : "items");
  * directory, which lives there and is never copied here. The filter box looks only through what is
  * already on screen: no request, no search, no AI, no mic (standard §13).
  */
-export function TeachingResources({ demoMode }: { demoMode: boolean }) {
+export function TeachingResources({ demoMode, sampleData }: { demoMode: boolean; sampleData?: ResourcesForWeek }) {
   const now = useTeachingNow();
   const monday = now ? mondayOf(perthDateKey(now)) : null;
   // Demo mode reads too: the server answers with the made-up collections (master plan R8).
   const read = useTeachingResource<ResourcesForWeek>(
     monday ? `/api/teaching/resources?action=resources.read&weekStart=${monday}` : null,
+    sampleData,
   );
-  const week = useTeachingWeek(
-    monday ? { from: monday, to: addDays(monday, 6) } : null,
-    { demoMode, signedOutDemo: false },
-    now,
-  );
+  const week = useTeachingWeek(monday ? { from: monday, to: addDays(monday, 6) } : null, { demoMode }, now);
   const teams = useMemo(() => week.week?.teams ?? [], [week.week]);
   const [team, setTeam] = useState<string>(ALL_TEAMS);
   const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
   // Master plan R19: organisers only. `collection.save` refuses an admin who does not organise.
-  const organised = teams.filter((candidate) => candidate.role === "organiser");
+  const organised = teams.filter((candidate) => !sampleData && candidate.role === "organiser");
 
   let body;
   if (read.status === "signed-out") body = <TeachingSignInNotice />;
@@ -108,6 +105,7 @@ export function TeachingResources({ demoMode }: { demoMode: boolean }) {
         />
         {thisWeek.length > 0 ? (
           <ResourceRows
+            sampleMode={Boolean(sampleData)}
             items={thisWeek}
             label="For this week"
             id="teaching-resources-week"

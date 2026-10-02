@@ -50,18 +50,25 @@ const itemCount = (n: number) => withUnit(n, n === 1 ? "item" : "items");
  * service from the reader's teams, never from a role held elsewhere, and never for an admin who does not
  * organise, because the server refuses them. Recordings and Saved are built in and take no additions.
  */
-export function TeachingCollection({ collection, demoMode }: { collection: string; demoMode: boolean }) {
+export function TeachingCollection({
+  collection,
+  demoMode,
+  sampleData,
+}: {
+  collection: string;
+  demoMode: boolean;
+  sampleData?: CollectionRead;
+}) {
   const now = useTeachingNow();
   const monday = now ? mondayOf(perthDateKey(now)) : null;
   const builtIn = collection in BUILT_IN_NAMES;
   const query = builtIn ? `builtIn=${collection}` : `collectionId=${collection}`;
   // Demo mode reads too: the server answers with the made-up collections (master plan R8).
-  const read = useTeachingResource<CollectionRead>(`/api/teaching/resources?action=collection.read&${query}`);
-  const week = useTeachingWeek(
-    monday ? { from: monday, to: addDays(monday, 6) } : null,
-    { demoMode, signedOutDemo: false },
-    now,
+  const read = useTeachingResource<CollectionRead>(
+    `/api/teaching/resources?action=collection.read&${query}`,
+    sampleData,
   );
+  const week = useTeachingWeek(monday ? { from: monday, to: addDays(monday, 6) } : null, { demoMode }, now);
   const [type, setType] = useState<ResourceType>("all");
   const [filter, setFilter] = useState("");
   const [adding, setAdding] = useState(false);
@@ -76,7 +83,7 @@ export function TeachingCollection({ collection, demoMode }: { collection: strin
 
   const owner = read.data?.collection?.serviceId ?? null;
   const ownerTeam = (week.week?.teams ?? []).find((team) => team.id === owner) ?? null;
-  const canEdit = ownerTeam?.role === "organiser";
+  const canEdit = !sampleData && ownerTeam?.role === "organiser";
   // Slides belong to one session (master plan R27): the owner's sessions this week are the ones offered.
   const sessions = useMemo(
     () =>
@@ -147,6 +154,7 @@ export function TeachingCollection({ collection, demoMode }: { collection: strin
           resourceSections(data.sections, shown).map((section) => (
             <ResourceRows
               key={section.id}
+              sampleMode={Boolean(sampleData)}
               items={section.items}
               label={section.label}
               id={`teaching-collection-${section.id}`}

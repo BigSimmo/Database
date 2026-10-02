@@ -63,21 +63,13 @@ export function TeachingWeekScreen({ demoMode, sidePanel }: { demoMode: boolean;
   const [chosenMonday, setChosenMonday] = useState<string | null>(null);
   const monday = chosenMonday ?? (today ? mondayOf(today) : null);
   const range = useMemo(() => (monday ? { from: monday, to: addDays(monday, 6) } : null), [monday]);
-  const [signedOutDemo, setSignedOutDemo] = useState(false);
-  const view = useTeachingWeek(range, { demoMode, signedOutDemo }, now);
+  const view = useTeachingWeek(range, { demoMode }, now);
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-week">
       <div className="grid grid-cols-[minmax(0,1fr)] gap-3">
         <h1 className="sr-only">Week</h1>
         {today && monday ? (
-          <WeekBody
-            view={view}
-            today={today}
-            monday={monday}
-            onMonday={setChosenMonday}
-            onOpenDemo={() => setSignedOutDemo(true)}
-            sidePanel={sidePanel}
-          />
+          <WeekBody view={view} today={today} monday={monday} onMonday={setChosenMonday} sidePanel={sidePanel} />
         ) : (
           <ModeModuleSkeleton rows={4} eyebrow />
         )}
@@ -91,14 +83,12 @@ function WeekBody({
   today,
   monday,
   onMonday,
-  onOpenDemo,
   sidePanel,
 }: {
   view: TeachingWeekState;
   today: string;
   monday: string;
   onMonday: (monday: string) => void;
-  onOpenDemo: () => void;
   sidePanel?: WeekSidePanel;
 }) {
   const [team, setTeam] = useState(ALL_TEAMS);
@@ -145,7 +135,7 @@ function WeekBody({
     </div>
   );
 
-  if (view.status === "signed-out") return <TeachingSignInNotice onOpenDemo={onOpenDemo} />;
+  if (view.status === "signed-out") return <TeachingSignInNotice />;
   if (view.status === "offline" || view.status === "error" || view.status === "setup")
     return (
       <>

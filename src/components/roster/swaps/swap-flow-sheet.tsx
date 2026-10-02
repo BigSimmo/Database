@@ -29,7 +29,7 @@ type Fresh = { assignments: RosterAssignment[]; overview: RosterOverview; readAt
 type Step = "who" | "take" | "check";
 
 const UNNAMED = "Name not available";
-const PANEL = "rounded-xl border border-[color:var(--border)] bg-[color:var(--surface)] p-3";
+const PANEL = "rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3 shadow-[var(--e1)]";
 const CHOICE = "w-full justify-start text-left";
 
 function checkedTime(value: Date): string {

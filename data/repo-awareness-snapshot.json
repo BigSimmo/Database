@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-09-30"
+    "committed_at": "2026-10-01"
   },
   "routes": {
     "modes": [
@@ -2664,6 +2664,16 @@
         "catalogued": true
       },
       {
+        "path": "docs/design-system/COMPONENTS.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/design-system/COMPONENTS.md",
+        "section": "design-system",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-27-first-nations-mode-completion.md",
         "section": "superpowers",
         "catalogued": false
@@ -3297,6 +3307,11 @@
         "path": "docs/superpowers/plans/2026-08-20-rag-adaptive-answer.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/evidence/pr-3143-owner-signoff-confirmation.md",
+        "section": "evidence",
+        "catalogued": false
       },
       {
         "path": "docs/decisions/2026-08-27-sidebar-documents-points-at-shared-home.md",
@@ -9347,6 +9362,14 @@
         "scope": "S1c follow-ups: use-theme transition-timer guard + issues:done ULID display-id fingerprint, tests",
         "outcome": "PR #2063 open; both loose ends from the S1c babysit fixed; no RAG surface touched",
         "checks": "focused vitest 20/20 + repo-hygiene 57/57; verify:pr-local (lint, typecheck, test, build) failed:(none); live-ledger fingerprint spot-check 3/3"
+      },
+      {
+        "date": "2026-10-02",
+        "ref": "codex/pr3143-scoped-repair",
+        "head": "3962ace8f75869eebb15e70854d85ad630c2e19a",
+        "scope": "PR 3143 scoped CI fixture repair",
+        "outcome": "Independent review: no high-confidence P0-P2 findings; unsigned fixtures and clinical/source safety contracts retained; clinical data unchanged",
+        "checks": "261 tests across 9 files; typecheck; whole-tree format; awareness freshness; source ledger 113; hazard controls; independent read-only delta review"
       },
       {
         "date": "2026-08-18",
@@ -26227,6 +26250,14 @@
         "scope": "PR #1489 review+bugbot+fix+heavy",
         "outcome": "clean product delta; fixed generator missing-source/manifest errors + exact hash filename check; #117 Source += PR #1489; dispositioned CR ledger/#1514 nits as out-of-scope; Production UI reds on prior tip unrelated to therapy assets (doc-viewer smoke + services phone-scroll); main sync merge-tree clean; no P0-P2 product defects",
         "checks": "build-therapies-index --check: Therapy indexes are current (205 records); vitest therapy-compass 21/21; verify:cheap: 445 files / 4661 passed; verify:pr-local: Client bundle secret surface check passed + Offline RAG fixture validation passed (36 golden cases); format:check: All matched files use Prettier code style!; check:outstanding-issues passed; merge-tree origin/main clean"
+      },
+      {
+        "date": "2026-10-01",
+        "ref": "claude/teaching-sample-preview",
+        "head": "ff1a4fe3c8be683b43fb206419f79e27673d3d2c",
+        "scope": "PR comment repair",
+        "outcome": "Fixed three Teaching sample findings with production cookie-flow regression tests",
+        "checks": "30 focused tests pass; scoped ESLint pass; full typecheck pending"
       },
       {
         "date": "2026-09-13",

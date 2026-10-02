@@ -34,7 +34,7 @@ vi.mock("next/navigation", () => ({
       () => url.state.params,
     ),
 }));
-vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () => null }));
 beforeEach(() => url.set("view=day"));
 afterEach(() => {
   cleanup();
