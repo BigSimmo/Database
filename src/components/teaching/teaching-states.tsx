@@ -21,7 +21,10 @@ const COPY: Record<TeachingNoticeState, { title: string; body: (serviceName?: st
     body: () => "Ask your service's organiser to invite you.",
   },
   "signed-out": { title: "Sign in to see your teaching", body: () => "Sessions, check-ins and your logbook." },
-  offline: { title: "You're offline", body: () => "Missed check-ins can be added for 7 days." },
+  offline: {
+    title: "You're offline",
+    body: () => "Reconnect, then try again. A check-in you couldn't record can still be added for 7 days.",
+  },
   error: { title: "Teaching couldn't load", body: () => "Nothing changed. Your records are safe." },
   setup: { title: "Teaching is being set up", body: () => "It will appear here when it's ready." },
 };
