@@ -153,9 +153,7 @@ describe("Roster Settings", () => {
   it("says the shifts could not be loaded, rather than that there are no workplaces", async () => {
     routes.set("GET /api/roster/shifts", () => Response.json({ error: "Unavailable" }, { status: 503 }));
     render(<RosterSettingsPage />);
-    expect(await screen.findByTestId("roster-settings-error")).toHaveTextContent(
-      "Your shifts could not be loaded.",
-    );
+    expect(await screen.findByTestId("roster-settings-error")).toHaveTextContent("Your shifts could not be loaded.");
     expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
     expect(screen.queryByTestId("roster-settings-workplaces")).toBeNull();
   });

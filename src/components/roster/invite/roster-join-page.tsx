@@ -190,7 +190,9 @@ export function RosterJoinPage() {
         <RosterPageHeader icon={UserPlus} title="Join a team roster" ask={false} />
         {state.kind === "joining" ? <p role="status">Joining your team…</p> : null}
         {state.kind === "signed-out" ? (
-          <RosterSignInNotice testId="roster-join-signed-out">Sign in, then open the invite link again.</RosterSignInNotice>
+          <RosterSignInNotice testId="roster-join-signed-out">
+            Sign in, then open the invite link again.
+          </RosterSignInNotice>
         ) : null}
         {state.kind === "error" ? <ModeNotice tone="warning">{state.message}</ModeNotice> : null}
         {state.kind === "joined" ? (

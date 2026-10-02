@@ -158,7 +158,10 @@ function WeekView({
                       </span>
                     </span>
                     <span
-                      className={cn(modeNumberText, "shrink-0 whitespace-nowrap text-base-minus text-[color:var(--text)]")}
+                      className={cn(
+                        modeNumberText,
+                        "shrink-0 whitespace-nowrap text-base-minus text-[color:var(--text)]",
+                      )}
                     >
                       {formatShiftRange(shift)}
                     </span>

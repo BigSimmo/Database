@@ -243,7 +243,9 @@ export function RosterRequestsPage() {
       {enabled.length > 1 && !selectedServiceId ? <p>Choose the team for a request before continuing.</p> : null}
       {teams.status === "loading" ? <p role="status">Loading your teams…</p> : null}
       {teams.status === "signed-out" ? (
-        <RosterSignInNotice testId="roster-requests-signed-out">Sign in to see your leave and requests.</RosterSignInNotice>
+        <RosterSignInNotice testId="roster-requests-signed-out">
+          Sign in to see your leave and requests.
+        </RosterSignInNotice>
       ) : null}
       {teams.status === "not-confirmed" || teams.status === "unavailable" ? (
         <ModeNotice testId="roster-requests-team-pending">

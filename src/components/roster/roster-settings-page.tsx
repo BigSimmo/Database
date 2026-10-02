@@ -76,9 +76,9 @@ export function RosterSettingsPage() {
     timer.current = null;
     setDeleteState("deleting");
     void deleteAll().then((failure) => {
-        if (failure) {
-          setDeleteState("idle");
-          setNotice({ tone: "warning", text: failure });
+      if (failure) {
+        setDeleteState("idle");
+        setNotice({ tone: "warning", text: failure });
       } else setDeleteState("deleted");
     });
   }, [deleteAll]);
@@ -192,7 +192,9 @@ export function RosterSettingsPage() {
         {shifts.status === "loading" ? (
           <ModeModuleSkeleton rows={4} eyebrow testId="roster-settings-loading" />
         ) : shifts.status === "signed-out" ? (
-          <RosterSignInNotice testId="roster-settings-signed-out">Sign in to change Roster settings.</RosterSignInNotice>
+          <RosterSignInNotice testId="roster-settings-signed-out">
+            Sign in to change Roster settings.
+          </RosterSignInNotice>
         ) : (
           <>
             <ModeGroupedList eyebrow="Calendar" testId="roster-settings-calendar">
