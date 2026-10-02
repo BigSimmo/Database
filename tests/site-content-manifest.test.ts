@@ -422,7 +422,14 @@ describe("canonical producer adapters", () => {
     for (const domain of ["dsm", "formulation", "therapies"] as const) {
       const records = staticSiteContentRecords.filter((entry) => entry.domain === domain);
       expect(records.length).toBeGreaterThan(0);
-      const manifest = buildStaticSiteContentManifest(records, metadata);
+      // Test the pending contract independently of the live catalogue's sign-offs.
+      const unsigned = records.map((entry) => {
+        const { contentHash: _contentHash, publicationVersion: _publicationVersion, ...projection } = entry;
+        void _contentHash;
+        void _publicationVersion;
+        return createSiteContentRecord({ ...projection, validationStatus: "unverified" });
+      });
+      const manifest = buildStaticSiteContentManifest(unsigned, metadata);
       expect(manifest.records.every((entry) => !entry.eligible && entry.exclusionReason)).toBe(true);
     }
   });
@@ -479,7 +486,13 @@ describe("canonical producer adapters", () => {
     expect(buildStaticSiteContentManifest([changed], metadata).staticManifestDigest).not.toBe(
       buildStaticSiteContentManifest([therapy], metadata).staticManifestDigest,
     );
-    expect(buildStaticSiteContentManifest([therapy], metadata).records[0]).toMatchObject({
+    expect(buildStaticSiteContentManifest([therapy], metadata).records[0]).toMatchObject(
+      fullTherapy.reviewStatus === "reviewed"
+        ? { eligible: true, exclusionReason: null }
+        : { eligible: false, exclusionReason: "validation_unverified" },
+    );
+    const unsigned = therapySiteContentRecord({ ...fullTherapy, reviewStatus: "needs_review" });
+    expect(buildStaticSiteContentManifest([unsigned], metadata).records[0]).toMatchObject({
       eligible: false,
       exclusionReason: "validation_unverified",
     });

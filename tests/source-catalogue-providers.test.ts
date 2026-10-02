@@ -401,12 +401,20 @@ describe("repository source providers", () => {
     expect(JSON.stringify(issues)).not.toContain(malformedDate);
   });
 
-  it("keeps therapy citation prose as one provisional D-band source per explicit item", () => {
+  it("keeps therapy citation prose at D band even after a therapy record is reviewed", () => {
     const references = provider("therapies").references();
     const explicitSourceCount = therapies.reduce((total, therapy) => total + therapy.sources.length, 0);
     expect(references).toHaveLength(explicitSourceCount);
     expect(references.every((reference) => reference.publisher === null && reference.sourceId === null)).toBe(true);
-    expect(references.every((reference) => reference.validationStatus === "unverified")).toBe(true);
+    for (const therapy of therapies) {
+      const expectedStatus =
+        therapy.reviewStatus === "needs_review" || therapy.reviewChecklist?.sourceChecked === false
+          ? "unverified"
+          : "unknown";
+      expect(references.filter((reference) => reference.usage.recordId === therapy.slug)).toEqual(
+        therapy.sources.map(() => expect.objectContaining({ validationStatus: expectedStatus })),
+      );
+    }
     expect(canonicalizeSourceReferences(references).every((entry) => entry.rating.band === "D")).toBe(true);
   });
 });

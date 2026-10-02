@@ -68,14 +68,24 @@ describe("Act reference topics", () => {
       "personal-support-persons",
       "ect-approval",
     ]);
+    // The existing gate rejects partial, stale or malformed owner attestations.
+    expect(
+      checkProblems({
+        source: sourceSections,
+        curated: curatedSections,
+        catalog: formsCatalog,
+        supplemental: formsActSectionCues,
+      }),
+    ).toEqual([]);
     const curatedBySection = new Map(curatedSections.sections.map((entry) => [entry.section, entry]));
     for (const topic of topics) {
       for (const section of topic.sections) {
         const entry = curatedBySection.get(section);
         expect(entry, `s ${section} has no curated entry`).toBeTruthy();
-        expect(entry?.status, `s ${section}`).toBe("drafted");
+        expect(["drafted", "reviewed"], `s ${section}`).toContain(entry?.status);
         expect(entry?.summary?.trim(), `s ${section}`).toBeTruthy();
-        expect("reviewedBy" in (entry ?? {}), `s ${section} must not carry a sign-off`).toBe(false);
+        const origin = sourceSections.sections.find((candidate) => candidate.section === section);
+        expect(entry?.sourceTextSha256, "s " + section + " must pin the current Act text").toBe(origin?.textSha256);
       }
     }
   });

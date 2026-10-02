@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { timeframeContentSha256, type MhaTimeframeEntry } from "@/lib/mha-timeline";
+import timeframes from "../data/mha-timeframes.json";
 
 /**
  * `fixtureEntries`, when set, replaces the shipped timeframes for the panel. The shipped file is
@@ -51,9 +52,16 @@ afterEach(() => {
   control.fixtureEntries = null;
 });
 
-describe("MhaTimelinePanel with the shipped (drafted) entries", () => {
+describe("MhaTimelinePanel with unsigned copies of the shipped entries", () => {
   it("shows the fixed note, a labelled input, each quote and Act link, and no calculated time", async () => {
     const user = userEvent.setup();
+    control.fixtureEntries = timeframes.entries.map((entry) => ({
+      ...entry,
+      status: "drafted",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewedContentSha256: null,
+    })) as MhaTimeframeEntry[];
     render(<MhaTimelinePanel formCode="3A" />);
 
     const panel = screen.getByRole("region", { name: "Timeline" });

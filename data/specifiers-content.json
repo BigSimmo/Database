@@ -20,7 +20,7 @@
     "specifierItems": 585,
     "universalSpecifiers": 18,
     "itemsWithDefinitions": 71,
-    "itemsPendingClinicianReview": 585
+    "itemsPendingClinicianReview": 514
   },
   "authoritativeSources": [
     {
@@ -68,8 +68,11 @@
         "contentHash": "c6719a88",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "420b92da54e9ac607eb3f384bc862a29bad6f09690963e8c347c29141e54df07"
       }
     },
     {
@@ -80,8 +83,11 @@
         "contentHash": "e96dd365",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "443fe02c192c774fa499592bfaa84fe1bb1119e385d54a719e15d9a889fe0fe1"
       }
     },
     {
@@ -92,8 +98,11 @@
         "contentHash": "b7954b8f",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "3e83b7ab0553fbd3ef5999a895f92c18a8fb3de9c0caf3b5c4c484888d6abde7"
       }
     },
     {
@@ -104,8 +113,11 @@
         "contentHash": "2bd9bdc5",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "17e2db7b275444150e3ff5b98fb9d247a7761ddc186ea74f3f0e0fc934a8ce53"
       }
     },
     {
@@ -116,8 +128,11 @@
         "contentHash": "6a71ced3",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "8e511bb26a0816470601a6aaf10fda3870736eb4b99606a284a35c7226107cf4"
       }
     },
     {
@@ -128,8 +143,11 @@
         "contentHash": "eea2829d",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "d8ff155f0a0ee4c56f69e85bb9e8283eaf821a08cb7e8f395ef8a202a15eb24e"
       }
     },
     {
@@ -140,8 +158,11 @@
         "contentHash": "43cfe045",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "c5d8a19efa103e07b7738c868ec9f027359e9616463b15b78348b6f768a0f02f"
       }
     },
     {
@@ -152,8 +173,11 @@
         "contentHash": "651e4bae",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "d56b41433799bc42d233752e9a7e96c9b4c24dce7f27d02a8af636c4a7c5bcc7"
       }
     },
     {
@@ -164,8 +188,11 @@
         "contentHash": "d284cc9c",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "e6fb638903e3acdb0283f35436fee1d2a50767e1941ed5e4e4dbc8e9a8695921"
       }
     },
     {
@@ -176,8 +203,11 @@
         "contentHash": "98ce83de",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "c2aa1be6f2d662456262f282e8f9445d3af4f6254dfbc365814fd03eacbe1960"
       }
     },
     {
@@ -188,8 +218,11 @@
         "contentHash": "deaa5211",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "89aec465000b1c7d4f8865d86eb8708fe74ab7aab2b794feb8a390d14be0c104"
       }
     },
     {
@@ -200,8 +233,11 @@
         "contentHash": "465bfe9f",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "565ca21476e0d262c7e0417bbd3326468a2ae7b024f14c9f41591284233281ee"
       }
     },
     {
@@ -212,8 +248,11 @@
         "contentHash": "bea9e436",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "966bbc8e2d8b169a2170afae2f817d0abc35ca8d06f066c3bcea500fb794e80e"
       }
     },
     {
@@ -224,8 +263,11 @@
         "contentHash": "c326aad1",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "41534273bcc7251227e9cdfea126dd6059b45fc241b456bccad4b5f6e38381f1"
       }
     },
     {
@@ -236,8 +278,11 @@
         "contentHash": "819614e9",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "1d3c4c938b449390863b69ad1d6cda150443cddf322a9824030547119c5ed5ba"
       }
     },
     {
@@ -248,8 +293,11 @@
         "contentHash": "977c3fe6",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "0ec0166d5210ed885a78240fda3a7bd813609920092d19afd0edcdb11342028b"
       }
     },
     {
@@ -260,8 +308,11 @@
         "contentHash": "cbe4a857",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "c172c943eb4662126fde50e7858df8d7084aea2dc1b58d0055f17ced2e8f64d8"
       }
     },
     {
@@ -272,8 +323,11 @@
         "contentHash": "c617f23c",
         "sourceFamily": "DSM/ICD classification paraphrase",
         "sourceVerificationStatus": "source-needs-formal-review",
-        "clinicianReviewStatus": "clinician-review-pending",
-        "changedSinceReview": false
+        "clinicianReviewStatus": "clinician-reviewed",
+        "changedSinceReview": false,
+        "reviewedBy": "PsychSift",
+        "reviewedAt": "2026-09-26T17:27:24.455Z",
+        "reviewedContentSha256": "21412cb0d6db2e94496c08feff6f6ecc5992284e44750f31f1874e05f3fd06d8"
       }
     }
   ],
@@ -5013,8 +5067,11 @@
                     "rowKey": "specifier:trm:post-traumatic-stress-disorder:features:with-delayed-expression-full-criteria-not-met-until-at-least-6-months-after-the-event",
                     "contentHash": "0fe82d14",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "8e46ea71e10117b01c50dca10c659f9ed3768f2c86c59000b91e7773ba5be170"
                   }
                 },
                 {
@@ -5080,8 +5137,11 @@
                     "rowKey": "specifier:trm:complex-ptsd-icd-11:features:with-disturbances-in-self-organisation-affective-dysregulation-negative-self-concept-disturbances-in-relationships",
                     "contentHash": "096081d2",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "e35bcde1cb2112576833bf8ca218c519d807b92f458191a666ab59f5785d0d5e"
                   }
                 }
               ]
@@ -5102,8 +5162,11 @@
                     "rowKey": "specifier:trm:complex-ptsd-icd-11:severity:current-severity",
                     "contentHash": "6f4fcfd4",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "047082a50902350623d9288b0b2642a30821f4df8a67241e5cd45e3b8e41841c"
                   }
                 }
               ]
@@ -5260,8 +5323,11 @@
                     "rowKey": "specifier:trm:adjustment-disorders:course-severity:acute-less-than-6-months",
                     "contentHash": "f5f96059",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "1221d0a55289363862f2bcbab7cce4beb6457df875a591abe83fda41cd91d375"
                   }
                 },
                 {
@@ -5277,8 +5343,11 @@
                     "rowKey": "specifier:trm:adjustment-disorders:course-severity:persistent-chronic-6-months-or-longer",
                     "contentHash": "57ec1157",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "5844b695f76404d4352a8c7e8ecb3647830775f7e525666d96868bb7276c3097"
                   }
                 },
                 {
@@ -5379,8 +5448,11 @@
                     "rowKey": "specifier:dis:dissociative-identity-disorder:features:with-without-possession-form",
                     "contentHash": "7a3bdeaa",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "db23e943759c72ddd63fe06438003a175f15a43bc518345961f103d6b468fbcc"
                   }
                 }
               ]
@@ -5586,8 +5658,11 @@
                     "rowKey": "specifier:dis:trance-disorder-icd-11:features:with-without-possession",
                     "contentHash": "674a19dc",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "9b83e3c9b163305f4ed772a4eda06e66ad1fc0f2ee792d3f3ddbd57e4eed3161"
                   }
                 }
               ]
@@ -5660,8 +5735,11 @@
                     "rowKey": "specifier:som:somatic-symptom-disorder:features:persistent-more-than-6-months",
                     "contentHash": "b4342845",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "ff587b8585f633325301abf9f092ad75bc8f665b9a14cf1e4ca7f7b0a5af490f"
                   }
                 }
               ]
@@ -5682,8 +5760,11 @@
                     "rowKey": "specifier:som:somatic-symptom-disorder:severity:mild-1-criterion",
                     "contentHash": "4c0adb05",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "1315b7a0d5c62ff3d66cf66973ae88b11988023de97830b7f99427c5698dfd48"
                   }
                 },
                 {
@@ -5699,8 +5780,11 @@
                     "rowKey": "specifier:som:somatic-symptom-disorder:severity:moderate-2-criteria",
                     "contentHash": "77b45749",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "4b561b627deb328b50c7ddc3fc4196e451bfafbfbd02844db6d24b6b461e641a"
                   }
                 },
                 {
@@ -5716,8 +5800,11 @@
                     "rowKey": "specifier:som:somatic-symptom-disorder:severity:severe-2-criteria-multiple-severe-complaints",
                     "contentHash": "49e21a71",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "cb072ffe5488655b8c5871e69073729d2d714d29ed5d12e99b82db271f67379c"
                   }
                 }
               ]
@@ -5930,8 +6017,11 @@
                     "rowKey": "specifier:som:functional-neurological-symptom-disorder-conversion-fnd:course-context:acute-episode-less-than-6-months",
                     "contentHash": "c90ba399",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "da0c1cf35b1213ffc5b72713bbba9e64f37025fb992786c14ed7e470837fb58b"
                   }
                 },
                 {
@@ -5947,8 +6037,11 @@
                     "rowKey": "specifier:som:functional-neurological-symptom-disorder-conversion-fnd:course-context:persistent-6-months-or-more",
                     "contentHash": "23dc30e5",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "cdebcc884ec0d5166dd0d5d4d757e4dc8938239ef76a3e6dbcd378578db73f4b"
                   }
                 },
                 {
@@ -6309,8 +6402,11 @@
                     "rowKey": "specifier:eat:avoidant-restrictive-food-intake-disorder-arfid:features-icd-11:with-inadequate-food-intake-associated-with-limited-availability",
                     "contentHash": "10cc9990",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "a95fead5ea02aeb1c677e774c07e111d12a7f58d83a6753dafb112da905b3bd4"
                   }
                 },
                 {
@@ -6326,8 +6422,11 @@
                     "rowKey": "specifier:eat:avoidant-restrictive-food-intake-disorder-arfid:features-icd-11:with-avoidance-restriction-based-on-sensory-characteristics",
                     "contentHash": "0745a1f7",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "364eb5c07659270291291f32412bd499dd3f890bda5fe3b4cab00e2f648d1137"
                   }
                 },
                 {
@@ -6343,8 +6442,11 @@
                     "rowKey": "specifier:eat:avoidant-restrictive-food-intake-disorder-arfid:features-icd-11:with-avoidance-related-to-aversive-consequences-of-eating",
                     "contentHash": "38dfc6bb",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "85e88bf3dd8d29555b115bfeffda06f2d6f785e62c32f510050abf90ed2d4d04"
                   }
                 }
               ]
@@ -6483,8 +6585,11 @@
                     "rowKey": "specifier:eat:anorexia-nervosa:course-severity:mild-bmi-17-or-above",
                     "contentHash": "002cd3e9",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "e8975620446cb55d2c6e1941389f579b099f75e23e253ba12d3729e55bd3033e"
                   }
                 },
                 {
@@ -6500,8 +6605,11 @@
                     "rowKey": "specifier:eat:anorexia-nervosa:course-severity:moderate-bmi-16-16-99",
                     "contentHash": "fd5cd24c",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "e6b920b3aa874ac1e1a4841b5490b5cab3fc47830852af094364771bc335cecf"
                   }
                 },
                 {
@@ -6517,8 +6625,11 @@
                     "rowKey": "specifier:eat:anorexia-nervosa:course-severity:severe-bmi-15-15-99",
                     "contentHash": "f2e1d570",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "b7e806ce277d845ba5706ddf706e0e45cbdb830718b0799df14d217a51c6b694"
                   }
                 },
                 {
@@ -6534,8 +6645,11 @@
                     "rowKey": "specifier:eat:anorexia-nervosa:course-severity:extreme-bmi-below-15",
                     "contentHash": "d1a13d02",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "18af2fd94b3c8dbf57f6188969ad2e4b2d1a4c79857aee86707d1e1fb5127a37"
                   }
                 }
               ]
@@ -6596,8 +6710,11 @@
                     "rowKey": "specifier:eat:bulimia-nervosa:course-severity:mild-1-3-episodes-week",
                     "contentHash": "415e1b56",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "62a78f6792164f20b1af585d6384e9dda0e44b1609512712d42d3605dedc305d"
                   }
                 },
                 {
@@ -6613,8 +6730,11 @@
                     "rowKey": "specifier:eat:bulimia-nervosa:course-severity:moderate-4-7-episodes-week",
                     "contentHash": "39973dbf",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "0886b518f5e68b385e192fe893681972a9c42411e02269e9d6bd6bb991a18c5e"
                   }
                 },
                 {
@@ -6630,8 +6750,11 @@
                     "rowKey": "specifier:eat:bulimia-nervosa:course-severity:severe-8-13-episodes-week",
                     "contentHash": "7963c588",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "35c5c15786292548d471d8f9b93ed440fbe1365e0fa7a88768f0b32cf061aa28"
                   }
                 },
                 {
@@ -6647,8 +6770,11 @@
                     "rowKey": "specifier:eat:bulimia-nervosa:course-severity:extreme-14-or-more-episodes-week",
                     "contentHash": "eb35e1b4",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "f14683ef6f0b12c5b10f1646ec92743b206b3eb44a2524ad3f10400c162ef51a"
                   }
                 }
               ]
@@ -6709,8 +6835,11 @@
                     "rowKey": "specifier:eat:binge-eating-disorder:course-severity:mild-1-3-episodes-week",
                     "contentHash": "550c9c88",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "ee1532714e6ef49b376605db498b89c223eb665dc2018e32ca72ae32b5153ba2"
                   }
                 },
                 {
@@ -6726,8 +6855,11 @@
                     "rowKey": "specifier:eat:binge-eating-disorder:course-severity:moderate-4-7-episodes-week",
                     "contentHash": "d601a995",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "1626c55304e855a1859a9ed0148106c2a90b7da673e6e26daadc00d716e5a2ec"
                   }
                 },
                 {
@@ -6743,8 +6875,11 @@
                     "rowKey": "specifier:eat:binge-eating-disorder:course-severity:severe-8-13-episodes-week",
                     "contentHash": "2b4df06c",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "f7f9b094e823261faec159fc3d9a57acc27ccbea7acd67effa95ee34ad850042"
                   }
                 },
                 {
@@ -6760,8 +6895,11 @@
                     "rowKey": "specifier:eat:binge-eating-disorder:course-severity:extreme-14-or-more-episodes-week",
                     "contentHash": "c7101382",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "bacd40adf46d696923852be9e7a831523e1ba9a2937e2023fde0af808b7db676"
                   }
                 }
               ]
@@ -6926,8 +7064,11 @@
                     "rowKey": "specifier:slp:insomnia-disorder:course:persistent-3-months-or-more",
                     "contentHash": "0c7d3e7c",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "43dfdc2a8cc25887edf5f80da6250dae7377992acac137100a43bdae74fa1072"
                   }
                 },
                 {
@@ -7027,8 +7168,11 @@
                     "rowKey": "specifier:slp:hypersomnolence-disorder:course:acute-less-than-1-month",
                     "contentHash": "2c40223f",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "232736f16aba4d5334f26c7189de9d5001469e67f7e3b14c8f2537f80894e4a7"
                   }
                 },
                 {
@@ -7044,8 +7188,11 @@
                     "rowKey": "specifier:slp:hypersomnolence-disorder:course:subacute-1-3-months",
                     "contentHash": "bed554ec",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "aa091251ce088aecd4138701b1015cca8cb31f856ebd9a0dedde808dd0096d78"
                   }
                 },
                 {
@@ -7061,8 +7208,11 @@
                     "rowKey": "specifier:slp:hypersomnolence-disorder:course:persistent-more-than-3-months",
                     "contentHash": "6ce3c5d8",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "a82ec90b74627cf8ef6de561d7051892eb202a2ea47e9f8ea238a3c6524ddcd8"
                   }
                 }
               ]
@@ -7134,8 +7284,11 @@
                     "rowKey": "specifier:slp:hypersomnolence-disorder:context-severity:mild-1-2-days-week",
                     "contentHash": "3d01007c",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "4ce1f181e2869f01f9abcd5584917bd13890ccb86fd15956ece5d99c0e3dacdf"
                   }
                 },
                 {
@@ -7151,8 +7304,11 @@
                     "rowKey": "specifier:slp:hypersomnolence-disorder:context-severity:moderate-3-4-days-week",
                     "contentHash": "6386a780",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "67a86ccfb4cde7824247fdf465e0f2694f90ca75893884942d2204fa47c5feea"
                   }
                 },
                 {
@@ -7168,8 +7324,11 @@
                     "rowKey": "specifier:slp:hypersomnolence-disorder:context-severity:severe-5-7-days-week",
                     "contentHash": "5edb40a1",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "6561f42efdbb6c45bfac2dd1d543b01e3f331488eea008f72a8f11dd37d30eec"
                   }
                 }
               ]
@@ -7585,8 +7744,11 @@
                     "rowKey": "specifier:slp:nightmare-disorder:course:acute-less-than-1-month",
                     "contentHash": "2945613f",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "341490cc75468b9004437bae3b3cebf033fb52db022bb06440d70db04e12cae4"
                   }
                 },
                 {
@@ -7602,8 +7764,11 @@
                     "rowKey": "specifier:slp:nightmare-disorder:course:subacute-1-6-months",
                     "contentHash": "c442dbd3",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "5b261fe70b422182a9b82693d071639c4e7bf97ead8ed7ab674299ce7555eebc"
                   }
                 },
                 {
@@ -7619,8 +7784,11 @@
                     "rowKey": "specifier:slp:nightmare-disorder:course:persistent-6-months-or-more",
                     "contentHash": "d5dcfc09",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "3f8d0a86406156105bb1e78e75892b4c57e67ba056bec9b4ac0edfa8eda8bfad"
                   }
                 }
               ]
@@ -9084,8 +9252,11 @@
                     "rowKey": "specifier:gen:gender-incongruence-icd-11:subtypes:gender-incongruence-of-adolescence-or-adulthood",
                     "contentHash": "5349af95",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "ed50dc55555bff5db68b4aac5feb3786a50fa50f439b1dc695945aab363ef2f3"
                   }
                 },
                 {
@@ -9101,8 +9272,11 @@
                     "rowKey": "specifier:gen:gender-incongruence-icd-11:subtypes:gender-incongruence-of-childhood",
                     "contentHash": "1583c5f2",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "1c7ae646cec043211b7e413a78fa0ad1954e1bfba388e13be0700720498f8e09"
                   }
                 }
               ]
@@ -9158,8 +9332,11 @@
                     "rowKey": "specifier:imp:oppositional-defiant-disorder:severity:mild-confined-to-1-setting",
                     "contentHash": "0984212f",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "1d286e995e536b82bf8f22470c27515a214545792508a6ac6c1dfd1c6eaf7207"
                   }
                 },
                 {
@@ -9175,8 +9352,11 @@
                     "rowKey": "specifier:imp:oppositional-defiant-disorder:severity:moderate-2-settings",
                     "contentHash": "abd62e36",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "2b19b14fb6360392f95ff244c3b2deabd635685e7ca2faa55af49a4386729019"
                   }
                 },
                 {
@@ -9192,8 +9372,11 @@
                     "rowKey": "specifier:imp:oppositional-defiant-disorder:severity:severe-3-settings",
                     "contentHash": "67ae86cc",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "647da5148069d50671f6aab348b68eecb84e0dd70fc551a9cdcb54fc40dcbfe0"
                   }
                 }
               ]
@@ -9265,8 +9448,11 @@
                     "rowKey": "specifier:imp:conduct-disorder:onset:adolescent-onset-type-no-symptoms-prior-to-age-10",
                     "contentHash": "ca67ad37",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "410816163fae644302896625d730c896417010a5b6423475ba09fd2710af83bd"
                   }
                 },
                 {
@@ -9446,8 +9632,11 @@
                     "rowKey": "specifier:sub:substance-use-disorders-general-specifiers:severity:mild-2-3-symptoms",
                     "contentHash": "9d47099d",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "b2ac802ce750c2cdd0cbbae93838765cf2b8937115c7303d6524dacd37aeb07f"
                   }
                 },
                 {
@@ -9463,8 +9652,11 @@
                     "rowKey": "specifier:sub:substance-use-disorders-general-specifiers:severity:moderate-4-5-symptoms",
                     "contentHash": "e6b19c17",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "ff25388719a0d90c52ef508da0f16cbc5d2077950e1720a39331225906213826"
                   }
                 },
                 {
@@ -9480,8 +9672,11 @@
                     "rowKey": "specifier:sub:substance-use-disorders-general-specifiers:severity:severe-6-or-more-symptoms",
                     "contentHash": "e9e1e863",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "0f75bf49647de4d8d4199f2f79d8b48f67e350767aad57f5919f83af8328b962"
                   }
                 }
               ]
@@ -9502,8 +9697,11 @@
                     "rowKey": "specifier:sub:substance-use-disorders-general-specifiers:course-context:in-early-remission-at-least-3-months-but-less-than-12-months",
                     "contentHash": "a8c41ac7",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "3508b37f1c8466c1e77ef85a5b524aa26ce503b9b1930044977a10260108a68a"
                   }
                 },
                 {
@@ -9519,8 +9717,11 @@
                     "rowKey": "specifier:sub:substance-use-disorders-general-specifiers:course-context:in-sustained-remission-12-months-or-more",
                     "contentHash": "91632f82",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "2a1b45137858367308de21bb1cf6f87666edd5747dffb3d84f74b64842dafa44"
                   }
                 },
                 {
@@ -9936,8 +10137,11 @@
                     "rowKey": "specifier:sub:gaming-disorder-icd-11:type:predominantly-online",
                     "contentHash": "01471348",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "4b2e31770890ecda6bccae25538a37acc4fca52125941d5a0a96c163d11a581e"
                   }
                 },
                 {
@@ -9953,8 +10157,11 @@
                     "rowKey": "specifier:sub:gaming-disorder-icd-11:type:predominantly-offline",
                     "contentHash": "62b45c5c",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "ac8fe1290dff00731e4b7a167613dfc4a0c6b82193c72ea99b9c8c02153bd0c5"
                   }
                 }
               ]
@@ -9975,8 +10182,11 @@
                     "rowKey": "specifier:sub:gaming-disorder-icd-11:severity:current-severity",
                     "contentHash": "aedceefa",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "27d8e2b7d0dc837176b514373a744645def0139d2910217a92d3c42a76704d18"
                   }
                 }
               ]
@@ -10100,8 +10310,11 @@
                     "rowKey": "specifier:ncg:delirium:course-activity:acute-hours-to-days",
                     "contentHash": "4d79229d",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "1a8ae7a3a85f219da3ca984fab99ef560fd602809b1c2137e4a97a3626801368"
                   }
                 },
                 {
@@ -10117,8 +10330,11 @@
                     "rowKey": "specifier:ncg:delirium:course-activity:persistent-weeks-to-months",
                     "contentHash": "5092c579",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "d8d6f8b50413eab44e7b8f470f0b43fe365f442a23406cb61fde1d45c7998786"
                   }
                 },
                 {
@@ -10751,8 +10967,11 @@
                     "rowKey": "specifier:per:dsm-5-tr-alternative-model-section-iii-ampd:pathological-traits:negative-affectivity",
                     "contentHash": "2937186a",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "83b09084e729facdc81bc55eaa55da76c89e9a554fa693185277228ce823a1ee"
                   }
                 },
                 {
@@ -10768,8 +10987,11 @@
                     "rowKey": "specifier:per:dsm-5-tr-alternative-model-section-iii-ampd:pathological-traits:detachment",
                     "contentHash": "7c179cec",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "2556acb0d3e1b0b6cb65203aafa716d76f3bcc3dcea7aa0657f1faab94049b50"
                   }
                 },
                 {
@@ -10802,8 +11024,11 @@
                     "rowKey": "specifier:per:dsm-5-tr-alternative-model-section-iii-ampd:pathological-traits:disinhibition",
                     "contentHash": "50e6ced1",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "f70b4e64bcdc0d732b6538de377c2549076a70276f53a2f3f2deca994fe3783d"
                   }
                 },
                 {
@@ -10847,8 +11072,11 @@
                     "rowKey": "specifier:per:icd-11-dimensional-model:severity:personality-difficulty-subthreshold",
                     "contentHash": "ef4eaae9",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "27a5e27f51c59abef4f94df2d23afb67cdbb592334eebe87319aa35126433dae"
                   }
                 },
                 {
@@ -10864,8 +11092,11 @@
                     "rowKey": "specifier:per:icd-11-dimensional-model:severity:mild",
                     "contentHash": "1f5ed7f7",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "a760b8708433b0e1588d9a5c3575a676fd1945fe9997a63a21549a90cbbfd030"
                   }
                 },
                 {
@@ -10881,8 +11112,11 @@
                     "rowKey": "specifier:per:icd-11-dimensional-model:severity:moderate",
                     "contentHash": "6b82009f",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "cd21c05feaf063e21f24b9ed68cd8336b1890529b1168ca9f690bbcd857c1b9a"
                   }
                 },
                 {
@@ -10898,8 +11132,11 @@
                     "rowKey": "specifier:per:icd-11-dimensional-model:severity:severe",
                     "contentHash": "3988d051",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "e7886ca2381458193075c8cd7ff5acd76d14b65565eecaccd33e09a58f4ac1e3"
                   }
                 }
               ]
@@ -10920,8 +11157,11 @@
                     "rowKey": "specifier:per:icd-11-dimensional-model:trait-qualifiers:negative-affectivity-detachment-dissociality-disinhibition-anankastia",
                     "contentHash": "61bb60b6",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "725da44f86b2f601fec41d6afdffed74390d83680b7cb0429b6d270b6f13190a"
                   }
                 }
               ]
@@ -10942,8 +11182,11 @@
                     "rowKey": "specifier:per:icd-11-dimensional-model:pattern:borderline-pattern-qualifier",
                     "contentHash": "390587e6",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "214ab83a9acb90b70e0120c88cd8d0417af65680c51cf8d425edf05971aea4f8"
                   }
                 }
               ]
@@ -11714,8 +11957,11 @@
                     "rowKey": "specifier:icd:gaming-disorder:type:predominantly-online",
                     "contentHash": "77f20224",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "ad6564d9f3f6303dc60c500739b1a41215f210f061ba904521524bb12dbcd82c"
                   }
                 },
                 {
@@ -11731,8 +11977,11 @@
                     "rowKey": "specifier:icd:gaming-disorder:type:predominantly-offline",
                     "contentHash": "fa81dac8",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "0ca7b42a37a2cb7dd9422004791447ae38c45a745ab17ac495044747bcb489d8"
                   }
                 }
               ]
@@ -11753,8 +12002,11 @@
                     "rowKey": "specifier:icd:gaming-disorder:severity:current-severity",
                     "contentHash": "f5a16488",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "19097bdd45738cd019a62d12fd5d62844733ca0cbe8e41ce11e0f6f654aaca64"
                   }
                 }
               ]
@@ -11809,8 +12061,11 @@
                     "rowKey": "specifier:icd:complex-ptsd:self-organisation:affective-dysregulation-negative-self-concept-disturbances-in-relationships",
                     "contentHash": "67547e42",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "a3d565b5e0f21e262d60bf23cfabf830caf4e41e41b644fb178ed8dce9fbe3d9"
                   }
                 }
               ]
@@ -11854,8 +12109,11 @@
                     "rowKey": "specifier:icd:catatonia-standalone-diagnosis:context:induced-by-psychoactive-substances-including-medications",
                     "contentHash": "e372acd8",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "02e944a1dd2d8a49d168d0bf43983bd8b46d8dca0755db96b3e155b5ef48f9c1"
                   }
                 },
                 {
@@ -11871,8 +12129,11 @@
                     "rowKey": "specifier:icd:catatonia-standalone-diagnosis:context:secondary-to-a-medical-condition-not-classified-elsewhere",
                     "contentHash": "74026c12",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "19baed3640d20b57a3a33d8ce71b1729dd8f55c3d263aff3c3fdca6ba3e915e2"
                   }
                 }
               ]
@@ -11989,8 +12250,11 @@
                     "rowKey": "specifier:icd:trance-disorder:features:with-without-possession",
                     "contentHash": "8645b648",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "d2653646f675b9321ae058718159041624c0e170cd96958378c97c3bee43819a"
                   }
                 }
               ]
@@ -12129,8 +12393,11 @@
                     "rowKey": "specifier:icd:gender-incongruence:classification:reclassified-to-conditions-related-to-sexual-health-not-mental-disorders",
                     "contentHash": "d087543d",
                     "sourceVerificationStatus": "source-verified",
-                    "clinicianReviewStatus": "clinician-review-pending",
-                    "changedSinceReview": false
+                    "clinicianReviewStatus": "clinician-reviewed",
+                    "changedSinceReview": false,
+                    "reviewedBy": "PsychSift",
+                    "reviewedAt": "2026-09-26T17:27:24.455Z",
+                    "reviewedContentSha256": "7cdf6237c2204219650ee312a4045fdf81baaae0ec502e5c8704b88fd32e0d28"
                   }
                 }
               ]

@@ -91,7 +91,8 @@ vi.mock("@/lib/dictionary-editorial/definition-reviews", async (importOriginal) 
           reviewedContentSha256: "a".repeat(64),
         },
       },
-      pending,
+      // The unsigned fixture must stay unsigned when the shipped proposal is approved.
+      { ...pending, clinicalApproval: undefined },
       {
         ...malformed,
         clinicalApproval: { status: "approved", reviewer: "", reviewedAt: "x", reviewedContentSha256: "" },
