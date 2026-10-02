@@ -47,10 +47,14 @@ function TotalsBars({ title, rows }: { title: string; rows: readonly { label: st
               aria-hidden="true"
               className="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-[color:var(--surface-inset)]"
             >
-              <span
-                className="block h-full rounded-full bg-[color:var(--text-muted)] forced-colors:bg-[CanvasText]"
-                style={{ width: `${(row.count / max) * 100}%` }}
-              />
+              {/* An SVG width attribute, not an inline style: the share is data-driven (drift ratchet). */}
+              <svg
+                viewBox="0 0 100 1"
+                preserveAspectRatio="none"
+                className="block h-full w-full text-[color:var(--text-muted)] forced-colors:text-[CanvasText]"
+              >
+                <rect width={(row.count / max) * 100} height="1" fill="currentColor" />
+              </svg>
             </span>
             <span aria-hidden="true" className={cn(modeNumberText, "w-8 shrink-0 text-right text-xs", textMuted)}>
               {row.count}
