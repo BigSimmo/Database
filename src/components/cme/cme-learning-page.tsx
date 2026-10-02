@@ -109,7 +109,7 @@ function LearningItemCard({
           <button
             type="button"
             onClick={() => downloadCalendarEvent(item)}
-            className="inline-flex min-h-12 items-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+            className="inline-flex min-h-12 min-w-12 items-center gap-1.5 rounded-lg text-sm font-semibold text-[color:var(--clinical-accent)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
           >
             <CalendarPlus aria-hidden="true" className="size-icon-sm" />
             Add to calendar
