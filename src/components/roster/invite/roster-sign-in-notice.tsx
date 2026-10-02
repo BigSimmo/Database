@@ -20,7 +20,8 @@ export function RosterSignInNotice({ children, testId }: { readonly children: Re
       <Button variant="primary" icon={LogIn} onClick={() => setOpen(true)} className="justify-self-start">
         Sign in
       </Button>
-      <AccountSetupDialog open={open} onClose={() => setOpen(false)} />
+      {/* Mounted only once asked for, so a signed-out screen needs nothing from the session until then. */}
+      {open ? <AccountSetupDialog open onClose={() => setOpen(false)} /> : null}
     </div>
   );
 }
