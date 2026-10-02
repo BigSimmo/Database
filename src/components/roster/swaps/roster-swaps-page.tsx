@@ -5,7 +5,6 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
-import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
 import { RosterSentBar, type SentReceipt } from "@/components/roster/requests/roster-sent-bar";
 import { kindOf, useRosterNow } from "@/components/roster/roster-format";
 import { SwapAnswerCard } from "@/components/roster/swaps/swap-flow-sheet";
@@ -22,6 +21,8 @@ import { gradeRank, placementProblem } from "@/lib/roster/team/eligibility";
 import type { RosterAction, RosterManageSwap, RosterOpenShift, RosterSwap } from "@/lib/roster/team/model";
 import { requestStatusWords } from "@/lib/roster/team/request-status";
 import { swapProgress } from "@/lib/roster/team/swap-progress";
+import { ArrowLeftRight, CheckCircle2 } from "lucide-react";
+import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 
 type TabId = "needs_you" | "sent" | "open" | "history" | "all";
 
@@ -248,7 +249,7 @@ export function RosterSwapsPage() {
     );
   }
 
-  const empty = (text: string) => <p className="rounded-xl border border-[color:var(--border)] p-4">{text}</p>;
+  const empty = (text: string) => <RosterEmpty icon={CheckCircle2}>{text}</RosterEmpty>;
   const openCount = eligibleOpen.length + openNow.length;
   const items = [
     { id: "needs_you", label: "Needs you", count: needsYou.length },
@@ -262,26 +263,28 @@ export function RosterSwapsPage() {
 
   return (
     <InformationPageShell testId="roster-swaps-page">
-      <header>
-        <p className="text-sm text-[color:var(--text-muted)]">Roster</p>
-        <h1 className="text-2xl font-semibold">Swaps</h1>
-        <p className="text-sm text-[color:var(--text-muted)]">
-          Swaps and open shifts. To start a swap, tap one of your shifts on the{" "}
-          <Link href="/roster/team" className="underline">
-            Team calendar
-          </Link>
-          .
-        </p>
-      </header>
+      <RosterPageHeader
+        icon={ArrowLeftRight}
+        eyebrow="Roster"
+        title="Swaps"
+        subtitle={
+          <>
+            Swaps and open shifts. To start a swap, tap one of your shifts on the{" "}
+            <Link href="/roster/team" className="underline underline-offset-2">
+              Team calendar
+            </Link>
+            .
+          </>
+        }
+      />
       <RosterSampleNotice sample={teams.data?.sample} />
-      <RosterAskBox />
       {enabled.length > 1 ? (
         <label className="grid max-w-sm gap-1 text-sm">
           Team
           <select
             value={selectedServiceId ?? ""}
             onChange={(event) => setSelectedServiceId(event.target.value || null)}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            className={rosterField}
           >
             <option value="">Choose a team</option>
             {enabled.map((team) => (
