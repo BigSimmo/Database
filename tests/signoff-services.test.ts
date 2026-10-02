@@ -35,7 +35,7 @@ import { bundledServiceGovernance } from "@/lib/site-content/bundled-service-cat
  */
 
 const ROOT = process.cwd();
-const NOW = new Date("2026-09-26T06:00:00.000Z");
+const NOW = new Date("2026-10-02T06:00:00.000Z");
 const REVIEWED_AT = "2026-09-25T05:00:00.000Z";
 const REVIEWER = "Dr Clinical Owner";
 /** The 2026-08-24 site-content freeze: every curated record verified after it is unpublished. */

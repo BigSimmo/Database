@@ -82,9 +82,11 @@
       "claimIds": ["psychsift.formulation.claim.affect-intolerance.concept-definition"],
       "packageContentId": "psychsift.formulation.content.affect-intolerance",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "88deccec5728120e949fad3e5389472cb9c9f6f440faeedfd936a22514f7c75e"
       },
       "release": "published",
       "releaseNote": null,
@@ -152,9 +154,11 @@
       "claimIds": ["psychsift.formulation.claim.checking-compulsion.concept-definition"],
       "packageContentId": "psychsift.formulation.content.checking-compulsion",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "25335eb545d5a87f1254595d39f1eaa42fe5b76e48e5ff6efad024428853efb5"
       },
       "release": "published",
       "releaseNote": null,
@@ -204,9 +208,11 @@
       "claimIds": ["psychsift.formulation.claim.conditioning.concept-definition"],
       "packageContentId": "psychsift.formulation.content.conditioning",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "cd6c2e2ef0324ec1c3a0b1ca5798834bc67f015c4d0da76ac5378591235d352c"
       },
       "release": "published",
       "releaseNote": null,
@@ -256,9 +262,11 @@
       "claimIds": ["psychsift.formulation.claim.distress-impulsivity.concept-definition"],
       "packageContentId": "psychsift.formulation.content.distress-impulsivity",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "badc5f5bb7263bdc030eec645842683f4304893736a352f2d61884880b2a8dfd"
       },
       "release": "published",
       "releaseNote": null,
@@ -308,9 +316,11 @@
       "claimIds": ["psychsift.formulation.claim.guilt.concept-definition"],
       "packageContentId": "psychsift.formulation.content.guilt",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "edc219878148863f551e298584f246db2e67983ee8f94d4300b1bfd995e06b17"
       },
       "release": "published",
       "releaseNote": null,
@@ -360,9 +370,11 @@
       "claimIds": ["psychsift.formulation.claim.hopelessness.concept-definition"],
       "packageContentId": "psychsift.formulation.content.hopelessness",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "65f6dc760d9ac177b371b6af47066fb814f426f6e04ed0f8e8b6ca5ec837c847"
       },
       "release": "published",
       "releaseNote": null,
@@ -410,9 +422,11 @@
       "claimIds": ["psychsift.formulation.claim.intolerance-uncertainty.concept-definition"],
       "packageContentId": "psychsift.formulation.content.intolerance-uncertainty",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "6f762c6d0ce4312bd1aa2d6d79d7d6f1b940e296fe997cf629aef9c30b210168"
       },
       "release": "published",
       "releaseNote": null,
@@ -462,9 +476,11 @@
       "claimIds": ["psychsift.formulation.claim.negative-reinforcement.concept-definition"],
       "packageContentId": "psychsift.formulation.content.negative-reinforcement",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "d5189195ff0529c977397c845f436eb57df1f366fc3758bb2f5d25639ecb5a46"
       },
       "release": "published",
       "releaseNote": null,
@@ -532,9 +548,11 @@
       "claimIds": ["psychsift.formulation.claim.safety-behaviour.concept-definition"],
       "packageContentId": "psychsift.formulation.content.safety-behaviour",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "2968164f1e27041781d97291dcda3ebd19f955c03539782d37349ee6bd471353"
       },
       "release": "published",
       "releaseNote": null,
@@ -584,9 +602,11 @@
       "claimIds": ["psychsift.formulation.claim.self-criticism.concept-definition"],
       "packageContentId": "psychsift.formulation.content.self-criticism",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "c71b9b0b6abceae4c5f81f30b6cd3c15b1b662537faa2af799ba82c8ae9df310"
       },
       "release": "published",
       "releaseNote": null,
@@ -652,9 +672,11 @@
       "claimIds": ["psychsift.formulation.claim.threat-appraisal.concept-definition"],
       "packageContentId": "psychsift.formulation.content.threat-appraisal",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "7d51631c7ae6006040549cfb6608ffe48fdb7805a886cc17a927910b3c07b757"
       },
       "release": "published",
       "releaseNote": null,
@@ -722,9 +744,11 @@
       "claimIds": ["psychsift.formulation.claim.trauma-threat.concept-definition"],
       "packageContentId": "psychsift.formulation.content.trauma-threat",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "5219d404602626699abca78cd7f5d4d0649010b062d5d3c2bd70bb47454e29f6"
       },
       "release": "published",
       "releaseNote": null,
@@ -774,9 +798,11 @@
       "claimIds": ["psychsift.formulation.claim.acting-out.concept-definition"],
       "packageContentId": "psychsift.formulation.content.acting-out",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "82b017ee42a0d5e071f4977777e0023ae8929e231133a3b5beb9e8235f1c497d"
       },
       "release": "published",
       "releaseNote": null,
@@ -826,9 +852,11 @@
       "claimIds": ["psychsift.formulation.claim.attachment-anxiety.concept-definition"],
       "packageContentId": "psychsift.formulation.content.attachment-anxiety",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "2e85532c14bf561d435c76debd829930ad61c479e18d8c82d24ca4eb9e656a09"
       },
       "release": "published",
       "releaseNote": null,
@@ -878,9 +906,11 @@
       "claimIds": ["psychsift.formulation.claim.denial.concept-definition"],
       "packageContentId": "psychsift.formulation.content.denial",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "249e98823e377c11256cc1c9fa4736284a4a08dc00a82b638821e1279a1bdb93"
       },
       "release": "published",
       "releaseNote": null,
@@ -930,9 +960,11 @@
       "claimIds": ["psychsift.formulation.claim.displacement.concept-definition"],
       "packageContentId": "psychsift.formulation.content.displacement",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "2ecc57b30b4933de04b38a223a785eafe69eea4b5d0220de8e90eb00f6a2f711"
       },
       "release": "published",
       "releaseNote": null,
@@ -982,9 +1014,11 @@
       "claimIds": ["psychsift.formulation.claim.family-accommodation.concept-definition"],
       "packageContentId": "psychsift.formulation.content.family-accommodation",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "487fa761db7c231a4613908d4cd4ab63ac6a9ff6ac4216f745c7a03bd52a0d3d"
       },
       "release": "published",
       "releaseNote": null,
@@ -1034,9 +1068,11 @@
       "claimIds": ["psychsift.formulation.claim.idealisation-devaluation.concept-definition"],
       "packageContentId": "psychsift.formulation.content.idealisation-devaluation",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "f22da6ef5b8210b532e2cc60b83c76e499fdb7934d10ab625f205168fc6343f3"
       },
       "release": "published",
       "releaseNote": null,
@@ -1086,9 +1122,11 @@
       "claimIds": ["psychsift.formulation.claim.intellectualisation.concept-definition"],
       "packageContentId": "psychsift.formulation.content.intellectualisation",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "8fdef28262b62cd56a2e97d8fd3f7c1a3d2e0aa31fbc83540572c5016ba0e51d"
       },
       "release": "published",
       "releaseNote": null,
@@ -1138,9 +1176,11 @@
       "claimIds": ["psychsift.formulation.claim.isolation-affect.concept-definition"],
       "packageContentId": "psychsift.formulation.content.isolation-affect",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "4d123b4df9e4f082894c775da5d23cc1128c38913f96a56599bdfd819c5c5676"
       },
       "release": "published",
       "releaseNote": null,
@@ -1190,9 +1230,11 @@
       "claimIds": ["psychsift.formulation.claim.mentalising.concept-definition"],
       "packageContentId": "psychsift.formulation.content.mentalising",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "22a3ffd795518d9a4c9e8e90ac2864e8104ca74b56e0cc6590ded1244e0049f0"
       },
       "release": "published",
       "releaseNote": null,
@@ -1242,9 +1284,11 @@
       "claimIds": ["psychsift.formulation.claim.reaction-formation.concept-definition"],
       "packageContentId": "psychsift.formulation.content.reaction-formation",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "408aa6f8ee528e11afe5ea37dca91091a81f40e21fb73f14942a632b598dad94"
       },
       "release": "published",
       "releaseNote": null,
@@ -1310,9 +1354,11 @@
       "claimIds": ["psychsift.formulation.claim.rejection-sensitivity.concept-definition"],
       "packageContentId": "psychsift.formulation.content.rejection-sensitivity",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "b0cf245d2ec06193e96404e9c1e1e25021c48d0af7d4b24b106d031e25f87fa9"
       },
       "release": "published",
       "releaseNote": null,
@@ -1376,9 +1422,11 @@
       "claimIds": ["psychsift.formulation.claim.rupture-repair.concept-definition"],
       "packageContentId": "psychsift.formulation.content.rupture-repair",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "94705e511b7728f1f01dd44ed0e42da7eb6b12f4545d93bbaa138b89b2c1895f"
       },
       "release": "published",
       "releaseNote": null,
@@ -1428,9 +1476,11 @@
       "claimIds": ["psychsift.formulation.claim.undoing.concept-definition"],
       "packageContentId": "psychsift.formulation.content.undoing",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "5d9cc851752f848bfdd818d667a16bd91728c0888f5ac6f3f42f0f49fb966a5f"
       },
       "release": "published",
       "releaseNote": null,
@@ -1494,9 +1544,11 @@
       "claimIds": ["psychsift.formulation.claim.cognitive-impairment.concept-definition"],
       "packageContentId": "psychsift.formulation.content.cognitive-impairment",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "d3b4fb511167810e44a292ca5ccca8f20bea08721f19e2c6cfb8eeaaec3ddef4"
       },
       "release": "published",
       "releaseNote": null,
@@ -1560,9 +1612,11 @@
       "claimIds": ["psychsift.formulation.claim.medical-neurological.concept-definition"],
       "packageContentId": "psychsift.formulation.content.medical-neurological",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "782104806228aba0128c58b9cd003731714c6e38ed9b0511450bfc8faac1c872"
       },
       "release": "published",
       "releaseNote": null,
@@ -1626,9 +1680,11 @@
       "claimIds": ["psychsift.formulation.claim.medication-iatrogenic.concept-definition"],
       "packageContentId": "psychsift.formulation.content.medication-iatrogenic",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "ae043e22214d6954141fa05b8f2c819d78e88f5365e12b39b4cacdc38294c15e"
       },
       "release": "published",
       "releaseNote": null,
@@ -1692,9 +1748,11 @@
       "claimIds": ["psychsift.formulation.claim.neurodevelopmental.concept-definition"],
       "packageContentId": "psychsift.formulation.content.neurodevelopmental",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "0b05e724f1afa5fff2d20e209e75bece0eb21d7071431e0fc4f60af2a71c2e99"
       },
       "release": "published",
       "releaseNote": null,
@@ -1742,9 +1800,11 @@
       "claimIds": ["psychsift.formulation.claim.pain-physical-distress.concept-definition"],
       "packageContentId": "psychsift.formulation.content.pain-physical-distress",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "e7ffeb9796a46cff2cd350b8bb1bcf0831f1ed4918b798bc71f7f60b22655187"
       },
       "release": "published",
       "releaseNote": null,
@@ -1808,9 +1868,11 @@
       "claimIds": ["psychsift.formulation.claim.sleep-circadian.concept-definition"],
       "packageContentId": "psychsift.formulation.content.sleep-circadian",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "03111bcef0d8d2a17302ad1021aa09a236f48750c021d1fce7d20afc808b36c0"
       },
       "release": "published",
       "releaseNote": null,
@@ -1874,9 +1936,11 @@
       "claimIds": ["psychsift.formulation.claim.substance.concept-definition"],
       "packageContentId": "psychsift.formulation.content.substance",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "c1fe7a456debdf5cceb6daedd1888aa0ec753d026aa088c9def4f8a952d7df55"
       },
       "release": "published",
       "releaseNote": null,
@@ -1924,9 +1988,11 @@
       "claimIds": ["psychsift.formulation.claim.caregiving-role.concept-definition"],
       "packageContentId": "psychsift.formulation.content.caregiving-role",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "538349fb6e8d3809fd3695ec3d590f6b738fa5c4f06bdecdf7b4fe7aaba1217e"
       },
       "release": "published",
       "releaseNote": null,
@@ -1992,9 +2058,11 @@
       "claimIds": ["psychsift.formulation.claim.housing-financial.concept-definition"],
       "packageContentId": "psychsift.formulation.content.housing-financial",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "6abf11844a293187e92126ecb78bc0b931b59b1358684a04f1fe24316332c325"
       },
       "release": "published",
       "releaseNote": null,
@@ -2042,9 +2110,11 @@
       "claimIds": ["psychsift.formulation.claim.justice-legal.concept-definition"],
       "packageContentId": "psychsift.formulation.content.justice-legal",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "71463752cf4b6bc3df1b2ce188cd80e0e4518f67be7ac9dc65d5a59f08d456fc"
       },
       "release": "published",
       "releaseNote": null,
@@ -2108,9 +2178,11 @@
       "claimIds": ["psychsift.formulation.claim.service-fragmentation.concept-definition"],
       "packageContentId": "psychsift.formulation.content.service-fragmentation",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "caddacbd2978e012b9776fd67050e630eaba6323f92ab379eae052d19bb087a9"
       },
       "release": "published",
       "releaseNote": null,
@@ -2160,9 +2232,11 @@
       "claimIds": ["psychsift.formulation.claim.social-isolation.concept-definition"],
       "packageContentId": "psychsift.formulation.content.social-isolation",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "d72662534189e6b1534c52049582c5420fa906721ad2eed2cc1df58eccfe3672"
       },
       "release": "published",
       "releaseNote": null,
@@ -2572,9 +2646,11 @@
       "claimIds": ["psychsift.formulation.claim.risk-dynamic-state.concept-definition"],
       "packageContentId": "psychsift.formulation.content.risk-dynamic-state",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "c7612016d931623ad3840fdea0e1f55dff0d933de17e6601f1afbde428dd07f4"
       },
       "release": "published",
       "releaseNote": null,
@@ -2640,9 +2716,11 @@
       "claimIds": ["psychsift.formulation.claim.risk-scenarios.concept-definition"],
       "packageContentId": "psychsift.formulation.content.risk-scenarios",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "c86708e037e38bb4c59669ee173b72718d7a1dfe9cfa7d59528422d067afb83e"
       },
       "release": "published",
       "releaseNote": null,
@@ -2692,9 +2770,11 @@
       "claimIds": ["psychsift.formulation.claim.protective-reliability.concept-definition"],
       "packageContentId": "psychsift.formulation.content.protective-reliability",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "244a54ea7cd0c3e7ff062f392e60a4d67269a56dbdccd3824cd964fbf848b97b"
       },
       "release": "published",
       "releaseNote": null,
@@ -2760,9 +2840,11 @@
       "claimIds": ["psychsift.formulation.claim.strengths-agency.concept-definition"],
       "packageContentId": "psychsift.formulation.content.strengths-agency",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:30:37.299Z",
+        "reviewedContentSha256": "4240bb562db349b7f66cb762366479d09ac31f426327ffb819e6403bb3739968"
       },
       "release": "published",
       "releaseNote": null,
@@ -2861,9 +2943,11 @@
       "claimIds": ["psychsift.formulation.claim.guide-02.block-000", "psychsift.formulation.claim.guide-02.block-006"],
       "packageContentId": "psychsift.formulation.content.guide-02",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:25:25.073Z",
+        "reviewedContentSha256": "4300c1ca10fbe0ed1f53b373b252ffcf7ffcb74708757cf622a48acb26f3d977"
       },
       "release": "published",
       "releaseNote": null,
@@ -3194,9 +3278,11 @@
       ],
       "packageContentId": "psychsift.formulation.content.guide-03",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:25:25.073Z",
+        "reviewedContentSha256": "3df6e78f6e60666939f4ef5e58bc4efdb38bd15b3bdbe61caa5cd82100f365c4"
       },
       "release": "published",
       "releaseNote": null,
@@ -3499,9 +3585,11 @@
       "claimIds": ["psychsift.formulation.claim.guide-04.block-008", "psychsift.formulation.claim.guide-04.block-017"],
       "packageContentId": "psychsift.formulation.content.guide-04",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:25:25.073Z",
+        "reviewedContentSha256": "0513729a7e2da1df1108d4b78446bc1ea0883948805ea62c8ac0673dacd4fc44"
       },
       "release": "published",
       "releaseNote": null,
@@ -4503,9 +4591,11 @@
       ],
       "packageContentId": "psychsift.formulation.content.guide-08",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:25:25.073Z",
+        "reviewedContentSha256": "ae8b304f407afdfa4264af46b670fc82d05eba8cb16ee1755558a3c25e6b42ce"
       },
       "release": "published",
       "releaseNote": null,
@@ -4766,9 +4856,11 @@
       "claimIds": ["psychsift.formulation.claim.guide-09.block-002"],
       "packageContentId": "psychsift.formulation.content.guide-09",
       "review": {
-        "status": "clinical_review_required",
-        "reviewer": null,
-        "preparedAt": "2026-09-14"
+        "status": "reviewed",
+        "reviewer": "PsychSift",
+        "preparedAt": "2026-09-14",
+        "reviewedAt": "2026-09-26T17:25:25.073Z",
+        "reviewedContentSha256": "1deb75a03018adabc918b4837e18d6fd5db6af8732eeb2d274cdd9f8ede8c166"
       },
       "release": "published",
       "releaseNote": null,
