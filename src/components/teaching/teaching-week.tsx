@@ -273,9 +273,12 @@ function WeekBody({
           {week.relocatedUnavailable ? (
             <ModeNotice tone="warning">On Call teaching list couldn&apos;t load.</ModeNotice>
           ) : null}
-          {handbook.length > 0 ? (
+          {handbook.failed ? (
+            <ModeNotice>Your service handbook&apos;s teaching entries couldn&apos;t load.</ModeNotice>
+          ) : null}
+          {handbook.items.length > 0 ? (
             <ModeGroupedList eyebrow="From your service's handbook" id="teaching-handbook" testId="teaching-handbook">
-              {handbook.map((item) => (
+              {handbook.items.map((item) => (
                 <TeachingRow
                   key={item.id}
                   title={item.title}
