@@ -1,6 +1,18 @@
 "use client";
 
-import { CalendarDays, CalendarRange, Moon, MoonStar, Plane, Sun } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  CalendarOff,
+  CalendarRange,
+  FileUp,
+  Link2,
+  Moon,
+  MoonStar,
+  Plane,
+  Plus,
+  Sun,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -21,7 +33,9 @@ import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-v
 import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { summariseToday, type TodaySummary } from "@/lib/roster/today";
 
+import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
+import { RosterNewButton } from "./roster-new-button";
 import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
@@ -41,6 +55,11 @@ import { useRosterShifts } from "./use-roster-shifts";
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A stat with nothing ahead says so in words, never a bare dash. */
+function NoneYet({ children }: { readonly children: string }) {
+  return <span className="text-[color:var(--text-muted)]">{children}</span>;
+}
 
 /**
  * "Up to date": a 6px green dot and the words, shown only while a calendar
@@ -326,6 +345,32 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
             <RosterFreshness fresh={hasFreshLink(links.links, now)} />
           </div>
         }
+        actions={
+          !importing && canEdit ? (
+            <RosterNewButton
+              entries={[
+                { id: "shift", label: "Add a shift", icon: Plus, onSelect: () => setAddView("shift") },
+                {
+                  id: "import",
+                  label: "Import a file",
+                  description: "PDF, Excel, CSV or calendar file",
+                  icon: FileUp,
+                  onSelect: () => setImporting(true),
+                },
+                { id: "link", label: "Add a calendar link", icon: Link2, onSelect: () => setAddView("link") },
+                {
+                  id: "swap",
+                  label: "Swap or give away",
+                  description: "Pick the shift on the Team calendar",
+                  icon: ArrowLeftRight,
+                  href: "/roster/team?view=week",
+                },
+                { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+                { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
+              ]}
+            />
+          ) : null
+        }
         testId="roster-today-header"
       />
 
@@ -345,11 +390,14 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
           {shifts.status === "loading" ? (
             <ModeModuleSkeleton rows={4} testId="roster-today-loading" />
           ) : shifts.status === "signed-out" ? (
-            <ModeNotice testId="roster-today-signed-out">Sign in to see your roster.</ModeNotice>
+            <RosterSignInNotice testId="roster-today-signed-out">Sign in to see your roster.</RosterSignInNotice>
           ) : shifts.status === "error" ? (
-            <ModeNotice tone="warning" testId="roster-today-error">
-              Your shifts could not be loaded. Try again later.
-            </ModeNotice>
+            <div className="grid gap-2" data-testid="roster-today-error">
+              <ModeNotice tone="warning">Your shifts could not be loaded.</ModeNotice>
+              <Button className="justify-self-start" onClick={() => void shifts.reload()}>
+                Try again
+              </Button>
+            </div>
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
@@ -385,13 +433,23 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                       icon={MoonStar}
                       label="Next nights"
                       value={
-                        summary.nextNights ? formatDateSpan(summary.nextNights.start, summary.nextNights.end) : "–"
+                        summary.nextNights ? (
+                          formatDateSpan(summary.nextNights.start, summary.nextNights.end)
+                        ) : (
+                          <NoneYet>None rostered</NoneYet>
+                        )
                       }
                     />
                     <RosterStat
                       icon={Plane}
                       label="Next leave"
-                      value={summary.nextLeave ? formatDateSpan(summary.nextLeave.start, summary.nextLeave.end) : "–"}
+                      value={
+                        summary.nextLeave ? (
+                          formatDateSpan(summary.nextLeave.start, summary.nextLeave.end)
+                        ) : (
+                          <NoneYet>None booked</NoneYet>
+                        )
+                      }
                     />
                   </RosterStats>
                 </>

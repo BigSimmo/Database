@@ -175,3 +175,10 @@ export function swapRuleFlags(rows: readonly RosterAssignment[], rules: RosterRu
   }
   return added;
 }
+
+/**
+ * The helpers `ruleFlags` judges with, exported unchanged so a doctor's own
+ * rest cues (`src/lib/roster/rest-cues.ts`) use the very same definitions of
+ * worked time, rest and consecutive-day runs instead of a second copy.
+ */
+export { worked as isWorkedAssignment, runPositions, restBefore };

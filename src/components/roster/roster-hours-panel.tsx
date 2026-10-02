@@ -22,7 +22,10 @@ import { formatDateSpan, formatHours, kindOf } from "./roster-format";
  * doctor on their own, so there is no score and no colour for "too many".
  *
  * "Stayed late" records the time from the end of the shift that just finished
- * until now, in the extra-time record Admin uses for claims.
+ * until now, in the extra-time record Admin uses for claims. That record is
+ * written here but never read back, so the extra time shown is only what was
+ * recorded on this visit, and the copy says so: after a reload it starts at
+ * 0 h again while the saved records stay in Admin.
  */
 
 /** A late finish is offered for this long after a shift ends. */
@@ -147,7 +150,7 @@ export function RosterHoursPanel({
         />
         <ModeFactTile label="Most in any 7 days" value={formatHours(summary.maxHoursIn7Days)} />
         <ModeFactTile label="Most days in a row" value={summary.maxDaysInRow} />
-        <ModeFactTile label="Extra time" value={formatHours(summary.extraHours)} />
+        <ModeFactTile label="Extra time recorded this visit" value={formatHours(summary.extraHours)} />
       </ModeFactTiles>
 
       <section className="grid gap-2" aria-label="Extra time">
@@ -161,6 +164,9 @@ export function RosterHoursPanel({
         >
           Stayed late
         </Button>
+        <p className={cn(modeSecondaryText, "px-3")}>
+          Only extra time recorded on this visit is counted here. Saved extra time is kept in Admin, where you claim it.
+        </p>
         {message ? <ModeNotice tone={message.tone}>{message.text}</ModeNotice> : null}
       </section>
 

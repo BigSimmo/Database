@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+import { ROSTER_UNDO_MS } from "@/components/roster/roster-format";
 import { Button } from "@/components/ui/button";
 
 export type SentReceipt = { message: string; undo?: () => Promise<void> };
 
-/** Five seconds to reverse a newly sent request. A failed reversal stays visible. */
+/** `ROSTER_UNDO_MS` (10 seconds) to reverse a newly sent request. A failed reversal stays visible. */
 export function RosterSentBar({ receipt, clear }: { receipt: SentReceipt | null; clear: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -18,7 +19,7 @@ export function RosterSentBar({ receipt, clear }: { receipt: SentReceipt | null;
   }
   useEffect(() => {
     if (!receipt || busy || error) return;
-    const timer = window.setTimeout(clear, 5_000);
+    const timer = window.setTimeout(clear, ROSTER_UNDO_MS);
     return () => window.clearTimeout(timer);
   }, [receipt, clear, busy, error]);
   if (!receipt) return null;

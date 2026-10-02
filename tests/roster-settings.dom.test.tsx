@@ -9,7 +9,8 @@ import { addDaysToDate, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 
 /*
  * Roster Settings, and Delete my data with a 30-second Undo: nothing is
- * deleted until the 30 seconds end or the page closes. Every roster here is
+ * deleted until the 30 seconds end with the page still open; leaving the page
+ * first cancels the delete. Every roster here is
  * invented ("Example Hospital").
  */
 
@@ -107,9 +108,11 @@ describe("Roster Settings", () => {
       vi.advanceTimersByTime(2_000);
     });
     expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(1);
+    // Committed: the request must outlive the page if it is left now.
+    expect(fetchCalls("/api/roster/shifts", "DELETE")[0]![1]).toEqual(expect.objectContaining({ keepalive: true }));
   });
 
-  it("sends the delete with keepalive if the page closes during the 30 seconds", async () => {
+  it("deletes nothing if the page closes during the 30 seconds", async () => {
     mockShifts([day("2026-10-12")]);
     render(<RosterSettingsPage />);
     await screen.findByText("Example Hospital");
@@ -118,16 +121,15 @@ describe("Roster Settings", () => {
     act(() => {
       window.dispatchEvent(new Event("pagehide"));
     });
-    const calls = fetchCalls("/api/roster/shifts", "DELETE");
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.[1]).toMatchObject({ method: "DELETE", keepalive: true });
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
     act(() => {
       vi.advanceTimersByTime(31_000);
     });
-    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(1);
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
+    expect(screen.getByText("Example Hospital")).toBeInTheDocument();
   });
 
-  it("still deletes, with keepalive, if the page is left inside the app during the 30 seconds", async () => {
+  it("deletes nothing if the page is left inside the app during the 30 seconds", async () => {
     mockShifts([day("2026-10-12")]);
     const { unmount } = render(<RosterSettingsPage />);
     await screen.findByText("Example Hospital");
@@ -135,13 +137,11 @@ describe("Roster Settings", () => {
     await deleteMyData();
     expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
     unmount();
-    const calls = fetchCalls("/api/roster/shifts", "DELETE");
-    expect(calls).toHaveLength(1);
-    expect(calls[0]?.[1]).toMatchObject({ method: "DELETE", keepalive: true });
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
     act(() => {
       vi.advanceTimersByTime(31_000);
     });
-    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(1);
+    expect(fetchCalls("/api/roster/shifts", "DELETE")).toHaveLength(0);
   });
 
   it("sends nothing on leaving the page when nothing is pending", async () => {
@@ -155,9 +155,8 @@ describe("Roster Settings", () => {
   it("says the shifts could not be loaded, rather than that there are no workplaces", async () => {
     routes.set("GET /api/roster/shifts", () => Response.json({ error: "Unavailable" }, { status: 503 }));
     render(<RosterSettingsPage />);
-    expect(await screen.findByTestId("roster-settings-error")).toHaveTextContent(
-      "Your shifts could not be loaded. Try again later.",
-    );
+    expect(await screen.findByTestId("roster-settings-error")).toHaveTextContent("Your shifts could not be loaded.");
+    expect(screen.getByRole("button", { name: "Try again" })).toBeInTheDocument();
     expect(screen.queryByTestId("roster-settings-workplaces")).toBeNull();
   });
 
@@ -166,7 +165,7 @@ describe("Roster Settings", () => {
     routes.set("GET /api/roster/links", () => Response.json({ error: "Unavailable" }, { status: 503 }));
     render(<RosterSettingsPage />);
     expect(await screen.findByTestId("roster-settings-links-error")).toHaveTextContent(
-      "Your calendar links could not be loaded. Try again later.",
+      "Your calendar links could not be loaded.",
     );
     expect(screen.queryByTestId("roster-settings-links")).toBeNull();
   });
@@ -178,6 +177,12 @@ describe("Roster Settings", () => {
     routes.set("PUT /api/roster/settings", () => Response.json({ calendarShifts: false, rowName: null, codes: {} }));
     render(<RosterSettingsPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Remove Example Hospital" }));
+    // Nothing is removed until the confirmation, which says what goes with it.
+    expect(fetchCalls("/api/roster/workplaces", "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("confirm-dialog")).toHaveTextContent(
+      "its calendar links, the shifts imported for it, and its shift codes",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove workplace" }));
     await waitFor(() => expect(fetchCalls("/api/roster/settings", "PUT")).toHaveLength(1));
     expect(JSON.parse(String(fetchCalls("/api/roster/workplaces", "DELETE")[0]?.[1]?.body))).toEqual({
       workplace: "Example Hospital",
@@ -245,6 +250,8 @@ describe("Roster Settings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Refresh calendar.example.org/…" }));
     expect(await screen.findByText("Refreshed")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Remove calendar.example.org/…" }));
+    expect(fetchCalls("/api/roster/links", "DELETE")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("button", { name: "Remove calendar link" }));
     await waitFor(() => expect(screen.queryByText("calendar.example.org/…")).toBeNull());
     expect(screen.getByText("Uploaded files are never kept.", { exact: false })).toBeInTheDocument();
   });

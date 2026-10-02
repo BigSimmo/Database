@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ComponentProps } from "react";
+import { rosterField } from "@/components/roster/roster-ui";
 
 import { useRosterNow } from "@/components/roster/roster-format";
 
@@ -124,7 +125,7 @@ function GiveAwaySession({
             <select
               value={assignmentId}
               onChange={(event) => setAssignmentId(event.target.value)}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              className={rosterField}
             >
               <option value="">Choose a shift</option>
               {mine.map((item) => (

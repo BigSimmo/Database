@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ROSTER_UNDO_MS } from "@/components/roster/roster-format";
 import { postRosterAction } from "@/components/roster/use-roster-team";
 import type { RosterAction, RosterCommandResult } from "@/lib/roster/team/model";
 import { useAuthSession } from "@/lib/supabase/client";
@@ -13,7 +14,7 @@ import { useAuthSession } from "@/lib/supabase/client";
  * sent by someone who walked away, and another account can never submit it.
  * Only one action can be held at a time.
  */
-export const UNDO_MS = 10_000;
+export const UNDO_MS = ROSTER_UNDO_MS;
 
 type Job = {
   label: string;
