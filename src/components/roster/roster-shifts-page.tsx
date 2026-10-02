@@ -1,8 +1,20 @@
 "use client";
 
-import { CalendarClock, ChevronLeft, ChevronRight, Plus, Trash2 } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarClock,
+  CalendarOff,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  FileUp,
+  Link2,
+  Plane,
+  Plus,
+  Trash2,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { CalendarView } from "@/components/calendar/calendar-view";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -17,7 +29,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { SegmentedControl } from "@/components/ui/segmented-control";
 import { Sheet } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { cn, primaryControl } from "@/components/ui-primitives";
+import { cn } from "@/components/ui-primitives";
 import type { CalendarEvent } from "@/lib/calendar/calendar-event";
 import { monthGridRange, monthKeyOf } from "@/lib/calendar/month-grid";
 import { isWorkedKind, SHIFT_KIND_LABEL, SHIFT_LETTER } from "@/lib/roster/shift-kind";
@@ -27,6 +39,10 @@ import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/r
 
 import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
+import { RosterNewButton } from "./roster-new-button";
+import { RosterRestChip } from "./roster-rest-chip";
+import { RosterShareButton } from "./roster-share-button";
+import { restCues, type RestCue } from "@/lib/roster/rest-cues";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
 import { RosterImportFlow } from "./roster-import-flow";
@@ -86,7 +102,9 @@ function WeekView({
   onWeekChange,
   onRemoveSeries,
   onTeamShift,
+  cues,
 }: {
+  readonly cues: ReadonlyMap<string, RestCue>;
   readonly shifts: readonly OnCallShift[];
   readonly now: Date;
   readonly monday: string;
@@ -152,9 +170,12 @@ function WeekView({
                         <RosterLetter kind={kind} />
                         {formatPerthDay(perthDateOf(shift.startsAt))}
                       </span>
-                      <span className="text-sm text-[color:var(--text-muted)]">
-                        {SHIFT_KIND_LABEL[kind]}
-                        {place ? ` · ${place}` : ""}
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-[color:var(--text-muted)]">
+                        <span>
+                          {SHIFT_KIND_LABEL[kind]}
+                          {place ? ` · ${place}` : ""}
+                        </span>
+                        <RosterRestChip cue={cues.get(shift.id)} />
                       </span>
                     </span>
                     <span
@@ -178,7 +199,12 @@ function WeekView({
                     {formatPerthDay(perthDateOf(shift.startsAt))}
                   </span>
                 }
-                subtitle={`${SHIFT_KIND_LABEL[kind]}${place ? ` · ${place}` : ""}`}
+                subtitle={
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span>{`${SHIFT_KIND_LABEL[kind]}${place ? ` · ${place}` : ""}`}</span>
+                    <RosterRestChip cue={cues.get(shift.id)} />
+                  </span>
+                }
                 trailing={
                   <>
                     <span
@@ -210,6 +236,9 @@ function WeekView({
           })
         )}
       </ModeGroupedList>
+      <div className="justify-self-start">
+        <RosterShareButton shifts={shifts} now={now} />
+      </div>
     </div>
   );
 }
@@ -242,9 +271,13 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const [teamShift, setTeamShift] = useState<OnCallShift | null>(null);
   const [confirmSeries, setConfirmSeries] = useState<{ readonly id: string; readonly label: string } | null>(null);
   const [removing, setRemoving] = useState(false);
-  const addButton = useRef<HTMLButtonElement>(null);
 
   const events = useMemo(() => toCalendarEvents(shifts.shifts), [shifts.shifts]);
+  const teamRules = teamOverview.status === "ready" ? teamOverview.data?.settings?.rules : undefined;
+  const cues = useMemo(
+    () => new Map(restCues(shifts.shifts, teamRules ?? {}).map((cue) => [cue.shiftId, cue])),
+    [shifts.shifts, teamRules],
+  );
   const holidayEvents = useMemo<CalendarEvent[]>(
     () =>
       [...WA_PUBLIC_HOLIDAYS]
@@ -268,7 +301,49 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
 
   return (
     <InformationPageShell testId="roster-shifts-main" width="narrow">
-      <RosterPageHeader icon={CalendarClock} title="Shifts" subtitle="Your shifts, week by week." />
+      <RosterPageHeader
+        icon={CalendarClock}
+        title="Shifts"
+        subtitle="Your shifts, week by week."
+        actions={
+          !importing && canEdit ? (
+            <RosterNewButton
+              entries={[
+                { id: "shift", label: "Add a shift", icon: Plus, onSelect: () => setAddView("shift") },
+                {
+                  id: "import",
+                  label: "Import a file",
+                  description: "PDF, Excel, CSV or calendar file",
+                  icon: FileUp,
+                  onSelect: () => setImporting(true),
+                },
+                { id: "link", label: "Add a calendar link", icon: Link2, onSelect: () => setAddView("link") },
+                {
+                  id: "swap",
+                  label: "Swap or give away",
+                  description: "Pick the shift on the Team calendar",
+                  icon: ArrowLeftRight,
+                  href: "/roster/team?view=week",
+                },
+                { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+                {
+                  id: "dates",
+                  label: "Dates I can't work",
+                  icon: CalendarOff,
+                  href: `/roster/requests?start=dates${oneTeamId ? `&team=${encodeURIComponent(oneTeamId)}` : ""}`,
+                },
+                {
+                  id: "late",
+                  label: "Stayed late",
+                  description: "Record extra time in Hours",
+                  icon: Clock,
+                  onSelect: () => setView("hours"),
+                },
+              ]}
+            />
+          ) : null
+        }
+      />
       {importing ? (
         <RosterImportFlow
           shifts={shifts}
@@ -315,6 +390,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
                     onWeekChange={setMonday}
                     onRemoveSeries={setConfirmSeries}
                     onTeamShift={setTeamShift}
+                    cues={cues}
                   />
                 )
               ) : view === "month" ? (
@@ -351,22 +427,6 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
           )}
         </div>
       )}
-
-      {!importing && canEdit ? (
-        <button
-          ref={addButton}
-          type="button"
-          data-testid="roster-add-button"
-          onClick={() => setAddView("menu")}
-          className={cn(
-            primaryControl,
-            "fixed bottom-[max(1rem,env(safe-area-inset-bottom))] right-4 z-[var(--z-chrome)] rounded-full shadow-[var(--e4)] print:hidden",
-          )}
-        >
-          <Plus aria-hidden="true" className="size-icon-sm" />
-          Add
-        </button>
-      ) : null}
 
       <ConfirmDialog
         open={confirmSeries !== null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { Inbox, Plane, Plus } from "lucide-react";
+import { ArrowLeftRight, CalendarOff, CalendarX2, HandHelping, Inbox, Plane } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
@@ -14,7 +14,6 @@ import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notic
 import { useRosterNow } from "@/components/roster/roster-format";
 import { useRosterRead, useRosterTeams } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
-import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { formatDateSpan } from "@/components/roster/roster-format";
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
@@ -26,6 +25,7 @@ import { RosterLeaveSheet } from "./roster-leave-sheet";
 import { RosterSentBar, type SentReceipt } from "./roster-sent-bar";
 import { RosterSignInNotice } from "@/components/roster/invite/roster-sign-in-notice";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
+import { RosterNewButton } from "@/components/roster/roster-new-button";
 
 type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
 type ActiveSheet = {
@@ -96,7 +96,6 @@ export function RosterRequestsPage() {
   const [leave, setLeave] = useState<RosterLeave[]>([]);
   const [leaveState, setLeaveState] = useState<"loading" | "ready" | "error">("loading");
   const [sheet, setSheet] = useState<ActiveSheet>(null);
-  const [newOpen, setNewOpen] = useState(false);
   const [sent, setSent] = useState<SentReceipt | null>(null);
   const clearSent = useCallback(() => setSent(null), []);
   const leaveReadSequence = useRef(0);
@@ -217,9 +216,31 @@ export function RosterRequestsPage() {
         title="Requests"
         subtitle="Dates you can't work, leave, and shifts you can't make."
         actions={
-          <Button icon={Plus} variant="primary" disabled={teams.status !== "ready"} onClick={() => setNewOpen(true)}>
-            New
-          </Button>
+          <RosterNewButton
+            entries={[
+              ...(
+                [
+                  ["give_away", "Give a shift away", HandHelping],
+                  ["cant_make", "I can't make my shift", CalendarX2],
+                  ["dates", "Dates I can't work", CalendarOff],
+                ] as const
+              ).map(([kind, label, icon]) => ({
+                id: kind,
+                label,
+                icon,
+                onSelect: () => setSheet({ kind }),
+                disabled: canTeamAct ? undefined : { reason: "Needs a confirmed team" },
+              })),
+              { id: "leave", label: "Plan leave", icon: Plane, onSelect: () => setSheet({ kind: "leave" }) },
+              {
+                id: "swap",
+                label: "Swap a shift",
+                description: "Pick the shift on the Team calendar",
+                icon: ArrowLeftRight,
+                href: "/roster/team?view=week",
+              },
+            ]}
+          />
         }
       />
       <RosterSampleNotice sample={teams.data?.sample} />
@@ -320,29 +341,6 @@ export function RosterRequestsPage() {
           </Button>
         </div>
       ) : null}
-      <Sheet open={newOpen} onClose={() => setNewOpen(false)} title="New request">
-        <div className="grid gap-2">
-          {(
-            [
-              ["give_away", "Give a shift away"],
-              ["cant_make", "I can't make my shift"],
-              ["dates", "Dates I can't work"],
-              ["leave", "Plan leave"],
-            ] as const
-          ).map(([kind, label]) => (
-            <Button
-              key={kind}
-              disabled={kind !== "leave" && !canTeamAct}
-              onClick={() => {
-                setNewOpen(false);
-                setSheet({ kind });
-              }}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-      </Sheet>
       {serviceId && actorId ? (
         <>
           {swapGive ? (

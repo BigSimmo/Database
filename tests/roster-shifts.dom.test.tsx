@@ -236,7 +236,7 @@ describe("Roster Shifts", () => {
       return Response.json({ results: [{ id: "new-link", ok: true }] });
     });
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     fireEvent.click(await screen.findByRole("button", { name: /Add a calendar link/ }));
     fireEvent.change(screen.getByLabelText("Calendar link"), {
       target: { value: "https://calendar.example.org/feed.ics" },
@@ -254,7 +254,7 @@ describe("Roster Shifts", () => {
       Response.json({ error: "Duplicate", code: "duplicate_workplace" }, { status: 409 }),
     );
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     fireEvent.click(await screen.findByRole("button", { name: /Add a calendar link/ }));
     fireEvent.change(screen.getByLabelText("Calendar link"), {
       target: { value: "https://calendar.example.org/feed.ics" },
@@ -268,7 +268,7 @@ describe("Roster Shifts", () => {
     mockShifts([]);
     routes.set("POST /api/roster/shifts/manual", () => Response.json({ shifts: [] }));
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     fireEvent.click(await screen.findByRole("button", { name: /Add a shift/ }));
     fireEvent.change(screen.getByLabelText("Shift"), { target: { value: "evening" } });
     fireEvent.change(screen.getByLabelText("Repeat weekly"), { target: { value: "3" } });

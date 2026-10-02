@@ -1,6 +1,18 @@
 "use client";
 
-import { CalendarDays, CalendarRange, Moon, MoonStar, Plane, Sun } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  CalendarOff,
+  CalendarRange,
+  FileUp,
+  Link2,
+  Moon,
+  MoonStar,
+  Plane,
+  Plus,
+  Sun,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -23,6 +35,7 @@ import { summariseToday, type TodaySummary } from "@/lib/roster/today";
 
 import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
+import { RosterNewButton } from "./roster-new-button";
 import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
@@ -331,6 +344,32 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
             <span>{greeting.text}</span>
             <RosterFreshness fresh={hasFreshLink(links.links, now)} />
           </div>
+        }
+        actions={
+          !importing && canEdit ? (
+            <RosterNewButton
+              entries={[
+                { id: "shift", label: "Add a shift", icon: Plus, onSelect: () => setAddView("shift") },
+                {
+                  id: "import",
+                  label: "Import a file",
+                  description: "PDF, Excel, CSV or calendar file",
+                  icon: FileUp,
+                  onSelect: () => setImporting(true),
+                },
+                { id: "link", label: "Add a calendar link", icon: Link2, onSelect: () => setAddView("link") },
+                {
+                  id: "swap",
+                  label: "Swap or give away",
+                  description: "Pick the shift on the Team calendar",
+                  icon: ArrowLeftRight,
+                  href: "/roster/team?view=week",
+                },
+                { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+                { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
+              ]}
+            />
+          ) : null
         }
         testId="roster-today-header"
       />

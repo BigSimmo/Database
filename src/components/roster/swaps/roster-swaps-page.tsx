@@ -25,8 +25,9 @@ import { gradeRank, placementProblem } from "@/lib/roster/team/eligibility";
 import type { RosterAction, RosterManageSwap, RosterOpenShift, RosterSwap } from "@/lib/roster/team/model";
 import { requestStatusWords } from "@/lib/roster/team/request-status";
 import { swapProgress } from "@/lib/roster/team/swap-progress";
-import { ArrowLeftRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeftRight, CalendarOff, CheckCircle2, Plane } from "lucide-react";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
+import { RosterNewButton } from "@/components/roster/roster-new-button";
 
 type TabId = "needs_you" | "sent" | "open" | "history" | "all";
 
@@ -282,6 +283,21 @@ export function RosterSwapsPage() {
             </Link>
             .
           </>
+        }
+        actions={
+          <RosterNewButton
+            entries={[
+              {
+                id: "swap",
+                label: "Swap or give away",
+                description: "Pick the shift on the Team calendar",
+                icon: ArrowLeftRight,
+                href: "/roster/team?view=week",
+              },
+              { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+              { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
+            ]}
+          />
         }
       />
       <RosterSampleNotice sample={teams.data?.sample} />
