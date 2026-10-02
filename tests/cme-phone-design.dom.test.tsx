@@ -238,9 +238,11 @@ describe("log it again", () => {
     buckets: [],
   });
 
-  it("links a saved entry to a new entry copied from it", () => {
+  it("links a saved entry to a new entry copied from it, from the activity's actions", async () => {
+    const user = userEvent.setup();
     render(<CmeEntryPage entryId="orig" entries={[original]} set={SET} />);
-    expect(screen.getByTestId("cme-entry-log-again")).toHaveAttribute("href", "/cme/new?year=2026&repeat=orig");
+    await user.click(screen.getByRole("button", { name: "Open activity actions" }));
+    expect(await screen.findByTestId("cme-entry-log-again")).toHaveAttribute("href", "/cme/new?year=2026&repeat=orig");
   });
 
   it("copies the title and hours but not the reflection or cost", () => {

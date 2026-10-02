@@ -93,7 +93,10 @@ describe("Today figure details", () => {
   it("explains a category figure and opens Log filtered to that category", async () => {
     const user = userEvent.setup();
     renderDashboard();
-    await user.click(within(screen.getByTestId("cme-fact-tiles")).getByRole("button"));
+    // The requirement's own row in "What's left" opens its detail (the separate fact tiles are gone).
+    await user.click(
+      within(screen.getByTestId("cme-requirements")).getByRole("button", { name: /Educational activities/ }),
+    );
     const sheet = screen.getByTestId("cme-today-detail-sheet");
     expect(within(sheet).getByTestId("cme-today-detail-total")).toHaveTextContent("2 h from 1 saved activity");
     expect(within(sheet).getByRole("link", { name: /educational activities in Log/i })).toHaveAttribute(

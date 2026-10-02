@@ -155,9 +155,12 @@ test.describe("CME core screens at phone widths", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/cme/log");
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(47);
+    // The year choice lives in the filter sheet on a phone.
+    await page.getByTestId("cme-log-open-filters").click();
     await page
+      .getByTestId("cme-log-filter-sheet")
       .getByRole("navigation", { name: "Select year" })
-      .getByRole("link", { name: "2025", exact: true })
+      .getByRole("link", { name: /^2025\b/ })
       .click();
     await expect(page).toHaveURL(/year=2025/);
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
@@ -166,9 +169,12 @@ test.describe("CME core screens at phone widths", () => {
     await page.getByRole("navigation", { name: "Log tabs" }).getByRole("link", { name: "Activities" }).click();
     await expect(page).toHaveURL(/\/cme\/log\?year=2025/);
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(0);
+    // The year choice lives in the filter sheet on a phone.
+    await page.getByTestId("cme-log-open-filters").click();
     await page
+      .getByTestId("cme-log-filter-sheet")
       .getByRole("navigation", { name: "Select year" })
-      .getByRole("link", { name: "2026", exact: true })
+      .getByRole("link", { name: /^2026\b/ })
       .click();
     await expect(page.locator('[data-testid^="cme-log-row-"]')).toHaveCount(47);
   });
