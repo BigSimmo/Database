@@ -703,11 +703,21 @@ test.describe("PsychSift accessibility coverage", () => {
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "false");
     await cbtToggle.click();
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
-    // The current catalogue has no reviewed records, so the shared facet
-    // contract correctly disables a zero-count option rather than offering a
-    // control that can never produce results.
-    await expect(reviewedToggle).toBeDisabled();
-    await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
+    // How many therapies are reviewed depends on the catalogue's clinical
+    // sign-off state, which this accessibility test must not pin. Assert the
+    // shared facet contract for either state instead: a zero-count option is
+    // disabled rather than offering a control that can never produce results,
+    // and a non-zero one turns on by itself without disturbing CBT.
+    await expect(reviewedToggle).toHaveAttribute("aria-label", /\(\d+\)$/);
+    const reviewedCount = Number(/\((\d+)\)$/.exec((await reviewedToggle.getAttribute("aria-label")) ?? "")?.[1]);
+    if (reviewedCount === 0) {
+      await expect(reviewedToggle).toBeDisabled();
+      await expect(reviewedToggle).toHaveAttribute("aria-pressed", "false");
+    } else {
+      await expect(reviewedToggle).toBeEnabled();
+      await reviewedToggle.click();
+      await expect(reviewedToggle).toHaveAttribute("aria-pressed", "true");
+    }
     await expect(cbtToggle).toHaveAttribute("aria-pressed", "true");
 
     await therapyFilterPanel.getByTestId("therapy-filter-panel-clear").click();

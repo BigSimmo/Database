@@ -85,7 +85,8 @@ describe("forms catalogue operational content", () => {
         .filter((entry) => entry.status === "drafted")
         .map((entry) => entry.code.trim().toLowerCase()),
     );
-    expect(drafted.size).toBeGreaterThanOrEqual(40);
+    // Josh confirmed the submitted sign-offs on 2026-10-02; Form 2 was subsequently revised.
+    expect([...drafted]).toEqual(["2"]);
 
     for (const record of formRecords) {
       const details = formCatalogDetails(record);
@@ -188,7 +189,13 @@ describe("forms catalogue operational content", () => {
   });
 
   it("fails the pin once a signed form's guidance is edited after sign-off", () => {
-    const row = formsContentReview.forms.find((entry) => entry.code === "3C")!;
+    const row = {
+      ...formsContentReview.forms.find((entry) => entry.code === "3C")!,
+      status: "drafted",
+      reviewedBy: null,
+      reviewedAt: null,
+      reviewedContentSha256: null,
+    };
     const signed = finalizeClinicalReview(row, "form", {
       reviewedBy: "Dr Alex Morgan",
       reviewedAt: "2026-09-24T12:00:00.000Z",
@@ -209,5 +216,7 @@ describe("forms catalogue operational content", () => {
     const sheet = buildSheet();
     expect(sheet.match(/\*\*Sign-off pin\*\*/g)?.length).toBe(formsContentReview.forms.length);
     expect(sheet).toContain("npm run clinical:review");
+    expect(sheet).toContain("**53 of 54 forms have clinician sign-off.**");
+    expect(sheet).not.toContain("None of it carries");
   });
 });
