@@ -150,3 +150,9 @@ b8d37288487663197c2197de3ec46f1783849f51:supabase/applied-migration-hashes.json:
 # trailing comma to the calendar_feed_tokens.sql line, so gitleaks re-reports that
 # SHA-256 migration hash (filename contains "tokens"). No credential material (PR #3069).
 5157952b26c517d89402908813d4f504d46f72ec:supabase/applied-migration-hashes.json:generic-api-key:274
+# Reviewed false positive on #3205: dummy test environment key placeholder in
+# historical markdown review recommendations. No real secret (GitGuardian and Semgrep pass).
+# DESCRIBED, NEVER QUOTED.
+02fd2e6938191dbbad668d66d6b976af867d2834:ADDITIONAL_RECOMMENDATIONS.md:generic-api-key:429
+02fd2e6938191dbbad668d66d6b976af867d2834:ADDITIONAL_RECOMMENDATIONS.md:generic-api-key:442
+

@@ -35,18 +35,19 @@ its area.
 seconds, with no deploy step in between), `# RAG ranking protection`, `# Railway project safety`,
 `# API and provider confirmation boundary`, and `# Local server safety`.
 
-| Topic                                                                                                                     | Full text                                                                                    |
-| ------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| Gate selection, the verification tier table, gate receipts                                                                | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md)                     |
-| The whole PR lifecycle for every tool: open, follow CI, review threads, records, merge authority, landed, sync, sweeps    | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md)               |
-| The `upload` shortcut                                                                                                     | [`docs/agents/upload-shortcut.md`](docs/agents/upload-shortcut.md)                           |
-| Button and route wiring, the bundle budget                                                                                | [`docs/agents/wiring-and-bundle-budget.md`](docs/agents/wiring-and-bundle-budget.md)         |
-| External skill precedence, evidence and calibration                                                                       | [`docs/agents/external-skill-precedence.md`](docs/agents/external-skill-precedence.md)       |
-| Deleting code you believe is dead                                                                                         | [`docs/agents/dead-code-deletion.md`](docs/agents/dead-code-deletion.md)                     |
-| Claude Code hook scripts                                                                                                  | [`docs/agents/claude-hook-scripts.md`](docs/agents/claude-hook-scripts.md)                   |
-| The `bug-hunter` shortcut                                                                                                 | [`docs/agents/bug-hunter-shortcut.md`](docs/agents/bug-hunter-shortcut.md)                   |
-| Repository skills, the `/issues` outstanding-work memory                                                                  | [`docs/agents/repository-skills-and-issues.md`](docs/agents/repository-skills-and-issues.md) |
-| Codex dependency, review throttling, desktop worktree, reasoning effort, productivity, GitHub review, Cloud; Cursor Cloud | the `docs/agents/codex-*.md` and `docs/agents/cursor-cloud.md` pointers below                |
+<!-- prettier-ignore -->
+| Topic | Full text |
+| --- | --- |
+| Gate selection, the verification tier table, gate receipts | [`docs/agents/verification-gates.md`](docs/agents/verification-gates.md) |
+| The whole PR lifecycle for every tool: open, follow CI, review threads, records, merge authority, landed, sync, sweeps | [`docs/agents/pull-request-workflow.md`](docs/agents/pull-request-workflow.md) |
+| The `upload` shortcut | [`docs/agents/upload-shortcut.md`](docs/agents/upload-shortcut.md) |
+| Button and route wiring, the bundle budget | [`docs/agents/wiring-and-bundle-budget.md`](docs/agents/wiring-and-bundle-budget.md) |
+| External skill precedence, evidence and calibration | [`docs/agents/external-skill-precedence.md`](docs/agents/external-skill-precedence.md) |
+| Deleting code you believe is dead | [`docs/agents/dead-code-deletion.md`](docs/agents/dead-code-deletion.md) |
+| Claude Code hook scripts | [`docs/agents/claude-hook-scripts.md`](docs/agents/claude-hook-scripts.md) |
+| The `bug-hunter` shortcut | [`docs/agents/bug-hunter-shortcut.md`](docs/agents/bug-hunter-shortcut.md) |
+| Repository skills, the `/issues` outstanding-work memory | [`docs/agents/repository-skills-and-issues.md`](docs/agents/repository-skills-and-issues.md) |
+| Codex dependency, review throttling, desktop worktree, reasoning effort, productivity, GitHub review, Cloud; Cursor Cloud | the `docs/agents/codex-*.md` and `docs/agents/cursor-cloud.md` pointers below |
 
 Five always-loaded sections stay here in full. Exact-text gate protection is narrower than
 that list: `# Search chrome behaviour` is pinned by `tests/ui-overlay-css-contract.test.ts`

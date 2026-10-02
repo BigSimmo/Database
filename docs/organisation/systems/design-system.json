@@ -13,6 +13,7 @@
     "docs/design-system-contract.md",
     "docs/design-system.md",
     "docs/design-system/**",
+    "docs/projects/design-system-remediation.md",
     "docs/redesign/**",
     "eslint-rules/**",
     "postcss.config.mjs",

@@ -12,8 +12,8 @@ hierarchy, a personal memory store or a list of tasks to run automatically.
 - Select the minimum relevant skill from its description and read its `SKILL.md`
   before applying it. Follow explicitly named skills and applicable instructions.
 - Compatibility aliases preserve older names; they are not independent skills.
-- [Skill and ledger guidance](../AGENTS.md#repository-productivity-skills)
-  explains workflow planners and approval boundaries; [outstanding-work guidance](../AGENTS.md#outstanding-work-memory-issues)
+- [Skill and ledger guidance](../docs/agents/repository-skills-and-issues.md#repository-productivity-skills)
+  explains workflow planners and approval boundaries; [outstanding-work guidance](../docs/agents/repository-skills-and-issues.md#outstanding-work-memory-issues)
   owns the issue-capture process.
 
 ## Keep ownership clear
