@@ -153,9 +153,7 @@ describe("CME learning directory page", () => {
     );
     expect(screen.getByRole("heading", { name: "October 2026" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "November 2026" })).toBeInTheDocument();
-    await user.click(
-      within(screen.getByRole("radiogroup", { name: "Format" })).getByRole("radio", { name: "Online" }),
-    );
+    await user.click(within(screen.getByRole("radiogroup", { name: "Format" })).getByRole("radio", { name: "Online" }));
     expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(1);
     expect(screen.queryByText("November in person")).toBeNull();
   });
