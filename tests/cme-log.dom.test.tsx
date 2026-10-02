@@ -20,6 +20,10 @@ afterEach(cleanup);
 const CLINICAL_STATUS_CLASS = /\b(?:bg|text|border|ring)-(?:red|amber|green|orange|rose|emerald|yellow)-/;
 // 48 px, or 52 px for a two-line grouped-list row (the kit's min-h-13): both at or above the 48 px floor.
 const TAP_TARGET_CLASS = /\bmin-h-(?:12|13|tap)\b/;
+// The shared header's ellipsis is a 48 px square (`h-tap w-tap`), the same floor
+// `tests/cme-visual-contract.dom.test.tsx` accepts.
+const hasTapTarget = (className: string) =>
+  TAP_TARGET_CLASS.test(className) || (/\bh-tap\b/.test(className) && /\bw-tap\b/.test(className));
 
 /**
  * `DEMO_CME_ENTRIES` (Task 3) gives every entry a single allocation and
@@ -106,11 +110,20 @@ describe("Log", () => {
     );
   });
 
-  it("shows a year tab per year the log holds data for", () => {
+  it("offers a year choice per year the log holds data for, inside the filter sheet", async () => {
+    const user = userEvent.setup();
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
-    const tabs = screen.getByTestId("cme-log-year-tabs");
-    expect(within(tabs).getByRole("tab", { name: "2026" })).toBeInTheDocument();
-    expect(within(tabs).getByRole("tab", { name: "2025" })).toBeInTheDocument();
+    // The year lives in the sheet; the Filters button says which year is showing.
+    expect(screen.queryByTestId("cme-log-year-tabs")).toBeNull();
+    expect(screen.getByTestId("cme-log-open-filters")).toHaveTextContent("Filters · 2026");
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    const years = screen.getByRole("navigation", { name: "Select year" });
+    expect(years).toHaveAttribute("data-testid", "cme-log-year-tabs");
+    expect(within(years).getByRole("button", { name: /^2026/ })).toHaveAttribute("aria-pressed", "true");
+    await user.click(within(years).getByRole("button", { name: /^2025/ }));
+    expect(screen.getByText("Audit — discharge planning review")).toBeInTheDocument();
+    expect(screen.queryByText("Journal club — treatment-resistant depression")).toBeNull();
+    expect(screen.getByTestId("cme-log-open-filters")).toHaveTextContent("Filters · 2025");
   });
 
   it("groups entries by month, most recent month first", () => {
@@ -130,10 +143,16 @@ describe("Log", () => {
     expect(screen.queryByText("Journal club — treatment-resistant depression")).toBeNull();
   });
 
-  it("filters by category with the chip row, without hiding the month grouping's own job", async () => {
+  it("filters by category from the filter sheet, without hiding the month grouping's own job", async () => {
     const user = userEvent.setup();
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} />);
-    await user.click(screen.getByRole("radio", { name: "Measuring outcomes" }));
+    // The category row moved off the page into the sheet: one less control above the first entry.
+    expect(screen.queryByRole("radio", { name: "Measuring outcomes" })).toBeNull();
+    expect(screen.queryByTestId("cme-log-filter-count")).toBeNull();
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    const category = within(screen.getByTestId("cme-log-filter-sheet")).getByTestId("cme-log-filter");
+    await user.click(within(category).getByRole("button", { name: /measuring outcomes/i }));
+    expect(screen.getByTestId("cme-log-filter-count")).toHaveTextContent("1");
     expect(screen.getByText("Peer review group — September")).toBeInTheDocument();
     expect(screen.queryByText("Journal club — treatment-resistant depression")).toBeNull();
     expect(screen.queryByText("RANZCP WA Branch training day")).toBeNull();
@@ -174,7 +193,7 @@ describe("Log", () => {
     expect(within(screen.getByTestId("cme-log-filter-sheet")).queryByRole("button", { name: /all years/i })).toBeNull();
   });
 
-  it("copies the next uncopied activity and can undo its copied status", async () => {
+  it("opens the copy sheet from Copy next, and marks and undoes only on the owner's say-so", async () => {
     const user = userEvent.setup();
     const writeText = vi.fn().mockResolvedValue(undefined);
     stubClipboard(writeText);
@@ -183,10 +202,17 @@ describe("Log", () => {
       .mockResolvedValue(new Response(JSON.stringify({ entry: { transcribed: true } }), { status: 200 }));
     render(<CmeLogPage entries={fixtureEntries} set={fixtureSet} initialAttention="copy" />);
     await user.click(screen.getByTestId("cme-log-copy-next"));
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const sheet = screen.getByTestId("cme-log-copy-sheet");
+    expect(within(sheet).getByText("Copy to your CPD home")).toBeInTheDocument();
+    await user.click(within(sheet).getByTestId("cme-log-copy-all"));
     expect(writeText).toHaveBeenCalledWith(expect.stringContaining("Journal club — treatment-resistant depression"));
+    // A copy alone never stamps the record.
+    expect(fetchMock).not.toHaveBeenCalled();
+    await user.click(within(sheet).getByTestId("cme-log-copy-mark"));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    expect(String(fetchMock.mock.calls[0]?.[0])).toBe("/api/cme/entries/fx-1");
     expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toEqual({ transcribed: true });
-    await user.click(within(screen.getByTestId("cme-log-copy-done")).getByRole("button", { name: "Undo" }));
+    await user.click(within(screen.getByTestId("cme-log-copy-last")).getByRole("button", { name: "Undo" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
     expect(JSON.parse(String(fetchMock.mock.calls[1]?.[1]?.body))).toEqual({ transcribed: false });
     fetchMock.mockRestore();
@@ -389,7 +415,7 @@ describe("One entry", () => {
     const { container } = render(<CmeEntryPage entryId="fx-1" entries={fixtureEntries} set={fixtureSet} />);
     const interactive = [...container.querySelectorAll<HTMLElement>("button, a[href], [role='button']")];
     expect(interactive.length).toBeGreaterThan(0);
-    const short = interactive.filter((node) => !TAP_TARGET_CLASS.test(node.className));
+    const short = interactive.filter((node) => !hasTapTarget(node.className));
     expect(short.map((node) => node.textContent?.trim() || node.getAttribute("aria-label"))).toEqual([]);
   });
 });

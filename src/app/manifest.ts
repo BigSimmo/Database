@@ -82,6 +82,13 @@ export default function manifest(): MetadataRoute.Manifest {
         url: "/cme?focus=1",
         icons: [{ src: "/icons/icon-192", type: "image/png", sizes: "192x192" }],
       },
+      {
+        name: "Log CPD",
+        short_name: "Log CPD",
+        description: "Open a new CPD activity entry",
+        url: "/cme/new",
+        icons: [{ src: "/icons/icon-192", type: "image/png", sizes: "192x192" }],
+      },
     ],
   };
 }

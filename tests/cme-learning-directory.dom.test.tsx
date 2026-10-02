@@ -129,11 +129,13 @@ describe("CME learning directory page", () => {
         homeSource="au-ranzcp-2026-v1; https://example.org"
       />,
     );
-    expect(screen.getByRole("combobox", { name: "Specialty" })).toHaveValue("psychiatry");
+    const specialty = screen.getByRole("radiogroup", { name: "Specialty" });
+    expect(within(specialty).getByRole("radio", { name: "Psychiatry" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(2);
     expect(screen.getByText("Every specialty")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "All specialties" }));
-    expect(screen.getByRole("combobox", { name: "Specialty" })).toHaveValue("all");
+    // "All" is the first option, always on screen: one tap back to every specialty.
+    await user.click(within(specialty).getByRole("radio", { name: "All" }));
+    expect(within(specialty).getByRole("radio", { name: "All" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(3);
   });
 
@@ -151,7 +153,7 @@ describe("CME learning directory page", () => {
     );
     expect(screen.getByRole("heading", { name: "October 2026" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "November 2026" })).toBeInTheDocument();
-    await user.selectOptions(screen.getByRole("combobox", { name: "Format" }), "online");
+    await user.click(within(screen.getByRole("radiogroup", { name: "Format" })).getByRole("radio", { name: "Online" }));
     expect(screen.getAllByTestId("cme-learning-item")).toHaveLength(1);
     expect(screen.queryByText("November in person")).toBeNull();
   });

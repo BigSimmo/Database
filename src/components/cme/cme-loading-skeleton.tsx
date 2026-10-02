@@ -64,22 +64,43 @@ export function CmeLogLoadingSkeleton() {
 }
 
 /** Static shapes for the secondary CPD pages, in the same order as their loaded sections. */
-export function CmeSecondaryLoadingSkeleton({
-  page,
-}: {
-  page: "calendar" | "check" | "plan" | "training" | "summary" | "setup" | "programme";
-}) {
+export type CmeSecondaryLoadingPage =
+  | "calendar"
+  | "check"
+  | "plan"
+  | "training"
+  | "summary"
+  | "setup"
+  | "programme"
+  | "learning"
+  | "routines"
+  | "new"
+  | "customise"
+  | "entry";
+
+/** Pages whose screen-reader label is not simply "Loading your CPD {page}". */
+const LOADING_LABELS: Partial<Record<CmeSecondaryLoadingPage, string>> = {
+  check: "Loading your CPD year check",
+  new: "Loading the activity form",
+  customise: "Loading your dashboard choices",
+  entry: "Loading this activity",
+};
+
+export function CmeSecondaryLoadingSkeleton({ page }: { page: CmeSecondaryLoadingPage }) {
   const isCalendar = page === "calendar";
   const isTraining = page === "training";
   const isPlan = page === "plan";
   const isSummary = page === "summary";
   const isProgramme = page === "programme" || page === "setup";
-  const rows = isCalendar ? 5 : isSummary ? 4 : isTraining ? 3 : 5;
+  const isForm = page === "new";
+  const isEntry = page === "entry";
+  const isLearning = page === "learning";
+  const rows = isCalendar ? 5 : isSummary ? 4 : isTraining || isLearning || isEntry || page === "routines" ? 3 : 5;
 
   return (
     <div
       role="status"
-      aria-label={`Loading your CPD ${page === "check" ? "year check" : page}`}
+      aria-label={LOADING_LABELS[page] ?? `Loading your CPD ${page}`}
       data-testid={`cme-${page}-loading`}
       className={cn(PAGE, "max-w-3xl gap-4")}
     >
@@ -92,10 +113,21 @@ export function CmeSecondaryLoadingSkeleton({
         </div>
       ) : null}
       {isCalendar ? <div aria-hidden="true" className={cn(BLOCK, "h-80")} /> : null}
-      {isPlan || isProgramme || isSummary ? (
+      {isPlan || isProgramme || isSummary || isEntry ? (
         <div aria-hidden="true" className={cn(BLOCK, isPlan ? "h-56" : "h-40")} />
       ) : null}
-      <ModeModuleSkeleton rows={rows} twoLine eyebrow testId={`cme-${page}-loading-rows`} />
+      {isLearning ? <div aria-hidden="true" className={cn(BLOCK, "h-24")} /> : null}
+      {isForm ? (
+        // The form's own shapes: the title field, then the date, hours and category chip rows.
+        <div aria-hidden="true" data-testid="cme-new-loading-fields" className="flex flex-col gap-4">
+          <div className={cn(BLOCK, "h-12")} />
+          <div className={cn(BLOCK, "h-12 w-3/4")} />
+          <div className={cn(BLOCK, "h-12")} />
+          <div className={cn(BLOCK, "h-12 w-2/3")} />
+        </div>
+      ) : (
+        <ModeModuleSkeleton rows={rows} twoLine eyebrow testId={`cme-${page}-loading-rows`} />
+      )}
     </div>
   );
 }
