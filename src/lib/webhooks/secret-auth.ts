@@ -59,3 +59,18 @@ export function verifyWebhookSecret(
   if (!presented) return { ok: false, reason: "unauthorized" };
   return timingSafeSecretEqual(presented, expected) ? { ok: true } : { ok: false, reason: "unauthorized" };
 }
+
+/**
+ * Strip sensitive token query parameters from a webhook URL for safe logging or error payloads.
+ */
+export function sanitizeWebhookUrl(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    if (url.searchParams.has("token")) {
+      url.searchParams.set("token", "[REDACTED]");
+    }
+    return url.toString();
+  } catch {
+    return rawUrl.replace(/([?&]token=)[^&]+/gi, "$1[REDACTED]");
+  }
+}

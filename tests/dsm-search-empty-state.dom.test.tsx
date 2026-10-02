@@ -100,4 +100,13 @@ describe("DsmSearchPage empty state", () => {
     expect(params.get("ids")).toBe("mood-1,anxiety-1");
     expect(params.get("q")).toBe("review");
   });
+
+  it("keeps at least the 1rem side padding on the phone compare strip, growing only for safe-area insets", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("src/components/dsm/dsm-search-page.tsx", "utf8");
+    const strip = source.split("\n").find((line) => line.includes("dsm-mobile-compare-strip")) ?? "";
+    expect(strip).toContain("pl-[max(1rem,env(safe-area-inset-left))]");
+    expect(strip).toContain("pr-[max(1rem,env(safe-area-inset-right))]");
+    expect(strip).not.toMatch(/\b(?:pl|pr)-safe\b/);
+  });
 });

@@ -38,8 +38,15 @@ export function onCallTeachingEvents(entries: readonly OnCallEntry[], today: str
     const details = parsed.data as EducationDetails;
     if (!details.nextOccurrenceDate) continue;
     const frequency = details.recurrenceRule?.frequency ?? null;
-    const date = nextTeachingOccurrence(details.nextOccurrenceDate, frequency, today);
-    if (!date) continue;
+    const next = nextTeachingOccurrence(details.nextOccurrenceDate, frequency, today);
+    if (!next) continue;
+    // A monthly session starts its series on the owner's own anchor, not on the
+    // rolled-forward date: rolled onto a clamped short month (31 January to
+    // 28 February), the series would repeat on the 28th for ever after while
+    // the Teaching page shows 31 March. `expandEvents` and the alarms already
+    // read a series from any start date. Weekly and fortnightly cannot drift,
+    // so they keep the rolled date and stay clear of the occurrence cap.
+    const date = frequency === "monthly" ? details.nextOccurrenceDate : next;
     const when = details.nextOccurrence?.trim();
     const startTime = when && isValidTime(when) ? when : undefined;
     const notes = [

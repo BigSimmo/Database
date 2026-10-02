@@ -21,7 +21,7 @@ import { conceptReviewState } from "@/lib/formulation-review-status";
  * a changed status word, or a data file that moves would make that filter match
  * nothing — and the page would render "0 records awaiting sign-off", which reads
  * as "nothing is outstanding" rather than "the reader stopped working". So the
- * per-family counts are pinned to the numbers measured on 2026-09-18, and the
+ * per-family counts are pinned to the numbers measured on 2026-10-02, and the
  * expectations carry the measurement rather than a range.
  *
  * These numbers are expected to change as records are signed off. A count that
@@ -29,34 +29,20 @@ import { conceptReviewState } from "@/lib/formulation-review-status";
  * a count that has fallen to zero for a whole family is the bug.
  */
 const EXPECTED: Record<SignOffFamilyId, number> = {
-  "wa-mha-forms": 54,
-  // 12 mechanisms + 46 contextual concepts + 6 guide modules. The queue used to
-  // read the mechanisms only, which hid 52 unsigned records (ledger #33JDBW).
-  formulation: 64,
+  "wa-mha-forms": 1,
+  // 12 revised mechanisms plus six Indigenous concepts/guides held for governance review.
+  formulation: 18,
   // 201 exported diagnosis records + 31 presentation workflows, all of which
   // derive `validation_status: unverified` from the same snapshot governance
   // block. The prior hand count of "201" covered the diagnoses only.
   differentials: 232,
-  // 333 sense drafts + 96 definition reviews.
-  dictionary: 429,
-  // 585 per-disorder catalogue items + the 18 universal specifiers, which carry
-  // the same `clinician-review-pending` state on the same field but sit outside
-  // the catalogue and outside `publicSpecifierRecords()`, so they are listed
-  // unlinked.
-  specifiers: 603,
-  therapy: 205,
-  // 99 unverified candidate records appear in acquisitionReviewQueue().
-  // 2026-09-26: was 94. PR #3067 admitted five dictionary sources on their
-  // publishers' own "last updated" stamps; none is signed off.
-  // 2026-09-26: was 88. PR #3067 recorded six new unverified candidates from
-  // owner-approved publisher page reads;
-  // none is signed off.
-  // 2026-09-25: was 75. The WA forms/medicines/cultural-notes branch added 13
-  // new unsigned candidates (the Mental Health Act 2014 record, seven Chief
-  // Psychiatrist standards, the clozapine guideline, two Language Services
-  // documents, ScriptCheckWA and the Monitored Medicines Prescribing Code);
-  // its five new rejected records are excluded from the queue by design.
-  sources: 99,
+  // 333 unpublished sense drafts + 68 reviews without approved rewrite text.
+  dictionary: 401,
+  // The 89 written items and universals were signed off; 514 placeholders remain.
+  specifiers: 514,
+  therapy: 101,
+  // All 93 signable candidates were reviewed; six Indigenous sources remain held.
+  sources: 6,
 };
 
 describe("clinical sign-off queue", () => {
@@ -212,7 +198,10 @@ describe("clinical sign-off queue", () => {
     const routable = new Set(formStaticParams().map((entry) => entry.slug));
     const forms = queue.families.find((family) => family.id === "wa-mha-forms");
     expect(forms, "wa-mha-forms family is missing").toBeDefined();
-    expect(forms!.rows.length, "the WA MHA family lost its rows").toBeGreaterThan(50);
+    expect(
+      forms!.rows.map((row) => row.id),
+      "only the subsequently revised form remains unsigned",
+    ).toEqual(["form-2"]);
 
     const dead = forms!.rows
       .filter((row) => row.href !== null)

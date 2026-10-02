@@ -49,7 +49,10 @@ describe("audit navigation and auth regressions", () => {
 
   it("keeps the tappable phone suggestion ticker connected to standalone homes", () => {
     expect(globalSearchShellSource).toContain('isStandaloneModeHome || (pathname === "/" && !hasSubmittedModeSearch)');
-    expect(masterSearchHeaderSource).toContain("showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome}");
+    // Favourites alone opts out of the ticker (owner decision 2026-09-30).
+    expect(masterSearchHeaderSource).toContain(
+      'showPhoneSuggestionTicker={showPhoneSuggestionTickerOnHome && searchMode !== "favourites"}',
+    );
     expect(universalCommandSurfaceSource).toContain('data-testid="smart-search-phone-ticker"');
     expect(universalCommandSurfaceSource).toContain("onClick={() => onPickExample(resolvedTickerExample)}");
     expect(universalCommandSurfaceSource).toContain("examples.includes(heldTickerExample)");

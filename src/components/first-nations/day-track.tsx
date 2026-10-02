@@ -36,7 +36,7 @@ export function DayTrack({ hours, now, label }: { hours: Hours | null; now: Date
           x={(h / 24) * W}
           y={32}
           textAnchor={h === 0 ? "start" : h === 24 ? "end" : "middle"}
-          className="nums fill-[color:var(--surface-summary-muted)] text-2xs"
+          className="nums fill-[color:var(--surface-summary-muted)] text-sm-minus"
         >
           {String(h).padStart(2, "0")}
         </text>

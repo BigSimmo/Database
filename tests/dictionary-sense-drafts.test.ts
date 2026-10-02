@@ -255,7 +255,7 @@ describe("source dispositions", () => {
     }
   });
 
-  it("lands the two admitted sources in the real ledger as candidates", () => {
+  it("retains admitted sources as link-only candidates after metadata review", () => {
     const admitted = dictionarySourceDispositions.filter(
       (disposition) => disposition.ledgerOutcome === "admitted_as_candidate",
     );
@@ -265,7 +265,8 @@ describe("source dispositions", () => {
       expect(record?.disposition).toBe("candidate");
       // Metadata only: a candidate has not been adopted and has no full text.
       expect(record?.contentMode).toBe("link_only");
-      expect(record?.validationStatus).toBe("unverified");
+      expect(record?.validationStatus).not.toBe("approved");
+      expect(acquisitionLedgerIssues([record!])).toEqual([]);
     }
   });
 
@@ -508,15 +509,21 @@ describe("publisher re-reads", () => {
 });
 
 describe("what a candidate actually is", () => {
-  it("renders every row this handover added as D band and unverified", () => {
-    // A review found the documentation claiming these have "no deployed catalogue
-    // visibility". They do appear at /sources — the register feeds every non-rejected
-    // row into the catalogue. What holds is narrower and is pinned here: they render
-    // at the lowest band, marked unverified, and never as approved.
+  it("renders unsigned handover candidates as D band and unverified", () => {
+    // Candidate metadata appears in /sources before adoption. Explicitly unsigned
+    // fixtures must remain at the lowest band, regardless of owner review of the
+    // shipped metadata; metadata review still grants no adoption or full text.
     const added = sourceAcquisitionRecords.filter((record) => record.id.startsWith("dictionary-"));
     expect(added.length).toBeGreaterThanOrEqual(18);
 
-    const entries = canonicalizeSourceReferences(acquisitionSourceReferences(added));
+    const unsigned = added.map((record) => ({
+      ...record,
+      validationStatus: "unverified" as const,
+      attestedBy: undefined,
+      attestedAt: undefined,
+      attestedAgainstSha256: undefined,
+    }));
+    const entries = canonicalizeSourceReferences(acquisitionSourceReferences(unsigned));
     expect(entries).toHaveLength(added.length);
     for (const entry of entries) {
       expect(entry.rating.band, entry.title).toBe("D");

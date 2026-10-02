@@ -96,6 +96,7 @@ export const CLINICAL_TWMERGE_THEME = {
     "compact-meta",
     "disclosure-icon",
     "hero-medallion",
+    "icon-2xs",
     "icon-xs",
     "icon-sm",
     "icon-md",

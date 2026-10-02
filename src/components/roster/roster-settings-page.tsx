@@ -1,6 +1,6 @@
 "use client";
 
-import { RefreshCw, Trash2 } from "lucide-react";
+import { RefreshCw, Settings2, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { CalendarSubscribe } from "@/components/calendar/calendar-subscribe";
@@ -16,9 +16,11 @@ import { ToggleSwitch } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { updateReminderType, type ReminderLeadTime, type ReminderType } from "@/lib/reminders/settings-model";
 
+import { RosterAlertsSection } from "./alerts/roster-alerts-section";
 import { describeLinkFailure, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
+import { RosterPageHeader } from "./roster-ui";
 
 /**
  * Roster Settings: the calendar switch, the evening-before reminder,
@@ -37,7 +39,7 @@ export const ROSTER_DELETE_UNDO_MS = 30_000;
 const SHIFTS_REMINDER: ReminderType = "shifts";
 const EVENING_BEFORE: ReminderLeadTime = "evening-before";
 
-type DeleteState = "idle" | "pending" | "deleted";
+type DeleteState = "idle" | "pending" | "deleting" | "deleted";
 
 export function RosterSettingsPage() {
   const shifts = useRosterShifts();
@@ -63,12 +65,12 @@ export function RosterSettingsPage() {
     (keepalive: boolean) => {
       if (timer.current !== null) window.clearTimeout(timer.current);
       timer.current = null;
-      setDeleteState("deleted");
+      setDeleteState("deleting");
       void deleteAll({ keepalive }).then((failure) => {
         if (failure) {
           setDeleteState("idle");
           setNotice({ tone: "warning", text: failure });
-        }
+        } else setDeleteState("deleted");
       });
     },
     [deleteAll],
@@ -143,10 +145,19 @@ export function RosterSettingsPage() {
   if (deleteState !== "idle") {
     return (
       <InformationPageShell testId="roster-settings-main" width="narrow">
-        <h1 className="sr-only">Settings</h1>
+        <RosterPageHeader
+          icon={Settings2}
+          title="Settings"
+          subtitle="Calendar links, hours and your data."
+          ask={false}
+        />
         <div className="grid gap-3" data-testid="roster-settings-deleting">
           <ModeNotice>
-            {deleteState === "pending" ? "Deleting your Roster data" : "Your Roster data is deleted."}
+            {deleteState === "pending"
+              ? "Your Roster data will be deleted shortly."
+              : deleteState === "deleting"
+                ? "Deleting your own Roster data…"
+                : "Your own Roster data is deleted. Team rostered shifts remain with the team."}
           </ModeNotice>
           {deleteState === "pending" ? (
             <Button variant="secondary" onClick={undoDelete}>
@@ -160,7 +171,7 @@ export function RosterSettingsPage() {
 
   return (
     <InformationPageShell testId="roster-settings-main" width="narrow">
-      <h1 className="sr-only">Settings</h1>
+      <RosterPageHeader icon={Settings2} title="Settings" subtitle="Calendar links, hours and your data." ask={false} />
       <div className="grid min-w-0 gap-5">
         {notice ? <ModeNotice tone={notice.tone}>{notice.text}</ModeNotice> : null}
         {shifts.status === "loading" ? (
@@ -199,6 +210,7 @@ export function RosterSettingsPage() {
               />
             </ModeGroupedList>
             {calendarShifts ? <CalendarSubscribe testId="roster-settings-subscribe" /> : null}
+            <RosterAlertsSection />
 
             {shifts.status === "error" ? (
               <ModeNotice tone="warning" testId="roster-settings-error">
@@ -271,7 +283,10 @@ export function RosterSettingsPage() {
                 Delete my data
               </Button>
               <p className="px-3 text-sm text-[color:var(--text-muted)]">
-                Your shifts, calendar links and settings. Uploaded files are never kept.
+                Uploaded files are never kept. Your team retains its roster records for 12 months.
+              </p>
+              <p className="px-3 text-sm text-[color:var(--text-muted)]">
+                Your shifts, requests, leave, alerts and settings. Your team&apos;s roster keeps your rostered shifts.
               </p>
             </section>
           </>

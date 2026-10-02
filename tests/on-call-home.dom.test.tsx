@@ -327,10 +327,14 @@ describe("On Call home layout", () => {
       render(<OnCallHome />);
       expect(usualCallHref("bed-manager")).toMatch(/90000011$/);
 
-      // Nothing is clicked, scrolled or typed. Only the clock moves.
-      act(() => {
-        vi.advanceTimersByTime(6 * 60 * 1000);
-      });
+      // Nothing is clicked, scrolled or typed. Only the clock moves. The page wakes at
+      // least once a minute (cover and ladder windows), so step minute by minute and let
+      // each wake re-render and schedule the next, as it would on a phone left open.
+      for (let minute = 0; minute < 6; minute += 1) {
+        act(() => {
+          vi.advanceTimersByTime(60 * 1000);
+        });
+      }
 
       expect(usualCallHref("bed-manager")).toMatch(/90000012$/);
       expect(screen.getByTestId("on-call-now-usual-bed-manager")).toHaveTextContent(/after hours/i);
@@ -456,7 +460,8 @@ describe("the example-content module", () => {
     render(<OnCallHome />);
 
     const signedOut = screen.getByTestId("on-call-home-signed-out");
-    expect(signedOut).toHaveTextContent("Sign in to see your hospital's On Call numbers");
+    expect(signedOut).toHaveTextContent("Sign in to see shared On Call entries");
+    expect(signedOut).toHaveTextContent("Check the service before using a number.");
     expect(within(signedOut).getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     expect(screen.queryByTestId("on-call-home-first-run-empty")).toBeNull();
   });

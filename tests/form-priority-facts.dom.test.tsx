@@ -54,7 +54,11 @@ describe("Operational guidance review state", () => {
     const form = getFormRecord("form-3c");
     if (!form) throw new Error("Expected Form 3C");
 
-    render(<FormDetailPage form={form} />);
+    render(
+      <FormDetailPage
+        form={{ ...form, catalogPayload: { ...(form.catalogPayload as object), contentReviewStatus: "drafted" } }}
+      />,
+    );
     const priorityFacts = screen.getByLabelText("Priority facts");
     expect(
       within(priorityFacts).getByText(/Drafted from the Act and the approved form, awaiting clinical review/i),
@@ -67,7 +71,11 @@ describe("Operational guidance review state", () => {
     const form = getFormRecord("form-3c");
     if (!form) throw new Error("Expected Form 3C");
 
-    render(<FormDetailPage form={form} />);
+    render(
+      <FormDetailPage
+        form={{ ...form, catalogPayload: { ...(form.catalogPayload as object), contentReviewStatus: "drafted" } }}
+      />,
+    );
     const priorityFacts = screen.getByLabelText("Priority facts");
     await user.click(within(priorityFacts).getByRole("button", { name: /Clock \/ review.*Open detail/i }));
 

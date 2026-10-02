@@ -32,6 +32,7 @@ export function TeachingStateNotice({
   onRetry,
   onSignIn,
   onOpenDemo,
+  demoHref,
   onSwitchService,
 }: {
   state: TeachingNoticeState;
@@ -39,6 +40,8 @@ export function TeachingStateNotice({
   onRetry?: () => void;
   onSignIn?: () => void;
   onOpenDemo?: () => void;
+  /** The Teaching sample's entry link; a full navigation, because the switch is a route that sets a cookie. */
+  demoHref?: string;
   onSwitchService?: () => void;
 }) {
   const [howOpen, setHowOpen] = useState(false);
@@ -46,6 +49,7 @@ export function TeachingStateNotice({
   if (state === "signed-out") {
     if (onSignIn) actions.push({ id: "sign-in", label: "Sign in", onClick: onSignIn, emphasis: "primary" });
     if (onOpenDemo) actions.push({ id: "demo", label: "Open the demo", onClick: onOpenDemo, emphasis: "text" });
+    else if (demoHref) actions.push({ id: "demo", label: "Open the demo", href: demoHref, emphasis: "text" });
   }
   if ((state === "error" || state === "offline") && onRetry)
     actions.push({ id: "retry", label: "Try again", onClick: onRetry, emphasis: "secondary" });

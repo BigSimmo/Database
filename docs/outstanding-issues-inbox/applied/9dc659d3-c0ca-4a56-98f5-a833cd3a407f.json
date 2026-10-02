@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "9dc659d3-c0ca-4a56-98f5-a833cd3a407f",
+  "createdOn": "2026-09-27",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "issue",
+    "summary": "nltk GHSA-8mgp-746c-j5xp (high) has no patched release; transitive via medspacy-quickumls",
+    "detail": "This one advisory is the 2 high Dependabot alerts (requirements.txt and requirements-cloud.txt). Affected APIs (TransitionParser, AveragedPerceptron, PerceptronTagger save/load) are not called by the worker. Next: bump when nltk ships a fix.",
+    "source": "Claude session 2026-09-27, branch claude/repository-review-bugs-52tq9q",
+    "issueUlid": "01M3H9CJVJK55VBV6YGCASZP1W"
+  }
+}

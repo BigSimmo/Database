@@ -312,13 +312,14 @@ describe("Organise", () => {
 });
 
 describe("Needs you", () => {
-  it("offers to log unlogged sessions to CPD, and hides itself when nothing needs the reader", async () => {
+  it("offers to review unlogged sessions into CPD, and hides itself when nothing needs the reader", async () => {
     serveFetch((url) => (url === "/api/teaching?view=unlogged-count" ? json(200, { count: 2 }) : null));
     render(<NeedsYou live />);
-    expect(await screen.findByRole("link", { name: /^Log 2\ssessions to CPD/ })).toHaveAttribute(
+    expect(await screen.findByRole("link", { name: /^Review & log 2\ssessions/ })).toHaveAttribute(
       "href",
-      "/teaching/logbook",
+      "/teaching/review",
     );
+    expect(screen.getByRole("link", { name: /^Open logbook/ })).toHaveAttribute("href", "/teaching/logbook");
   });
 
   it("renders nothing with nothing to log, and asks nothing in the demo", async () => {

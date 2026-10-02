@@ -26,7 +26,7 @@ export function OnCallPrivateFlag({ compact = false }: { compact?: boolean }) {
         textMuted,
       )}
     >
-      <Lock aria-hidden="true" className="size-icon-2xs" />
+      <Lock aria-hidden="true" className="size-icon-xs" />
       {compact ? "Private" : "Private · only you"}
     </span>
   );

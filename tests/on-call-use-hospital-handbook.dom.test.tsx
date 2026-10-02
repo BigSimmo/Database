@@ -143,6 +143,21 @@ describe("useHospitalHandbook", () => {
     await waitFor(() => expect(result.current.status).toBe("ready"));
   });
 
+  it("keeps published staff names in memory without saving them in device storage", async () => {
+    const named = content({
+      section: "cover",
+      kind: "clinical",
+      sources: [{ label: "Rota", url: "https://example.org/rota" }],
+      cover: { staffName: "Dr Alex Example", grade: "registrar", window: { start: "00:00", end: "23:59" } },
+    });
+    routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () => json(detail([entry("named-cover", named)]));
+    const { result } = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(JSON.stringify(result.current)).toContain("Dr Alex Example");
+    expect(JSON.stringify(window.localStorage)).not.toContain("Dr Alex Example");
+    expect(JSON.stringify(window.sessionStorage)).not.toContain("Dr Alex Example");
+  });
+
   it("loads the first service and site and exposes only published content", async () => {
     routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () =>
       json(
@@ -300,5 +315,19 @@ describe("useHospitalHandbook", () => {
     expect(globalThis.fetch).not.toHaveBeenCalled();
     // No fixture uses 000 as a hospital line (plan Global Constraint 9).
     expect(result.current.items.some((item) => item.dial.display === "000")).toBe(false);
+  });
+});
+
+describe("Stage C handbook scope", () => {
+  it("keeps another site's published content out even when its draft moved here", async () => {
+    routes[`/api/on-call/services/${SERVICE}?siteId=${SITE_A}`] = () =>
+      json(
+        detail([
+          entry("other-site", content({ siteId: "30000000-0000-4000-8000-000000000099" }), content({ siteId: SITE_A })),
+        ]),
+      );
+    const { result } = renderHook(() => useHospitalHandbook());
+    await waitFor(() => expect(result.current.status).toBe("ready"));
+    expect(result.current.items).toEqual([]);
   });
 });

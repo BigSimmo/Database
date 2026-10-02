@@ -1,4 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
+import { acquisitionAttestedContentSha256 } from "@/lib/sources/acquisition-ledger";
+import { collectionOf, indigenousContentIn } from "../scripts/lib/clinical-record-review-contract.mjs";
 
 vi.mock("server-only", () => ({}));
 
@@ -75,7 +77,15 @@ describe("formulation source registration", () => {
   it("never fabricates a clinical review for an imported candidate", () => {
     for (const record of formulationCaptures) {
       expect(record.disposition).toBe("candidate");
-      expect(record.validationStatus).toBe("unverified");
+      if (record.validationStatus === "locally_reviewed") {
+        expect(record.attestedBy).toBe("PsychSift");
+        expect(record.attestedAt).toBe("2026-09-26T17:29:43.184Z");
+        expect(record.attestedAgainstSha256).toBe(acquisitionAttestedContentSha256(record));
+      } else {
+        expect(record.validationStatus).toBe("unverified");
+        expect(indigenousContentIn(collectionOf("source", [record])[0], "source")).not.toBeNull();
+        expect(record.attestedBy).toBeUndefined();
+      }
       expect(record.contentMode).toBe("link_only");
       expect(record.reviewDate).toBeNull();
       expect(record.dispositionReason).toMatch(/metadata candidate only/i);

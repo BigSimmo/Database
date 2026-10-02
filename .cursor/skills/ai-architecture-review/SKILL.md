@@ -13,6 +13,28 @@ Follow `AGENTS.md` review throttling and `docs/codex-review-protocol.md` before 
 
 ## Review Checklist
 
+### 0. RAG ranking protection (read before editing)
+
+Before touching any protected retrieval/ranking surface, read `AGENTS.md` `# RAG ranking
+protection` and `docs/rag-behaviour/` (README → behaviour-map → refuted-approaches →
+safeguards). Flag the touch to the user **before editing**, even for incidental refactors.
+
+Protected surfaces include `src/lib/rag/**`, clinical-search / retrieval-selection /
+released-search-order / ranking-config, evidence and result-sort helpers, source-authority
+tiering, the eval harness and golden fixtures, retrieval RPCs, and the retrieval-input
+producers named in AGENTS (chunking/extractors, document-index-units, enrichment, embedding
+fields, table facts, assertion tagging). The authoritative list is `ragRankingPatterns` in
+`scripts/pr-policy.mjs`.
+
+- Behaviour change needs a live eval-canary before/after pair (provider-backed — needs
+  explicit user approval). Offline-green alone is not enough.
+- Write a PR `RAG impact:` line when those surfaces change.
+- Prefer the Claude `rag-retrieval-reviewer` / `clinical-governance-reviewer` agents for deep
+  review of protected ranking or grounded-evidence changes.
+
+Also honour `AGENTS.md` `# API and provider confirmation boundary`: never run OpenAI,
+Supabase, hosted CI, or provider-backed evals without explicit confirmation.
+
 ### 1. Retrieval Quality & Provenance
 
 - **Hybrid Search:** Confirm queries use proper hybrid search patterns (pgvector + semantic/trigram matching) and respect user/organization boundaries.

@@ -1,5 +1,5 @@
 import { SHIFT_KIND_LABEL, SHIFT_LETTER, type ShiftKind } from "@/lib/roster/shift-kind";
-import type { OnCallShift } from "@/lib/roster/shifts/model";
+import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { cn } from "@/components/ui-primitives";
 
@@ -88,10 +88,11 @@ export function RosterWeekStrip({
             </span>
             <span
               aria-hidden="true"
+              data-mode-identity={isToday ? "roster" : undefined}
               className={cn(
                 "nums grid size-6 place-items-center rounded-full text-xs",
                 isToday
-                  ? "ring-1 ring-[color:var(--text-heading)] text-[color:var(--text-heading)]"
+                  ? "bg-[color:var(--mode-identity)] text-[color:var(--mode-identity-contrast)] forced-colors:border"
                   : "text-[color:var(--text-muted)]",
               )}
             >

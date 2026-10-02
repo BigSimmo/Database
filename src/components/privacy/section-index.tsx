@@ -46,7 +46,7 @@ export function PrivacySectionIndex({
             <span
               aria-hidden="true"
               className={cn(
-                "nums grid h-6 w-7 shrink-0 place-items-center rounded text-3xs font-extrabold",
+                "nums grid h-6 w-7 shrink-0 place-items-center rounded text-2xs font-extrabold",
                 active
                   ? "bg-[color:var(--clinical-accent)] text-[color:var(--surface)]"
                   : "text-[color:var(--text-muted)]",
@@ -54,11 +54,9 @@ export function PrivacySectionIndex({
             >
               {String(index + 1).padStart(2, "0")}
             </span>
-            <span className="min-w-0">
-              <span className="block truncate text-xs font-semibold">{section.short}</span>
-              <span className="mt-0.5 block truncate text-3xs leading-3 text-[color:var(--text-muted)]">
-                {section.gist}
-              </span>
+            <span className="min-w-0 py-1">
+              <span className="block text-xs font-semibold">{section.short}</span>
+              <span className="mt-0.5 block text-xs leading-4 text-[color:var(--text-muted)]">{section.gist}</span>
             </span>
           </button>
         );

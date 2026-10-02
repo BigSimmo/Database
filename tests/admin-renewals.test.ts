@@ -1,19 +1,22 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  buildIssuerCheckStampBody,
   buildNotForThisJobCreateBody,
   buildNotForThisJobToggleBody,
   buildRenewedEntryBody,
   buildRestoreEntryBody,
   complianceExpiryHistory,
   groupComplianceEntries,
+  issuerCheckStampLabel,
   renewalCalendarEvent,
   renewalsCalendarFile,
   workforceCopyText,
+  workforceRequirementLine,
 } from "@/lib/admin/renewals";
 import { createOnCallEntrySchema, updateOnCallEntrySchema } from "@/lib/on-call/api-schemas";
 import { ADMIN_REQUIREMENTS_CATALOGUE } from "@/lib/admin/requirements";
-import { mayContainOnCallCompliance } from "@/lib/on-call/compliance";
+import { complianceIssuerCheckedOn, mayContainOnCallCompliance } from "@/lib/on-call/compliance";
 import { onCallDetailsSchemaFor } from "@/lib/on-call/entry-model";
 import { complianceFixture, onCallEntryFixture } from "./helpers/on-call-entry-fixture";
 
@@ -23,6 +26,8 @@ const registration = complianceFixture("Medical registration", {
   consequence: "stops-work",
   expiresOn: "2026-12-20",
   issuingBody: "The national board",
+  proofNote: "Email from the board",
+  evidenceUrl: "https://example.org/reg.pdf",
 });
 
 describe("the Renewed sheet's record", () => {
@@ -44,6 +49,23 @@ describe("the Renewed sheet's record", () => {
       issuingBody: "The national board",
     });
     expect(result.body.lastVerifiedAt).toBe(registration.lastVerifiedAt);
+  });
+
+  it("does not set issuerCheckedOn when Renewed alone runs", () => {
+    const stamped = complianceFixture("Medical registration", {
+      category: "Registration",
+      expiresOn: "2026-12-20",
+      issuerCheckedOn: "2026-08-01",
+    });
+    const result = buildRenewedEntryBody(stamped, { newExpiresOn: "2027-12-20", proofNote: "" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect((result.body.details as { issuerCheckedOn?: string }).issuerCheckedOn).toBe("2026-08-01");
+    const fresh = buildRenewedEntryBody(registration, { newExpiresOn: "2027-12-20", proofNote: "" });
+    expect(fresh.ok).toBe(true);
+    if (!fresh.ok) return;
+    expect(fresh.body.details).not.toHaveProperty("issuerCheckedOn");
+    expect(fresh.body.lastVerifiedAt).toBe(registration.lastVerifiedAt);
   });
 
   it("refuses a missing, malformed or unchanged date, and an over-long proof note", () => {
@@ -94,6 +116,49 @@ describe("the Renewed sheet's record", () => {
     expect(mayContainOnCallCompliance("logistics", { category: "Pay", proofNote: "x" })).toBe(true);
     expect(mayContainOnCallCompliance("logistics", { category: "Pay", expiryHistory: [] })).toBe(true);
     expect(mayContainOnCallCompliance("logistics", { category: "Pay", notForThisJob: true })).toBe(true);
+    expect(mayContainOnCallCompliance("logistics", { category: "Pay", issuerCheckedOn: "2026-09-26" })).toBe(true);
+  });
+});
+
+describe("issuer check stamp (holder action)", () => {
+  it("parses and serialises issuerCheckedOn on compliance details", () => {
+    const parsed = onCallDetailsSchemaFor("logistics").safeParse({
+      category: "Registration",
+      kind: "compliance",
+      expiresOn: "2026-12-20",
+      issuerCheckedOn: "2026-09-26",
+    });
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && parsed.data).toMatchObject({ issuerCheckedOn: "2026-09-26" });
+    expect(
+      onCallDetailsSchemaFor("logistics").safeParse({
+        category: "Registration",
+        issuerCheckedOn: "26/09/2026",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("sets and clears the stamp without touching lastVerifiedAt", () => {
+    const set = buildIssuerCheckStampBody(registration, "2026-09-26");
+    expect(set).toEqual(expect.objectContaining({ ok: true }));
+    if (!set.ok) return;
+    expect(updateOnCallEntrySchema.safeParse(set.body).success).toBe(true);
+    expect(set.body.details).toMatchObject({ issuerCheckedOn: "2026-09-26", expiresOn: "2026-12-20" });
+    expect(set.body.lastVerifiedAt).toBe(registration.lastVerifiedAt);
+    expect(complianceIssuerCheckedOn({ ...registration, details: set.body.details })).toBe("2026-09-26");
+
+    const clear = buildIssuerCheckStampBody({ ...registration, details: set.body.details }, null);
+    expect(clear.ok).toBe(true);
+    if (!clear.ok) return;
+    expect(clear.body.details).not.toHaveProperty("issuerCheckedOn");
+    expect(clear.body.lastVerifiedAt).toBe(registration.lastVerifiedAt);
+  });
+
+  it("phrases the stamp as a holder action, never verified or compliant", () => {
+    expect(issuerCheckStampLabel(undefined)).toBe("No issuer check recorded");
+    expect(issuerCheckStampLabel("2026-09-26")).toBe("Last checked with issuer · 26 Sep 2026 · by you");
+    expect(issuerCheckStampLabel("2026-09-26")).not.toMatch(/\bverified\b/i);
+    expect(issuerCheckStampLabel("2026-09-26")).not.toMatch(/\bcompliant\b/i);
   });
 });
 
@@ -125,20 +190,45 @@ describe("Add to my calendar (spec review 9)", () => {
 });
 
 describe("Copy for workforce", () => {
-  it("heads the text exactly as the spec says and lists only compliance rows, blocking first", () => {
-    const text = workforceCopyText(
-      [
-        registration,
-        complianceFixture("Police check", { category: "Clearances" }),
-        onCallEntryFixture({ section: "logistics", details: { category: "Pay" } }),
-      ],
-      NOW,
+  it("names ready, Not recorded yet, missing proof, and the issuer stamp when present", () => {
+    const stamped = complianceFixture("Medical registration", {
+      category: "Registration",
+      consequence: "stops-work",
+      expiresOn: "2026-12-20",
+      issuingBody: "The national board",
+      proofNote: "Email from the board",
+      evidenceUrl: "https://example.org/reg.pdf",
+      issuerCheckedOn: "2026-09-01",
+      requirementId: "medical-registration-renewal",
+    });
+    const undated = complianceFixture("Police check", {
+      category: "Clearances",
+      requirementId: "criminal-record-screening",
+    });
+    expect(workforceRequirementLine(stamped.title, stamped)).toBe(
+      "Medical registration (The national board): ready · recorded as expiring 20 Dec 2026 · Last checked with issuer · 1 Sep 2026 · by you",
     );
-    expect(text.split("\n")).toEqual([
-      "Dates as I recorded them, copied 26 Sep 2026; not checked with issuers",
-      "Medical registration (The national board): recorded as expiring 20 Dec 2026",
-      "Police check: no expiry recorded",
-    ]);
+    expect(workforceRequirementLine(undated.title, undated)).toBe("Police check: Not recorded yet · missing proof");
+    expect(workforceRequirementLine("Visa and work rights", null)).toBe(
+      "Visa and work rights: Not recorded yet · missing proof",
+    );
+
+    const text = workforceCopyText([stamped, undated], NOW);
+    const lines = text.split("\n");
+    expect(lines[0]).toBe("Dates as I recorded them, copied 26 Sep 2026; not checked with issuers");
+    expect(lines).toContainEqual(
+      "Medical registration renewal (The national board): ready · recorded as expiring 20 Dec 2026 · Last checked with issuer · 1 Sep 2026 · by you",
+    );
+    expect(lines).toContainEqual("Criminal record screening: Not recorded yet · missing proof");
+    expect(lines.some((line) => line.includes("Not recorded yet"))).toBe(true);
+    expect(text).not.toMatch(/\bverified\b/i);
+    expect(text).not.toMatch(/\bcompliant\b/i);
+  });
+
+  it("lists catalogue gaps as missing lines, not silent omit", () => {
+    const text = workforceCopyText([registration], NOW);
+    expect(text.split("\n").length).toBeGreaterThan(ADMIN_REQUIREMENTS_CATALOGUE.length);
+    expect(text).toContain("Not recorded yet · missing proof");
   });
 });
 
@@ -205,6 +295,7 @@ describe("rows marked not for this job leave the exports (M13)", () => {
     category: "job",
     expiresOn: "2027-03-01",
     notForThisJob: true,
+    requirementId: "img-visa-requirements",
   });
 
   it("are not in Add all to my calendar", () => {
@@ -214,9 +305,11 @@ describe("rows marked not for this job leave the exports (M13)", () => {
     expect(renewalsCalendarFile([flagged], NOW)).toBeNull();
   });
 
-  it("are not in Copy for workforce", () => {
+  it("are not in Copy for workforce as a recorded row", () => {
     const text = workforceCopyText([registration, flagged], NOW);
     expect(text).toContain("Medical registration");
-    expect(text).not.toContain("IMG visa requirements");
+    // Flagged catalogue items leave the job checklist; they must not appear as ready.
+    expect(text).not.toMatch(/IMG visa requirements: ready/);
+    expect(text).not.toMatch(/IMG visa requirements: recorded as expiring/);
   });
 });

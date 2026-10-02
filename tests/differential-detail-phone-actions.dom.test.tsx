@@ -92,7 +92,7 @@ describe("the authored Do now steps on a phone", () => {
     // it. The rail has always labelled that; the new phone card did not, so it
     // presented group-level actions as specific to this diagnosis — the exact
     // mismatch the scope work exists to remove.
-    renderRecord("acute-dystonia", []);
+    renderRecord("drug-induced-parkinsonism", []);
 
     const card = screen.getByTestId("differential-do-now-phone");
     expect(card).toHaveTextContent(/not specific to/i);
@@ -108,9 +108,9 @@ describe("the authored Do now steps on a phone", () => {
   });
 
   it("uses the same wording as the rail, so the two cannot drift", () => {
-    const record = getDifferentialRecord("acute-dystonia")!;
+    const record = getDifferentialRecord("drug-induced-parkinsonism")!;
     const expected = differentialGroupScopeNote(record);
-    renderRecord("acute-dystonia", []);
+    renderRecord("drug-induced-parkinsonism", []);
 
     expect(screen.getByTestId("differential-do-now-phone")).toHaveTextContent(expected);
     expect(screen.getByTestId("differential-overview-rail")).toHaveTextContent(expected);

@@ -17,6 +17,16 @@ export const SHIFT_LETTER: Readonly<Record<ShiftKind, string>> = {
   other: "W",
 };
 
+/** Text colour for a kind's letter, from the design tokens. The letter stays, so colour is never the only cue. */
+export const SHIFT_LETTER_TONE: Readonly<Record<ShiftKind, string>> = {
+  day: "text-[color:var(--success)]",
+  evening: "text-[color:var(--warning)]",
+  night: "text-[color:var(--info)]",
+  on_call: "text-[color:var(--clinical-accent)]",
+  leave: "text-[color:var(--text-muted)]",
+  other: "text-[color:var(--text)]",
+};
+
 export const SHIFT_KIND_LABEL: Readonly<Record<ShiftKind, string>> = {
   day: "Day",
   evening: "Evening",

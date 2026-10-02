@@ -77,6 +77,7 @@ export function OnCallDialSheet({
   updatedAt,
   sources,
   reviewedAt,
+  lastConfirmedAt,
   now,
   onCall,
   hospitalPhone = false,
@@ -94,6 +95,7 @@ export function OnCallDialSheet({
   readonly updatedAt?: string | null;
   readonly sources?: readonly { readonly label: string; readonly url: string }[];
   readonly reviewedAt?: string | null;
+  readonly lastConfirmedAt?: string | null;
   readonly now?: Date;
   /** Called when the mobile call link is tapped, so the row can record it. */
   readonly onCall?: () => void;
@@ -203,7 +205,13 @@ export function OnCallDialSheet({
           ) : null}
         </div>
 
-        <OnCallUpdatedLine updatedAt={updatedAt ?? null} sources={sources} reviewedAt={reviewedAt} now={now} />
+        <OnCallUpdatedLine
+          updatedAt={updatedAt ?? null}
+          sources={sources}
+          reviewedAt={reviewedAt}
+          lastConfirmedAt={lastConfirmedAt}
+          now={now}
+        />
       </div>
     </Sheet>
   );

@@ -17,41 +17,48 @@
     },
     {
       "slug": "delirium",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "f67afc8149cd3c3d6e6bb48d681c2cf2764b0f21ad0a50173ec3dffaf46b28ec"
     },
     {
       "slug": "hypoactive-delirium",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "b3d5caff3603c61661d476df5f07f4a8ed1b18b6e5a1b1a84106709b5d6d1140"
     },
     {
       "slug": "clozapine-specific-adverse-effects-toxicity",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "531c2fe18a279569646a826152aee15be260bfaae9d607db1bb35cc7c1d050a1"
     },
     {
       "slug": "alcohol-withdrawal",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "44fde38d401d332b7da777b0ff38036bcd4eecd0a922b119fb3fd15abc197911"
     },
     {
       "slug": "catatonia-in-mood-disorder",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "04751df12c3eed79039dfd88944b72fa83b0f0dc3063e27a113eb7ef16dcf733"
     },
     {
       "slug": "postpartum-psychosis",
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "bdf2cc9447bb0d6f9ae01899778a8f5ff66c80ee6ae23e926d2449aa418fbb3c"
+    },
+    {
+      "slug": "acute-dystonia",
       "status": "drafted",
       "reviewedBy": null,
       "reviewedAt": null,
@@ -59,17 +66,17 @@
     },
     {
       "slug": "akathisia",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "52fb5f4ffd961a711f46745f28181c8b95fa910e9cd92ed4d8593aa3f444bb99"
     },
     {
       "slug": "lithium-physiological-withdrawal-tremor",
-      "status": "drafted",
-      "reviewedBy": null,
-      "reviewedAt": null,
-      "reviewedContentSha256": null
+      "status": "reviewed",
+      "reviewedBy": "PsychSift",
+      "reviewedAt": "2026-09-26T17:24:45.475Z",
+      "reviewedContentSha256": "eda4b7bcaac540c45cd5024dac1037ae2e5155c4cc5dde0ff5fefa4fb3e34fa7"
     }
   ]
 }

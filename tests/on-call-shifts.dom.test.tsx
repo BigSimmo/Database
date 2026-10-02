@@ -51,8 +51,10 @@ function state(overrides: Partial<RosterShiftsState> = {}): RosterShiftsState {
   return {
     status: "ready",
     shifts: [],
+    teamLoading: false,
     latestImport: null,
     demoMode: false,
+    sample: false,
     save: vi.fn(async () => null),
     addManual: vi.fn(async () => null),
     removeSeries: vi.fn(async () => null),

@@ -54,7 +54,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await open(page, "/on-call/call", colorScheme);
       const main = page.getByTestId("on-call-call-main");
       await expect(main.getByTestId("on-call-hospital-line")).toContainText("Demonstration Hospital");
-      await expect(main.locator('a[href="tel:0890000000,4455"]')).toHaveCount(1);
+      await expect(main.locator('a[href="tel:0855500000,4455"]')).toHaveCount(1);
       await expect(main).toContainText("then ext 4455");
 
       const emergency = main.locator("li", { hasText: "Synthetic emergency line" }).first();
@@ -94,10 +94,7 @@ for (const colorScheme of ["light", "dark"] as const) {
       await expect(firstGroup).toHaveAttribute("id", "on-call-group-downtime");
       await expect(firstGroup).toBeInViewport();
       await expect(main).not.toContainText("Car park after hours");
-      await expect(main.getByTestId("on-call-find-on-site").getByRole("link")).toHaveAttribute(
-        "href",
-        "/on-call/logistics",
-      );
+      await expect(main.getByTestId("on-call-find-on-site").getByRole("link")).toHaveAttribute("href", "/admin/help");
       expect(await shortTargets(main)).toEqual([]);
       if (colorScheme === "dark") expect(await brightBlocksOver48(main)).toEqual([]);
     });

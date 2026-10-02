@@ -610,10 +610,13 @@ function inferAnswerSectionKind(
   const text = `${heading} ${body}`.toLowerCase();
   if (/\b(?:gap|unsupported|not contain|not enough|missing|unclear)\b/.test(text)) return "source_gap";
   if (/\b(?:compare|comparison|versus|difference|conflict)\b/.test(text)) return "comparison";
-  if (/\b(?:contraindicat|caution|avoid|interaction)\b/.test(text)) return "contraindications_cautions";
-  if (/\b(?:risk|escalat|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text)) return "escalation_risk";
+  if (/\b(?:contraindicat(?:e|es|ed|ion|ions)|caution|avoid|interaction)\b/.test(text))
+    return "contraindications_cautions";
+  if (/\b(?:risk|escalat(?:e|es|ed|ing|ion|ions)|urgent|red flag|withhold|cease|stop|emergency)\b/.test(text))
+    return "escalation_risk";
   if (/\b(?:threshold|cutoff|cut-off|anc|fbc|wbc|below|above|range|score)\b/.test(text)) return "thresholds";
-  if (/\b(?:dose|dosing|dosage|mg|mcg|route|oral|im\b|po\b|medication|prescrib)\b/.test(text)) return "medication_dose";
+  if (/\b(?:dose|dosing|dosage|mg|mcg|route|oral|im\b|po\b|medication|prescrib(?:e|es|ed|er|ers|ing))\b/.test(text))
+    return "medication_dose";
   if (/\b(?:monitor|timing|weekly|monthly|hours?|days?|weeks?|blood test|level|review interval)\b/.test(text))
     return "monitoring_timing";
   if (/\b(?:document|form|record|audit|consent|register)\b/.test(text)) return "documentation";

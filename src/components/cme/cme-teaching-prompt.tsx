@@ -52,10 +52,10 @@ export function CmeTeachingPrompt() {
         {count} {count === 1 ? "teaching session" : "teaching sessions"} to review in Teaching.
       </p>
       <Link
-        href="/teaching/logbook"
+        href="/teaching/review"
         className="mt-2 inline-flex min-h-tap items-center text-sm font-semibold text-[color:var(--clinical-accent)] underline underline-offset-2"
       >
-        Open Teaching logbook
+        Review & log
       </Link>
     </section>
   );
