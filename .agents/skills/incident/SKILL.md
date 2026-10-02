@@ -1,6 +1,6 @@
 ---
 name: incident
-description: Triage recurring Database canary, CI, runtime, scheduled-task, and provider failures into reproducible causes, impact, containment, and next actions. Use for regressions, outages, flaky jobs, alerts, or repeated nightly or weekly failures.
+description: Triage recurring PsychSift canary, CI, runtime, scheduled-task, and provider failures into reproducible causes, impact, containment, and next actions. Use for regressions, outages, flaky jobs, alerts, or repeated nightly or weekly failures.
 ---
 
 # Incident

@@ -55,17 +55,17 @@ Do not restate any of them here. A second copy is how these two files drift.
 
 ## Stack and runtime
 
-| Layer     | Choice                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------ |
-| Runtime   | Node **24.x** / npm **11.x**, `engine-strict` (dev server exits on any other major)        |
-| Framework | Next.js 16 (App Router), React 19                                                          |
-| Language  | TypeScript 6, strict; Zod 4 for env and request validation                                 |
-| Styling   | Tailwind 4 (`@theme` tokens in `src/app/globals.css`), unlayered component CSS by design   |
-| Data      | Supabase — Postgres + pgvector (HNSW), Storage, Auth; Edge Functions on Deno 2             |
-| AI        | OpenAI (embeddings, image captions, grounded generation)                                   |
-| Ingestion | Node worker + Python OCR (PyMuPDF / Tesseract)                                             |
-| Tests     | Vitest (unit, `tests/**/*.test.ts`), Playwright (E2E, `tests/ui-*.spec.ts`)                |
-| Deploy    | Railway project `Database` — `Database` (app) + `worker` services, auto-deploy from `main` |
+| Layer     | Choice                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------- |
+| Runtime   | Node **24.x** / npm **11.x**, `engine-strict` (dev server exits on any other major)          |
+| Framework | Next.js 16 (App Router), React 19                                                            |
+| Language  | TypeScript 6, strict; Zod 4 for env and request validation                                   |
+| Styling   | Tailwind 4 (`@theme` tokens in `src/app/globals.css`), unlayered component CSS by design     |
+| Data      | Supabase — Postgres + pgvector (HNSW), Storage, Auth; Edge Functions on Deno 2               |
+| AI        | OpenAI (embeddings, image captions, grounded generation)                                     |
+| Ingestion | Node worker + Python OCR (PyMuPDF / Tesseract)                                               |
+| Tests     | Vitest (unit, `tests/**/*.test.ts`), Playwright (E2E, `tests/ui-*.spec.ts`)                  |
+| Deploy    | Railway project `PsychSift` — `PsychSift` (app) + `worker` services, auto-deploy from `main` |
 
 Install with `npm ci --include=dev`. Use `npm install` only when deliberately changing
 dependencies. `npm install` also installs the repo's git hooks.

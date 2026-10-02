@@ -1,4 +1,4 @@
 interface:
   display_name: "Migrate"
-  short_description: "Review safe Database schema migrations"
-  default_prompt: "Use $migrate to review this Database migration for data safety, privileges, RLS, compatibility, and rollback."
+  short_description: "Review safe PsychSift schema migrations"
+  default_prompt: "Use $migrate to review this PsychSift migration for data safety, privileges, RLS, compatibility, and rollback."

@@ -1,6 +1,6 @@
 ---
 name: task
-description: Manage Database task lifecycle transitions safely, including start, status, handoff, landed proof, and cleanup planning. Use when beginning work, checking task state, preparing handoff, proving integration, or closing a session.
+description: Manage PsychSift task lifecycle transitions safely, including start, status, handoff, landed proof, and cleanup planning. Use when beginning work, checking task state, preparing handoff, proving integration, or closing a session.
 ---
 
 # Task

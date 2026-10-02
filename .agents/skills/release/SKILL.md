@@ -1,6 +1,6 @@
 ---
 name: release
-description: Assemble Database release-readiness evidence, risk-scoped local checks, governance proof, rollback notes, and approval-gated final verification. Use for release, merge readiness, production handoff, or go-live confidence.
+description: Assemble PsychSift release-readiness evidence, risk-scoped local checks, governance proof, rollback notes, and approval-gated final verification. Use for release, merge readiness, production handoff, or go-live confidence.
 ---
 
 # Release

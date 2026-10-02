@@ -1,4 +1,4 @@
 interface:
   display_name: "Release"
-  short_description: "Assemble Database release-readiness evidence"
-  default_prompt: "Use $release to assess Database release readiness with local proof, rollback notes, and explicit approval gates."
+  short_description: "Assemble PsychSift release-readiness evidence"
+  default_prompt: "Use $release to assess PsychSift release readiness with local proof, rollback notes, and explicit approval gates."

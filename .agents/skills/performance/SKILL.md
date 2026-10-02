@@ -1,6 +1,6 @@
 ---
 name: performance
-description: Profile Database query, retrieval, rendering, bundle, worker, queue, memory, and capacity bottlenecks with reproducible local evidence. Use for latency, throughput, resource, scaling, or bundle-budget work.
+description: Profile PsychSift query, retrieval, rendering, bundle, worker, queue, memory, and capacity bottlenecks with reproducible local evidence. Use for latency, throughput, resource, scaling, or bundle-budget work.
 ---
 
 # Performance

@@ -1,6 +1,6 @@
 ---
 name: api
-description: Review Database route and function contracts for validation, authentication, authorization, errors, retries, idempotency, compatibility, and safe provider boundaries. Use for API route, edge function, webhook, or public contract work.
+description: Review PsychSift route and function contracts for validation, authentication, authorization, errors, retries, idempotency, compatibility, and safe provider boundaries. Use for API route, edge function, webhook, or public contract work.
 ---
 
 # API
