@@ -37,7 +37,7 @@ vi.mock("@/components/roster/ask/use-roster-ask-context", () => ({
   },
 }));
 
-import { RosterAskBox } from "@/components/roster/ask/roster-ask-box";
+import { RosterAskButton } from "@/components/roster/ask/roster-ask-box";
 
 afterEach(() => {
   cleanup();
@@ -46,18 +46,33 @@ afterEach(() => {
   readContextSpy.mockClear();
 });
 
+function openAsk() {
+  render(<RosterAskButton />);
+  fireEvent.click(screen.getByRole("button", { name: "Ask or change your roster" }));
+  return screen.getByRole("textbox", { name: "Ask or change your roster" });
+}
+
+it("opens from a single icon and shows no suggestion buttons", () => {
+  render(<RosterAskButton />);
+  expect(screen.queryByRole("textbox")).toBeNull();
+  expect(screen.queryByRole("button", { name: "When am I next on nights?" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Ask or change your roster" }));
+  expect(screen.getByRole("textbox", { name: "Ask or change your roster" })).toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "When am I next on nights?" })).toBeNull();
+});
+
 it("does not read roster data until someone asks", () => {
-  render(<RosterAskBox />);
+  const input = openAsk();
   expect(readContextSpy).not.toHaveBeenCalled();
-  fireEvent.click(screen.getByRole("button", { name: "When am I next on nights?" }));
+  fireEvent.change(input, { target: { value: "When am I next on nights?" } });
+  fireEvent.submit(input.closest("form")!);
   expect(readContextSpy).toHaveBeenCalled();
 });
 
 it("keeps reason text out of fetch, URL and storage", () => {
   const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(Response.json({}));
   const storageSpy = vi.spyOn(Storage.prototype, "setItem");
-  render(<RosterAskBox />);
-  const input = screen.getByRole("textbox", { name: "Ask or change your roster" });
+  const input = openAsk();
   fireEvent.change(input, { target: { value: "I can't do Tue 20 Oct night because my partner is unwell" } });
   fireEvent.submit(input.closest("form")!);
   expect(screen.getByText("Reasons aren't saved.")).toBeInTheDocument();
@@ -68,10 +83,10 @@ it("keeps reason text out of fetch, URL and storage", () => {
   expect(fetchSpy.mock.calls.flat().join(" ")).not.toMatch(/partner|unwell|can't do/i);
   expect(routerPush.mock.calls.flat().join(" ")).not.toMatch(/partner|unwell|can't do/i);
   expect(storageSpy).not.toHaveBeenCalled();
-  expect(input).toHaveValue("");
+  expect(screen.queryByRole("textbox", { name: "Ask or change your roster" })).toBeNull();
 });
 
 it("has no microphone", () => {
-  render(<RosterAskBox />);
+  openAsk();
   expect(screen.queryByRole("button", { name: /voice|microphone|dictate/i })).toBeNull();
 });

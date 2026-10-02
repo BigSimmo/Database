@@ -20,7 +20,7 @@ vi.mock("@/components/roster/use-roster-team", () => ({
   fetchRosterRead: mocks.fetchRead,
   postRosterAction: mocks.post,
 }));
-vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskBox: () => null }));
+vi.mock("@/components/roster/ask/roster-ask-box", () => ({ RosterAskButton: () => null }));
 vi.mock("@/components/roster/use-roster-shifts", () => ({ useRosterShifts: () => ({ status: "ready", shifts: [] }) }));
 
 import { RosterSwapsPage } from "@/components/roster/swaps/roster-swaps-page";

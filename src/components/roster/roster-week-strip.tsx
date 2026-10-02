@@ -88,10 +88,11 @@ export function RosterWeekStrip({
             </span>
             <span
               aria-hidden="true"
+              data-mode-identity={isToday ? "roster" : undefined}
               className={cn(
                 "nums grid size-6 place-items-center rounded-full text-xs",
                 isToday
-                  ? "ring-1 ring-[color:var(--text-heading)] text-[color:var(--text-heading)]"
+                  ? "bg-[color:var(--mode-identity)] text-[color:var(--mode-identity-contrast)] forced-colors:border"
                   : "text-[color:var(--text-muted)]",
               )}
             >

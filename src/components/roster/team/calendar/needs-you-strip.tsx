@@ -291,9 +291,13 @@ export function NeedsYouStrip({
     <section
       aria-label="Needs you"
       data-print-hide
-      className="grid gap-3 rounded-xl border border-[color:var(--border)] p-3"
+      data-mode-identity="roster"
+      className="grid gap-3 rounded-lg border border-[color:var(--mode-identity-border)] bg-[color:var(--mode-identity-soft)] p-3 shadow-[var(--e1)]"
     >
-      <h2 className="text-base font-normal">Needs you</h2>
+      <h2 className="flex items-center gap-2 text-base-minus font-semibold text-[color:var(--text-heading)]">
+        <span aria-hidden="true" className="size-2 rounded-full bg-[color:var(--mode-identity)]" />
+        Needs you
+      </h2>
       {pending.length || claimed.length ? (
         <ul className="grid gap-2">
           {pending.map((swap) => (
