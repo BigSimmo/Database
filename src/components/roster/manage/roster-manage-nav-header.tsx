@@ -1,10 +1,11 @@
 "use client";
-import { CalendarRange, CheckCheck, Users } from "lucide-react";
+import { CalendarRange, Inbox, Users } from "lucide-react";
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 
 const sections: readonly PageSection[] = [
-  { id: "approve", label: "Approve", icon: CheckCheck, weight: 1 },
+  // The Inbox keeps the old Approve tab's `approve` id, so nothing pointing at it breaks.
+  { id: "approve", label: "Inbox", icon: Inbox, weight: 1 },
   { id: "cover", label: "Cover", icon: Users, weight: 1 },
   { id: "roster", label: "Roster", icon: CalendarRange, weight: 1 },
 ];

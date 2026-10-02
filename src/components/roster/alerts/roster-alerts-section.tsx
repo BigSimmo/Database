@@ -1,5 +1,6 @@
 "use client";
 
+import { managerWaiting, RosterWaitingBadge } from "@/components/roster/manage/roster-manage-waiting";
 import { useEffect, useState } from "react";
 
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
@@ -148,6 +149,9 @@ function TeamRow({ team }: { team: RosterTeam }) {
     .filter(Boolean)
     .join(", ");
   const ends = overview.data?.me.rotationEndsOn;
+  const isManager = team.role === "manager" && team.enabled;
+  const manage = useRosterRead(isManager ? team.serviceId : null, "manage");
+  const waiting = manage.data ? managerWaiting(manage.data).count : 0;
   const subtitle = [manager ? `manager ${manager}` : null, ends ? `to ${formatPerthDay(ends)}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -158,7 +162,18 @@ function TeamRow({ team }: { team: RosterTeam }) {
         subtitle={subtitle || (team.enabled ? "Confirmed team" : "Not confirmed yet")}
         href={team.enabled ? "/roster/team" : undefined}
       />
-      {team.role === "manager" && team.enabled ? <ModeRow title="Manage" href="/roster/manage" /> : null}
+      {isManager ? (
+        <ModeRow
+          title={
+            <>
+              Manage
+              <RosterWaitingBadge count={waiting} />
+            </>
+          }
+          href="/roster/manage"
+          testId="roster-settings-manage"
+        />
+      ) : null}
     </>
   );
 }

@@ -7,7 +7,10 @@ import { RosterStat } from "@/components/roster/roster-ui";
 import { goToNeedsYou } from "@/components/roster/team/calendar/needs-you-strip";
 import { useRosterRead } from "@/components/roster/use-roster-team";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
+import type { RosterOverview } from "@/lib/roster/team/model";
+import { coverGaps, coverReadWindow, RosterCoverGap } from "./roster-cover-tab";
 import { managerReason, RosterDecisionSheet, type ManagerDecision } from "./roster-decision-sheet";
+import { managerWaiting } from "./roster-manage-waiting";
 
 /** The manage reload shared with the calendar on the Manage page (see `ManagerTeam`). */
 export type SharedManageReload = {
@@ -16,14 +19,28 @@ export type SharedManageReload = {
   onChanged: (changedBy: string) => void;
 };
 
+/** A read that answered with anything but data (an error, signed out, unavailable). */
+const readFailed = (status: string) => status !== "ready" && status !== "loading";
+
 /** Same layout as `RosterStats`, as a list so the figures are read as a set. */
 const STATS_GRID = "grid grid-cols-[repeat(auto-fit,minmax(min(100%,9.5rem),1fr))] gap-3";
 
+/**
+ * The manager's Inbox: one list of everything waiting on them, in order —
+ * swaps to approve, open shifts someone has taken, shifts someone can't make,
+ * then days short of the team's targets. Each request opens the Review sheet,
+ * which rechecks it live before anything is sent; each short day opens the
+ * same "Post gap" sheet the Cover tab uses.
+ *
+ * The section keeps its `approve` id (and this component its name) so nothing
+ * that points at the old Approve tab breaks.
+ */
 export function RosterApproveTab({
   serviceId,
   shared,
   decisionsInStrip = false,
   actorId = null,
+  overview,
 }: {
   serviceId: string;
   shared?: SharedManageReload;
@@ -35,6 +52,12 @@ export function RosterApproveTab({
   decisionsInStrip?: boolean;
   /** The reader, whose own swaps the strip leaves out (the server refuses them). */
   actorId?: string | null;
+  /**
+   * The team overview the Manage page already holds. With it, the Inbox also
+   * lists the days short of the team's targets (the Cover tab's own reads and
+   * gap rows); without it, the Inbox lists requests only.
+   */
+  overview?: RosterOverview;
 }) {
   const manage = useRosterRead(serviceId, "manage");
   const reloadManage = manage.reload;
@@ -50,6 +73,9 @@ export function RosterApproveTab({
   const people = useRosterRead(serviceId, "people");
   const today = perthDateOf(new Date());
   const leave = useRosterRead(serviceId, "team_leave", { from: today, to: addDaysToDate(today, 61) });
+  const coverServiceId = overview ? serviceId : null;
+  const assignments = useRosterRead(coverServiceId, "assignments", coverReadWindow(today));
+  const maker = useRosterRead(coverServiceId, "maker");
   const [decision, setDecision] = useState<ManagerDecision | null>(null);
   if (!manage.data || !people.data) {
     const failed = manage.status === "error" || people.status === "error";
@@ -72,28 +98,27 @@ export function RosterApproveTab({
   const names = new Map(
     people.data.people.map((person) => [person.userId, person.displayName ?? person.rosterName ?? "Team member"]),
   );
-  const swaps = manage.data.swaps.filter(
-    (swap) =>
-      swap.status === "accepted" &&
-      (!decisionsInStrip || (swap.requesterId !== actorId && swap.counterpartyId !== actorId)),
-  );
-  const open = manage.data.openShifts.filter((shift) => shift.status === "reported" || shift.status === "claimed");
+  const { swaps, claimed, reported } = managerWaiting(manage.data, { decisionsInStrip, actorId });
+  const waiting = swaps.length + claimed.length + reported.length;
   // The strip decides swaps and taken shifts; a shift someone can't make is only decided here.
-  const inStrip = decisionsInStrip ? swaps.length + open.filter((shift) => shift.status === "claimed").length : 0;
+  const inStrip = decisionsInStrip ? swaps.length + claimed.length : 0;
   const listedSwaps = decisionsInStrip ? [] : swaps;
-  const listedOpen = decisionsInStrip ? open.filter((shift) => shift.status === "reported") : open;
+  const listedOpen = decisionsInStrip ? reported : [...claimed, ...reported];
+  // Short days come from the Cover tab's own reads and gap rule, so the two lists always agree.
+  const coverFailed = readFailed(assignments.status) || readFailed(maker.status);
+  const coverReady = !overview || (assignments.status === "ready" && maker.status === "ready");
+  const gaps =
+    overview && coverReady && assignments.data && maker.data
+      ? coverGaps(today, assignments.data.assignments ?? [], maker.data.needs ?? [])
+      : [];
   const auto = manage.data.swaps.filter((swap) => swap.status === "approved" && swap.autoApproved).length;
   const seen = manage.data.seen;
+  const listed = listedSwaps.length + listedOpen.length + gaps.length;
   return (
-    <section className="grid gap-4" aria-label="Approve">
+    <section className="grid gap-4" aria-label="Inbox">
       <ul className={STATS_GRID} aria-label="Summary">
         <li>
-          <RosterStat
-            icon={Hourglass}
-            label="Waiting"
-            value={swaps.length + open.length}
-            testId="roster-stat-waiting"
-          />
+          <RosterStat icon={Hourglass} label="Waiting" value={waiting} testId="roster-stat-waiting" />
         </li>
         <li>
           <RosterStat icon={CheckCheck} label="Auto-approved" value={auto} testId="roster-stat-auto" />
@@ -109,7 +134,7 @@ export function RosterApproveTab({
           </li>
         ) : null}
       </ul>
-      {!swaps.length && !open.length ? <p>Nothing waiting for your decision.</p> : null}
+      {!waiting && !gaps.length && coverReady ? <p>Nothing waiting for your decision.</p> : null}
       {inStrip ? (
         <div className="grid gap-2">
           <p className="text-sm text-[color:var(--text-muted)]">
@@ -120,10 +145,10 @@ export function RosterApproveTab({
           </Button>
         </div>
       ) : null}
-      {listedSwaps.length || listedOpen.length ? (
-        <ul className="divide-y rounded-xl border">
+      {listed ? (
+        <ul className="divide-y rounded-xl border" data-testid="roster-inbox-list">
           {listedSwaps.map((swap) => (
-            <li key={swap.id}>
+            <li key={swap.id} data-inbox-kind="swap">
               <button
                 type="button"
                 className="grid min-h-12 w-full gap-1 p-4 text-left"
@@ -140,7 +165,7 @@ export function RosterApproveTab({
             </li>
           ))}
           {listedOpen.map((shift) => (
-            <li key={shift.id}>
+            <li key={shift.id} data-inbox-kind={shift.status}>
               <button
                 type="button"
                 className="grid min-h-12 w-full gap-1 p-4 text-left"
@@ -154,7 +179,39 @@ export function RosterApproveTab({
               </button>
             </li>
           ))}
+          {overview && assignments.data
+            ? gaps.map(({ date, need }) => (
+                <li key={`${date}-${need.id}`} data-inbox-kind="short" className="p-2">
+                  <RosterCoverGap
+                    date={date}
+                    need={need}
+                    assignments={assignments.data!.assignments}
+                    overview={overview}
+                    serviceId={serviceId}
+                    onPosted={() => {
+                      manage.reload();
+                      shared?.onChanged("approve");
+                    }}
+                  />
+                </li>
+              ))
+            : null}
         </ul>
+      ) : null}
+      {overview && coverFailed ? (
+        <div role="alert" className="grid gap-2">
+          <p>{assignments.message ?? maker.message}</p>
+          <Button
+            onClick={() => {
+              assignments.reload();
+              maker.reload();
+            }}
+          >
+            Try again
+          </Button>
+        </div>
+      ) : overview && !coverReady ? (
+        <p role="status">Loading cover…</p>
       ) : null}
       {leave.data?.leave.length ? (
         <section className="grid gap-2">

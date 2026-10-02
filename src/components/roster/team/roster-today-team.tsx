@@ -1,4 +1,5 @@
 "use client";
+import { managerWaiting } from "@/components/roster/manage/roster-manage-waiting";
 import { useEffect, useRef } from "react";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeNotice } from "@/components/mode-kit/notice";
@@ -58,9 +59,8 @@ function TeamSummary({
   const needsYou = (requests.data?.swaps ?? []).filter(
     (swap) => swap.counterpartyId === actorId && swap.status === "requested",
   );
-  const waiting =
-    (manage.data?.swaps ?? []).filter((swap) => swap.status === "accepted").length +
-    (manage.data?.openShifts ?? []).filter((shift) => shift.status === "claimed" || shift.status === "reported").length;
+  // The same count the Manage Inbox and the Settings "Manage" row show.
+  const waiting = manage.data ? managerWaiting(manage.data).count : 0;
   const cutoff = overview.data.nextCutoffOn;
   const holiday = Array.from({ length: 8 }, (_, offset) => addDaysToDate(today, offset)).find(
     (date) =>
