@@ -4,6 +4,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-state";
+import { clearAdminPins } from "@/lib/admin/pin-storage-keys";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
@@ -83,6 +84,8 @@ function clearAccountScopedBrowserState() {
   // entries — including personal ones — so it goes with the cache rather than
   // outliving it on a shared ward phone.
   clearOnCallRecent();
+  // Admin's pinned numbers: row ids only, but they name what this person rings.
+  clearAdminPins();
   // And the orientation ticks, for the same shared-computer reason from a
   // third direction: a tick says "I have collected the on-call phone", which
   // is true of a person and not of the next one to sit down.

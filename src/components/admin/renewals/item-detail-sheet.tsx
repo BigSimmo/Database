@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 
 import { ChecklistStatus } from "@/components/admin/renewals/checklist-status";
@@ -8,6 +7,7 @@ import { requirementRowUrgency } from "@/components/admin/renewals/urgency";
 import { focusRing } from "@/components/card-recipes";
 import { InlineNotice } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
+import { ExternalTextLink, TextLink } from "@/components/ui/link";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, controlDisabled, textMuted } from "@/components/ui-primitives";
 import { formatRecordedDate } from "@/lib/admin/renewal-dates";
@@ -142,68 +142,43 @@ export function ChecklistItemDetailSheet({
       }
     >
       {subject ? (
-        <div className="grid gap-4">
-          <div className="grid gap-3 rounded-lg border border-[color:var(--border)] p-3">
-            {item ? (
-              item.status === "confirmed" ? (
+        // One surface (the sheet), its groups split by hairlines — never a
+        // bordered card inside the sheet's own card.
+        <div
+          className="grid divide-y divide-[color:var(--border)] [&>*]:py-4 [&>*:first-child]:pt-0 [&>*:last-child]:pb-0"
+          data-testid={`${testId}-groups`}
+        >
+          {item ? (
+            <div className="grid gap-2">
+              {item.status === "confirmed" ? (
                 <p className="text-sm leading-6 text-[color:var(--text)]">{item.rule}</p>
               ) : (
                 <div className="grid gap-0.5">
                   <p className="text-sm font-medium text-[color:var(--text-heading)]">Check with your service</p>
                   <p className={cn(textMuted, "text-sm leading-6")}>{item.whatIsUnconfirmed}</p>
                 </div>
-              )
-            ) : null}
-            {item ? (
-              <a
-                href={item.sourceUrl}
-                target="_blank"
-                rel="noreferrer noopener"
-                className={cn(
-                  focusRing,
-                  textMuted,
-                  "inline-flex min-h-tap w-fit items-center text-xs underline-offset-2 hover:underline",
-                )}
-              >
+              )}
+              <ExternalTextLink href={item.sourceUrl} className="min-h-tap w-fit items-center text-xs">
                 {`Source: ${item.sourceName} · Updated ${formatRecordedDate(item.updated)}`}
-              </a>
-            ) : null}
-            {item && onNotForThisJob ? (
-              <button
-                type="button"
-                onClick={() => void toggleNotForThisJob()}
-                disabled={busy}
-                data-testid={`${testId}-not-for-this-job`}
-                className={cn(
-                  focusRing,
-                  controlDisabled,
-                  "min-h-tap w-fit text-left text-sm text-[color:var(--text-muted)] underline-offset-2 hover:underline",
-                )}
-              >
-                {flagged ? "Move back" : "Not for this job"}
-              </button>
-            ) : null}
-            {/* Spec review 20: a plain link from the medical registration item to
-                CPD's own year check. Navigation only — Admin reads no CPD data
-                and this link never appears in "Copy for workforce" or the
-                calendar file, which are both built from `own`/`entries`
-                directly rather than from anything this sheet renders. */}
-            {item?.id === "medical-registration-renewal" ? (
-              <Link
-                href="/cme/check"
-                data-testid="admin-renewals-cpd-link"
-                className={cn(
-                  focusRing,
-                  textMuted,
-                  "inline-flex min-h-tap w-fit items-center text-sm underline-offset-2 hover:underline",
-                )}
-              >
-                Open CPD year check
-              </Link>
-            ) : null}
-          </div>
+              </ExternalTextLink>
+              {/* Spec review 20: a plain link from the medical registration item to
+                  CPD's own year check. Navigation only — Admin reads no CPD data
+                  and this link never appears in "Copy for workforce" or the
+                  calendar file, which are both built from `own`/`entries`
+                  directly rather than from anything this sheet renders. */}
+              {item.id === "medical-registration-renewal" ? (
+                <TextLink
+                  href="/cme/check"
+                  data-testid="admin-renewals-cpd-link"
+                  className="min-h-tap w-fit items-center text-sm"
+                >
+                  Open CPD year check
+                </TextLink>
+              ) : null}
+            </div>
+          ) : null}
 
-          <div className="grid gap-3 rounded-lg border border-[color:var(--border)] p-3">
+          <div className="grid gap-3">
             <div className="flex items-start justify-between gap-3">
               <span className="grid gap-0.5">
                 <span className="text-sm font-medium text-[color:var(--text-heading)]">Expiry date</span>
@@ -237,10 +212,7 @@ export function ChecklistItemDetailSheet({
           </div>
 
           {entry ? (
-            <div
-              className="grid gap-2 rounded-lg border border-[color:var(--border)] p-3"
-              data-testid={`${testId}-issuer-check`}
-            >
+            <div className="grid gap-2" data-testid={`${testId}-issuer-check`}>
               <p className="text-sm text-[color:var(--text)]" data-testid={`${testId}-issuer-check-label`}>
                 {issuerCheckStampLabel(issuerCheckedOn)}
               </p>
@@ -278,10 +250,29 @@ export function ChecklistItemDetailSheet({
             </p>
           )}
 
-          {entry ? (
-            <Button variant="secondary" onClick={addToCalendar} testId={`${testId}-calendar`}>
-              Add to calendar
-            </Button>
+          {entry || (item && onNotForThisJob) ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {entry ? (
+                <Button variant="secondary" onClick={addToCalendar} testId={`${testId}-calendar`}>
+                  Add to calendar
+                </Button>
+              ) : null}
+              {item && onNotForThisJob ? (
+                <button
+                  type="button"
+                  onClick={() => void toggleNotForThisJob()}
+                  disabled={busy}
+                  data-testid={`${testId}-not-for-this-job`}
+                  className={cn(
+                    focusRing,
+                    controlDisabled,
+                    "min-h-tap px-2 text-left text-sm text-[color:var(--text-muted)] underline-offset-2 hover:underline",
+                  )}
+                >
+                  {flagged ? "Move back" : "Not for this job"}
+                </button>
+              ) : null}
+            </div>
           ) : null}
         </div>
       ) : null}
