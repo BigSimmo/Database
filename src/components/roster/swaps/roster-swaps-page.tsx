@@ -28,6 +28,7 @@ import { swapProgress } from "@/lib/roster/team/swap-progress";
 import { ArrowLeftRight, CalendarOff, CheckCircle2, Plane } from "lucide-react";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 import { RosterNewButton } from "@/components/roster/roster-new-button";
+import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 
 type TabId = "needs_you" | "sent" | "open" | "history" | "all";
 
@@ -77,6 +78,7 @@ const returnLine = (swap: RosterSwap | RosterManageSwap) =>
 /** Swaps and open shifts for one team. Answers are session-only React state; nothing is stored on the device. */
 export function RosterSwapsPage() {
   const now = useRosterNow();
+  const phoneFooterHidden = usePhoneFooterLayerScrollHidden() === true;
   const teams = useRosterTeams();
   const ownShifts = useRosterShifts();
   const enabled = useMemo(() => teams.data?.teams.filter((team) => team.enabled) ?? [], [teams.data]);
@@ -270,7 +272,7 @@ export function RosterSwapsPage() {
   const ready = !!serviceId && !!actorId && requests.status === "ready";
 
   return (
-    <InformationPageShell testId="roster-swaps-page">
+    <InformationPageShell testId="roster-swaps-page" className={phoneFooterHidden ? "max-sm:pb-4" : "max-sm:pb-20"}>
       <RosterPageHeader
         icon={ArrowLeftRight}
         eyebrow="Roster"

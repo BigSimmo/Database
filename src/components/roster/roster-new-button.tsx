@@ -146,7 +146,8 @@ export function RosterNewButton({
           className={cn(
             // Phones: a fixed box in the footer layer, bottom right. Its own
             // padding clears the safe area or a visible search dock (whichever is
-            // taller); the page itself gains no padding, so hidden means zero reserve.
+            // taller). Requests and Swaps own the matching visible page clearance;
+            // it collapses with this layer when the footer scroll signal hides it.
             "phone-footer-layer pointer-events-none max-sm:bottom-0 max-sm:right-0 max-sm:z-[var(--z-chrome)] max-sm:pb-[calc(0.75rem+max(var(--safe-area-bottom),var(--mobile-composer-reserve,0rem)))] max-sm:pr-4",
             "max-sm:transition-[transform,opacity] motion-reduce:transition-none print:hidden",
             hidden

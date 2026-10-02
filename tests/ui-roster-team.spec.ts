@@ -160,6 +160,17 @@ for (const width of [390, 1280]) {
   });
 }
 
+test("Roster Requests keeps the phone New pill clear of the last row", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });
+  await syntheticTeam(page);
+  await page.goto("/roster/requests");
+
+  const shell = page.getByTestId("roster-requests-page");
+  await expect(page.getByTestId("roster-new")).toBeVisible();
+  await expect.poll(() => shell.evaluate((el) => getComputedStyle(el).paddingBottom)).toBe("80px");
+});
+
 test("Roster manager route refuses ordinary members", async ({ page }) => {
   await syntheticTeam(page, false);
   await page.goto("/roster/manage");

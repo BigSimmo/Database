@@ -26,6 +26,7 @@ import { RosterSentBar, type SentReceipt } from "./roster-sent-bar";
 import { RosterSignInNotice } from "@/components/roster/invite/roster-sign-in-notice";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
 import { RosterNewButton } from "@/components/roster/roster-new-button";
+import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 
 type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
 type ActiveSheet = {
@@ -79,6 +80,7 @@ function requestRow(letter: string, title: string, detail: string, status: strin
 /** Dates I can't work, leave and shifts I can't make. Swaps and open shifts live on the Swaps page. */
 export function RosterRequestsPage() {
   const now = useRosterNow();
+  const phoneFooterHidden = usePhoneFooterLayerScrollHidden() === true;
   const search = useSyncExternalStore(subscribeSearch, searchSnapshot, serverSearchSnapshot);
   const [consumedSearch, setConsumedSearch] = useState<string | null>(null);
   const teams = useRosterTeams();
@@ -209,7 +211,7 @@ export function RosterRequestsPage() {
 
   const canTeamAct = !!serviceId && !!actorId && overview.status === "ready";
   return (
-    <InformationPageShell testId="roster-requests-page">
+    <InformationPageShell testId="roster-requests-page" className={phoneFooterHidden ? "max-sm:pb-4" : "max-sm:pb-20"}>
       <RosterPageHeader
         icon={Inbox}
         eyebrow="Roster"
