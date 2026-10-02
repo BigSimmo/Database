@@ -238,15 +238,21 @@ describe("AdminTodayPage", () => {
   });
 });
 
+/** The label reads `--today-at` for both its position and its own-width shift, so it stays inside the bar. */
+function expectLabelAt(at: string) {
+  expect(screen.getByTestId("admin-today-renew-next-window-track").style.getPropertyValue("--today-at")).toBe(at);
+  const label = screen.getByTestId("admin-today-renew-next-window-today");
+  expect(label.className).toContain("left-[var(--today-at)]");
+  expect(label.className).toContain("-translate-x-[var(--today-at)]");
+}
+
 describe("AdminTodayPage redesign (Admin proposal)", () => {
   it("keeps the window bar's 'Today' label inside the bar when today is past the end", () => {
     // wwc's date passed, so the marker sits at 100%: the label must end at the
     // bar's right edge, not centre on it and spill past the card.
     state.entries = [wwc];
     render(<AdminTodayPage now={NOW} />);
-    const label = screen.getByTestId("admin-today-renew-next-window-today");
-    expect(label.style.left).toBe("100%");
-    expect(label.style.transform).toBe("translateX(-100%)");
+    expectLabelAt("100%");
   });
 
   it("anchors the label to the left edge when today is at the start of the window", () => {
@@ -254,9 +260,7 @@ describe("AdminTodayPage redesign (Admin proposal)", () => {
     const opensToday = complianceFixture("Opens today", { category: "Training", expiresOn: "2026-10-26" });
     state.entries = [opensToday];
     render(<AdminTodayPage now={NOW} />);
-    const label = screen.getByTestId("admin-today-renew-next-window-today");
-    expect(label.style.left).toBe("0%");
-    expect(label.style.transform).toMatch(/^translateX\(-?0%\)$/);
+    expectLabelAt("0%");
   });
 
   it("makes Needs you actionable: rows open the item or the filtered list, and 'Record dates' opens the record sheet", () => {
