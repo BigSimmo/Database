@@ -4,6 +4,7 @@ import { cleanup, fireEvent, render, screen, within } from "@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AdminHelpPage } from "@/components/admin/admin-help-page";
+import { adminPinsStorageKey } from "@/lib/admin/pins";
 import { WA_CRISIS_CONTACTS } from "@/lib/crisis-contacts";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { onCallEntryFixture } from "./helpers/on-call-entry-fixture";
@@ -167,6 +168,21 @@ describe("AdminHelpPage", () => {
     const onSite = screen.getByRole("region", { name: "On site" });
     expect(within(onSite).getByRole("button", { name: `Edit ${onSiteOwn.title}` })).toBeTruthy();
     expect(screen.getByTestId("admin-help-add").className).not.toContain("--command");
+  });
+
+  it("hides pinned numbers resolved from cached rows when entries failed to load", () => {
+    window.localStorage.setItem(adminPinsStorageKey, JSON.stringify([onSiteOwn.id]));
+    try {
+      const view = render(<AdminHelpPage now={NOW} />);
+      expect(screen.getByTestId("admin-help-pinned")).toHaveTextContent(onSiteOwn.title);
+      view.unmount();
+      Object.assign(entryState, { isOffline: true, loadError: "offline" });
+      render(<AdminHelpPage now={NOW} />);
+      expect(screen.getByTestId("admin-help-load-failed")).toBeTruthy();
+      expect(screen.queryByTestId("admin-help-pinned")).toBeNull();
+    } finally {
+      window.localStorage.removeItem(adminPinsStorageKey);
+    }
   });
 
   it("shows the load-failed state, not empty tabs, when entries failed to load", () => {

@@ -114,8 +114,9 @@ export function AdminHelpPage({ now: nowProp }: { now?: Date } = {}) {
         {/* Crisis lines first, above the filter and every tab (design; ui-lane-rules). */}
         <AdminCrisisLines />
 
-        {/* Pinned numbers sit under the crisis lines, never above them (owner decision 2026-10-01). */}
-        <AdminPinnedNumbers items={items} testId="admin-help-pinned" />
+        {/* Pinned numbers sit under the crisis lines, never above them (owner decision 2026-10-01).
+            Hidden with the sections when loading failed: a cached number is not offered as current. */}
+        {loadState === "failed" ? null : <AdminPinnedNumbers items={items} testId="admin-help-pinned" />}
 
         <div className="grid gap-2 sm:grid-cols-[1fr_auto] sm:items-end">
           <div data-testid="admin-help-filter" className="min-w-0">

@@ -245,6 +245,17 @@ describe("selectNeedsYou notRecordedCount", () => {
     expect(needsYou?.notRecordedCount).toBe(1 + ADMIN_REQUIREMENTS_CATALOGUE.length);
   });
 
+  it("counts only catalogue items as recordable, since Record missing dates does not cover personal renewals", () => {
+    const recordedAll = ADMIN_REQUIREMENTS_CATALOGUE.map((item) =>
+      complianceFixture(item.title, { category: "Registration", requirementId: item.id, expiresOn: "2027-09-01" }),
+    );
+    const undated = complianceFixture("Personal undated", { category: "Training" });
+    const needsYou = selectNeedsYou([...recordedAll, undated], NOW);
+    expect(needsYou?.notRecordedCount).toBe(1);
+    expect(needsYou?.recordableCount).toBe(0);
+    expect(selectNeedsYou([undated], NOW)?.recordableCount).toBe(ADMIN_REQUIREMENTS_CATALOGUE.length);
+  });
+
   it("is zero when nothing is unrecorded", () => {
     const recordedAll = ADMIN_REQUIREMENTS_CATALOGUE.map((item) =>
       complianceFixture(item.title, { category: "Registration", requirementId: item.id, expiresOn: "2026-09-01" }),

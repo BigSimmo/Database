@@ -745,6 +745,35 @@ describe("AdminRenewalsPage — the URL contract", () => {
     expect(sheet.queryByTestId("admin-renewals-record-sheet-save")).toBeNull();
   });
 
+  it("?record=missing opens again, ready to save, once signing in from its sheet succeeds", () => {
+    storeState.signedOut = true;
+    storeState.entries = [];
+    navigation.query = "record=missing";
+    const view = render(<AdminRenewalsPage now={NOW} />);
+    fireEvent.click(
+      within(screen.getByTestId("admin-renewals-record-sheet")).getByTestId("admin-renewals-record-sheet-sign-in"),
+    );
+    expect(screen.queryByTestId("admin-renewals-record-sheet")).toBeNull();
+    Object.assign(storeState, { signedOut: false, entries: [...ALL] });
+    view.rerender(<AdminRenewalsPage now={NOW} />);
+    const sheet = within(screen.getByTestId("admin-renewals-record-sheet"));
+    expect(sheet.getByTestId("admin-renewals-record-sheet-save")).toBeInTheDocument();
+    expect(sheet.queryByText("Sign in to record dates.")).toBeNull();
+  });
+
+  it("?show=not-recorded offers no Record dates when only a personal renewal is undated", () => {
+    storeState.entries = [
+      ...ADMIN_REQUIREMENTS_CATALOGUE.map((item) =>
+        complianceFixture(item.title, { category: "registration", expiresOn: "2027-08-30", requirementId: item.id }),
+      ),
+      complianceFixture("Personal undated", { category: "training" }),
+    ];
+    navigation.query = "show=not-recorded";
+    renderPage();
+    expect(screen.getByTestId("admin-renewals-show-notice")).toHaveTextContent("Showing: Not recorded · 1");
+    expect(screen.queryByTestId("admin-renewals-show-record-dates")).toBeNull();
+  });
+
   it("?record=missing when signed out asks to sign in", () => {
     storeState.signedOut = true;
     storeState.entries = [];

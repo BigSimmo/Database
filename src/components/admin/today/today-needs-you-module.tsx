@@ -77,7 +77,7 @@ function PlainRow({ row, today }: { row: NeedsYouRow; today: string }) {
  * missing dates" sheet — the module names a job, so it also starts it.
  */
 export function TodayNeedsYouModule({ needsYou, today }: { needsYou: NeedsYou; today: string }) {
-  const { featured, rows, notRecordedCount } = needsYou;
+  const { featured, rows, recordableCount } = needsYou;
   return (
     <section className="grid min-w-0 gap-2" data-testid="admin-today-needs-you">
       <div className="flex min-w-0 items-center gap-2 px-3">
@@ -127,7 +127,7 @@ export function TodayNeedsYouModule({ needsYou, today }: { needsYou: NeedsYou; t
             ))}
           </ul>
         ) : null}
-        {notRecordedCount > 0 ? (
+        {recordableCount > 0 ? (
           <div className="border-t border-[color:var(--border)] p-3">
             <Link
               href={RENEWALS_RECORD_MISSING_HREF}

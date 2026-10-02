@@ -137,6 +137,13 @@ export interface NeedsYou {
    * passed dates push the grouped not-recorded row off the card.
    */
   readonly notRecordedCount: number;
+  /**
+   * How many of those "Record missing dates" can step through: catalogue
+   * items only. That workflow does not cover personal renewals, so "Record
+   * dates" is offered only when this is above zero, never to open an empty
+   * queue while an undated personal renewal is all that is left.
+   */
+  readonly recordableCount: number;
 }
 
 /**
@@ -201,7 +208,12 @@ export function selectNeedsYou(
 
   if (rows.length === 0) return null;
   const [featured, ...rest] = rows;
-  return { featured, rows: rest.slice(0, 2), notRecordedCount: notRecordedTitles.length };
+  return {
+    featured,
+    rows: rest.slice(0, 2),
+    notRecordedCount: notRecordedTitles.length,
+    recordableCount: catalogueNotRecorded.length,
+  };
 }
 
 export interface RequirementsSummary {

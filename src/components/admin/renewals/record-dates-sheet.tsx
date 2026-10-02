@@ -87,6 +87,10 @@ export function RecordDatesSheet({
   const [failure, setFailure] = useState<{ message: string; retry: () => void } | null>(null);
   const [tally, setTally] = useState<Tally>({ recorded: 0, skipped: 0, notForThisJob: 0 });
   const dateRef = useRef<HTMLInputElement>(null);
+  // One slug suffix per item for this opening, so a Retry (or a second tap)
+  // after a POST that committed but lost its response repeats the same
+  // `(owner, section, slug)` and cannot add a second flagged row.
+  const notForThisJobSuffix = useRef(new Map<string, string>());
 
   const total = items.length;
   const item = index < total ? items[index] : undefined;
@@ -136,8 +140,14 @@ export function RecordDatesSheet({
 
   function notForThisJob() {
     if (!item) return;
+    let suffix = notForThisJobSuffix.current.get(item.id);
+    if (!suffix) {
+      suffix = crypto.randomUUID().slice(0, 6);
+      notForThisJobSuffix.current.set(item.id, suffix);
+    }
+    const body = buildNotForThisJobCreateBody(item, suffix);
     void run(async () => {
-      const saved = await postEntry(buildNotForThisJobCreateBody(item, crypto.randomUUID().slice(0, 6)));
+      const saved = await postEntry(body);
       onSaved(saved);
       advance("notForThisJob");
     }, `Couldn't save ${item.title}.`);

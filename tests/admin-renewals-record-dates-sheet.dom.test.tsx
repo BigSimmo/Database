@@ -134,6 +134,26 @@ describe("RecordDatesSheet — stepping through", () => {
     expect(screen.queryByTestId("admin-renewals-record-sheet-error")).toBeNull();
   });
 
+  it("retries Not for this job with the same slug, so a lost response cannot add a second flagged row", async () => {
+    const fetchMock = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(jsonResponse({ error: "Service unavailable." }, 503))
+      .mockResolvedValueOnce(jsonResponse({ error: "Service unavailable." }, 503))
+      .mockResolvedValueOnce(jsonResponse({ entry: savedEntryFor(FIRST.id, { notForThisJob: true }) }, 201));
+    renderSheet();
+    fireEvent.click(screen.getByTestId("admin-renewals-record-sheet-not-for-this-job"));
+    const error = await screen.findByTestId("admin-renewals-record-sheet-error");
+    fireEvent.click(within(error).getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    // A second tap on the button, not Retry, reuses it too.
+    await waitFor(() => expect(screen.getByTestId("admin-renewals-record-sheet-not-for-this-job")).toBeEnabled());
+    fireEvent.click(screen.getByTestId("admin-renewals-record-sheet-not-for-this-job"));
+    expect(await screen.findByText("2 of 3")).toBeInTheDocument();
+    const slugs = fetchMock.mock.calls.map((call) => JSON.parse(String(call[1]?.body)).slug);
+    expect(slugs).toHaveLength(3);
+    expect(new Set(slugs).size).toBe(1);
+  });
+
   it("finishes with a plain summary of what happened", async () => {
     vi.spyOn(globalThis, "fetch")
       .mockResolvedValueOnce(jsonResponse({ entry: savedEntryFor(FIRST.id, { expiresOn: "2027-01-01" }) }, 201))

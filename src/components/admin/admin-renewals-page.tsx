@@ -262,12 +262,15 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
   }, [ready, own, itemParam]);
 
   // `?record=missing` opens "Record missing dates" once the load settles —
-  // on a read-only page it opens too, and says why it cannot save.
-  const openedRecord = useRef(false);
+  // on a read-only page it opens too, and says why it cannot save. It opens
+  // once per settled state, so after that sheet's Sign in or Retry turns the
+  // page ready it opens again with the refreshed queue.
+  const openedRecordFor = useRef<typeof loadState | null>(null);
   useEffect(() => {
-    if (recordParam !== "missing" || loadState === "loading" || openedRecord.current) return;
+    if (recordParam !== "missing" || loadState === "loading") return;
+    if (openedRecordFor.current === loadState || openedRecordFor.current === "ready") return;
     function openFromRecordParam(queue: readonly CatalogueItem[]) {
-      openedRecord.current = true;
+      openedRecordFor.current = loadState;
       setRecordQueue(queue);
     }
     openFromRecordParam(notRecordedItems);
@@ -460,7 +463,13 @@ export function AdminRenewalsPage({ now: nowProp }: { now?: Date } = {}) {
                   onOpenCatalogue={(item, entry) => setDetailSubject({ kind: "catalogue", item, entry })}
                   onOpenPersonal={(entry) => setDetailSubject({ kind: "personal", entry })}
                   onAddDate={addDate}
-                  onRecordDates={showFilter === "not-recorded" && canEdit ? openRecordDates : undefined}
+                  onRecordDates={
+                    // The workflow steps through catalogue items only; an undated
+                    // personal renewal alone would open "Nothing left to record".
+                    showFilter === "not-recorded" && canEdit && notRecordedItems.length > 0
+                      ? openRecordDates
+                      : undefined
+                  }
                 />
               ) : (
                 <>

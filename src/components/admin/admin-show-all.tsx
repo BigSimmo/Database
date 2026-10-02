@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { cn, floatingControl } from "@/components/ui-primitives";
 
@@ -57,6 +57,13 @@ export function AdminShowAll<T>({
     anchorIdOf !== undefined && hash !== "" && items.slice(previewRows).some((item) => anchorIdOf(item) === hash);
   const expanded = openedByReader || anchoredRowHidden || expandAll;
   const shown = expanded ? items : items.slice(0, previewRows);
+  // The browser tried the fragment scroll before the row existed and does not
+  // retry once it mounts, so a row this list revealed for the hash (a glance
+  // tile's jump, a redirected bookmark) is scrolled to here, after it renders.
+  useEffect(() => {
+    if (!anchoredRowHidden) return;
+    document.getElementById(hash)?.scrollIntoView?.({ block: "start" });
+  }, [anchoredRowHidden, hash]);
   return (
     <>
       <ul className={cn("grid", listClassName)} aria-label={label} data-testid={testId}>
