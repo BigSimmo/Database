@@ -160,6 +160,104 @@ for (const width of [390, 1280]) {
   });
 }
 
+for (const bulk of [false, true]) {
+  test(`Roster fresh rule warning ${bulk ? "blocks bulk approval" : "requires explicit manager review"}`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.emulateMedia({ reducedMotion: "reduce" });
+    await syntheticTeam(page);
+    const date = new Date(Date.now() + 8 * 3_600_000).toISOString().slice(0, 10);
+    const next = new Date(Date.parse(`${date}T00:00:00Z`) + 86_400_000).toISOString().slice(0, 10);
+    const third = "5e000000-0000-4000-8000-000000000006";
+    const give = {
+      id: "5e000000-0000-4000-8000-000000000011",
+      userId: peerId,
+      name: "Sam Example",
+      grade: "registrar",
+      siteId: null,
+      siteName: null,
+      startsAt: `${date}T21:30:00+08:00`,
+      endsAt: `${next}T08:00:00+08:00`,
+      shiftCode: "N",
+      kind: "night",
+    };
+    const earlier = {
+      ...give,
+      id: "5e000000-0000-4000-8000-000000000012",
+      userId: third,
+      name: "Noor Example",
+      startsAt: `${date}T09:00:00+08:00`,
+      endsAt: `${date}T17:00:00+08:00`,
+      shiftCode: "D",
+      kind: "day",
+    };
+    const waiting = {
+      id: "5e000000-0000-4000-8000-000000000021",
+      requesterId: peerId,
+      counterpartyId: third,
+      requesterName: "Sam Example",
+      counterpartyName: "Noor Example",
+      give,
+      take: null,
+      status: "accepted",
+      autoApproved: false,
+      needsManagerBecause: "within_7_days",
+      decidedAt: null,
+    };
+    let changed = false;
+    const posts: unknown[] = [];
+    await page.route("**/api/roster/team/**", async (route) => {
+      const request = route.request();
+      if (request.method() === "POST") {
+        posts.push(request.postDataJSON());
+        return route.fulfill({ json: { result: { status: "approved" } } });
+      }
+      const what = new URL(request.url()).searchParams.get("what");
+      if (what === "manage") return route.fulfill({ json: { swaps: [waiting], openShifts: [], seen: null } });
+      if (what === "assignments") return route.fulfill({ json: { assignments: changed ? [give, earlier] : [give] } });
+      if (what === "overview")
+        return route.fulfill({
+          json: {
+            service: { id: teamId, name: "Example team" },
+            me: { role: "manager", grade: "registrar", rotationEndsOn: null },
+            latestPublication: null,
+            seenLatest: true,
+            settings: {
+              swapApproval: "manager",
+              rules: { minBreakHours: 10 },
+              rulesSource: null,
+              payFortnightAnchor: null,
+            },
+            sites: [],
+            managers: [],
+          },
+        });
+      return route.fallback();
+    });
+    await page.goto("/roster/team?view=week");
+    const strip = page.getByRole("region", { name: "Needs you" });
+    await expect(strip).toBeVisible();
+    await expect(strip.getByText("Not checked, open it to review")).toHaveCount(0);
+    changed = true;
+    await clickWhenHydrated(
+      strip.getByRole("button", { name: bulk ? "Approve all without warnings" : "Approve", exact: true }),
+    );
+    if (bulk) {
+      await expect(
+        strip.getByText("Approved 0. 1 left for you to read because a shift has a rule warning."),
+      ).toBeVisible();
+      expect(posts).toEqual([]);
+    } else {
+      const review = page.getByRole("dialog", { name: "Review fresh roster checks" });
+      await expect(review.getByText("After this swap: Less than 10 hours' rest before this shift")).toBeVisible();
+      expect(posts).toEqual([]);
+      await clickWhenHydrated(review.getByRole("button", { name: "Approve after review" }));
+      await expect.poll(() => posts).toEqual([{ action: "swap.approve", swapId: waiting.id }]);
+    }
+  });
+}
+
 test("Roster Requests keeps the phone New pill clear of the last row", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ colorScheme: "light", reducedMotion: "reduce" });

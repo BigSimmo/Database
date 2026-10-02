@@ -104,6 +104,64 @@ afterEach(() => {
 });
 
 describe("Roster Shifts", () => {
+  it("loads both teams' rules and applies them to the matching shifts using the full personal history", async () => {
+    mockShifts([]);
+    const first = "22222222-2222-4222-8222-222222222222";
+    const second = "55555555-5555-4555-8555-555555555555";
+    const actorId = "11111111-1111-4111-8111-111111111111";
+    routes.set("GET /api/roster/team", () =>
+      Response.json({
+        actorId,
+        teams: [first, second].map((serviceId) => ({
+          serviceId,
+          name: "Example team",
+          enabled: true,
+          role: "member",
+          grade: "registrar",
+        })),
+      }),
+    );
+    const row = (id: string, startsAt: string, endsAt: string) => ({
+      id,
+      userId: actorId,
+      name: "Dr Alex Example",
+      grade: "registrar",
+      siteId: null,
+      siteName: null,
+      startsAt,
+      endsAt,
+      shiftCode: "D",
+      kind: "day",
+    });
+    const from = "2026-09-21",
+      to = "2026-10-27";
+    routes.set(`GET /api/roster/team/${first}?what=assignments&from=${from}&to=${to}`, () =>
+      Response.json({
+        assignments: [
+          row("33333333-3333-4333-8333-000000000001", "2026-10-12T08:00:00+08:00", "2026-10-12T16:00:00+08:00"),
+          row("33333333-3333-4333-8333-000000000003", "2026-10-13T16:00:00+08:00", "2026-10-13T23:00:00+08:00"),
+        ],
+      }),
+    );
+    routes.set(`GET /api/roster/team/${second}?what=assignments&from=${from}&to=${to}`, () =>
+      Response.json({
+        assignments: [
+          row("33333333-3333-4333-8333-000000000002", "2026-10-13T00:00:00+08:00", "2026-10-13T08:00:00+08:00"),
+        ],
+      }),
+    );
+    for (const [id, minBreakHours] of [
+      [first, 6],
+      [second, 10],
+    ] as const)
+      routes.set(`GET /api/roster/team/${id}?what=overview`, () =>
+        Response.json({ settings: { rules: { minBreakHours } } }),
+      );
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    expect(await screen.findByText("Less than 10 hours' rest before this shift")).toBeInTheDocument();
+    expect(screen.queryByText("Less than 6 hours' rest before this shift")).toBeNull();
+    for (const id of [first, second]) expect(fetchCalls(`/api/roster/team/${id}?what=overview`, "GET")).toHaveLength(1);
+  });
   it("loads the newly selected week before saying it has no team shifts", async () => {
     mockShifts([]);
     // Each week is read 21 days back (team rule lookback) and through the

@@ -4,12 +4,15 @@ import { useState } from "react";
 
 import {
   decisionAction,
+  decisionReviewWords,
   managerReason,
   recheckDecision,
   type ManagerDecision,
+  type FreshDecisionRules,
 } from "@/components/roster/manage/roster-decision-sheet";
 import { postRosterAction } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import type { RosterAction, RosterManageOpenShift, RosterManageSwap } from "@/lib/roster/team/model";
@@ -19,7 +22,9 @@ type Post = (action: RosterAction) => ReturnType<typeof postRosterAction>;
 /** The live recheck of one waiting swap: the swap as it stands now, or why it cannot be decided. */
 export type SwapRecheck = (
   swap: RosterManageSwap,
-) => Promise<{ ok: true; swap: RosterManageSwap } | { ok: false; reason: "unreachable" | "changed" }>;
+) => Promise<
+  { ok: true; swap: RosterManageSwap; rules?: FreshDecisionRules } | { ok: false; reason: "unreachable" | "changed" }
+>;
 type Flags = ReadonlyMap<string, readonly RuleFlag[]>;
 
 /**
@@ -140,7 +145,11 @@ export async function approveAllWithoutWarnings(
         });
         continue;
       }
-      if (swapHasWarning(fresh.swap, checks)) {
+      if (fresh.rules && !fresh.rules.checkable) {
+        result.notChecked.push(swap.id);
+        continue;
+      }
+      if (fresh.rules ? fresh.rules.warnings.length > 0 : swapHasWarning(fresh.swap, checks)) {
         result.warned.push(swap.id);
         continue;
       }
@@ -170,15 +179,20 @@ export function useRosterDecision(serviceId: string, onChanged: () => void) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [errors, setErrors] = useState<string[]>([]);
+  const [review, setReview] = useState<{
+    decision: ManagerDecision;
+    rules: FreshDecisionRules;
+    words: string[];
+  } | null>(null);
   const post: Post = (action) => postRosterAction(serviceId, action);
   const recheck: SwapRecheck = async (swap) => {
     const outcome = await recheckDecision(serviceId, { kind: "swap", item: swap });
     return outcome.ok && outcome.current.kind === "swap"
-      ? { ok: true, swap: outcome.current.item }
+      ? { ok: true, swap: outcome.current.item, rules: outcome.rules ?? undefined }
       : { ok: false, reason: outcome.ok ? "changed" : outcome.reason };
   };
 
-  async function decide(decision: ManagerDecision, approve: boolean) {
+  async function decide(decision: ManagerDecision, approve: boolean, reviewedFingerprint?: string) {
     if (busy) return;
     setBusy(true);
     setMessage("Rechecking the live roster…");
@@ -192,6 +206,14 @@ export function useRosterDecision(serviceId: string, onChanged: () => void) {
       onChanged();
       return;
     }
+    const words = decisionReviewWords(fresh.rules);
+    if (approve && words.length && reviewedFingerprint !== fresh.rules?.fingerprint) {
+      setBusy(false);
+      setMessage(null);
+      setReview({ decision: fresh.current, rules: fresh.rules!, words });
+      return;
+    }
+    setReview(null);
     const action = decisionAction(fresh.current, approve);
     const sent = await post(action);
     setBusy(false);
@@ -226,7 +248,23 @@ export function useRosterDecision(serviceId: string, onChanged: () => void) {
     onChanged();
   }
 
-  return { busy, message, errors, decide, approveAll };
+  const reviewDialog = (
+    <ConfirmDialog
+      open={review !== null}
+      tone="primary"
+      title="Review fresh roster checks"
+      description={review?.words.map((words) => (
+        <p key={words}>{words}</p>
+      ))}
+      confirmLabel="Approve after review"
+      onCancel={() => setReview(null)}
+      onConfirm={() => {
+        if (review) void decide(review.decision, true, review.rules.fingerprint);
+      }}
+      busy={busy}
+    />
+  );
+  return { busy, message, errors, decide, approveAll, reviewDialog };
 }
 
 const who = (name: string | null | undefined, fallback: string | null | undefined) =>
@@ -360,7 +398,7 @@ export function NeedsYouStrip({
   onChanged: () => void;
   onPickDay: (date: string) => void;
 }) {
-  const { busy, message, errors, decide, approveAll } = useRosterDecision(serviceId, onChanged);
+  const { busy, message, errors, decide, approveAll, reviewDialog } = useRosterDecision(serviceId, onChanged);
   if (!pending.length && !claimed.length && !shortDays.length) return null;
 
   const approvable = pending.filter((swap) => checks.checkable.has(swap.id) && !swapHasWarning(swap, checks)).length;
@@ -373,6 +411,7 @@ export function NeedsYouStrip({
       data-mode-identity="roster"
       className="grid gap-3 rounded-lg border border-[color:var(--mode-identity-border)] bg-[color:var(--mode-identity-soft)] p-3 shadow-[var(--e1)]"
     >
+      {reviewDialog}
       <h2
         id={`${NEEDS_YOU_ID}-heading`}
         tabIndex={-1}

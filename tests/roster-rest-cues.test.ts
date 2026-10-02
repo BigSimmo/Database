@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { restCues, type RestCueShift } from "@/lib/roster/rest-cues";
+import { restCues, restCuesByTeam, type RestCueShift } from "@/lib/roster/rest-cues";
 import { perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import { ruleFlags } from "@/lib/roster/team/rule-flags";
 import { myShiftsAsAssignments } from "@/lib/roster/rest-cues";
@@ -21,6 +21,21 @@ function shift(kind: RestCueShift["kind"], date: string, start: string, endDate:
 const cueFor = (cues: ReturnType<typeof restCues>, row: RestCueShift) => cues.find((cue) => cue.shiftId === row.id);
 
 describe("restCues", () => {
+  it("matches each team's limits while retaining work from the other team in its lookback", () => {
+    const first = { ...shift("day", "2026-10-05", "08:00", "2026-10-05", "16:00"), serviceId: "first" };
+    const second = { ...shift("evening", "2026-10-06", "00:00", "2026-10-06", "08:00"), serviceId: "second" };
+    const third = { ...shift("day", "2026-10-06", "16:00", "2026-10-06", "23:00"), serviceId: "first" };
+    const cues = restCuesByTeam(
+      [first, second, third],
+      new Map([
+        ["first", { minBreakHours: 6 }],
+        ["second", { minBreakHours: 10 }],
+      ]),
+    );
+    expect(cueFor(cues, second)?.restHours).toBe(8);
+    expect(cueFor(cues, second)?.warning).toBe("Less than 10 hours' rest before this shift");
+    expect(cueFor(cues, third)?.warning).toBeUndefined();
+  });
   it("measures rest from the previous worked shift, across an overnight", () => {
     const night = shift("night", "2026-10-05", "21:30", "2026-10-06", "08:00");
     const day = shift("day", "2026-10-06", "17:00", "2026-10-06", "22:00");

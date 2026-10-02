@@ -1064,7 +1064,7 @@ This generated snapshot is a local source-derived inventory. It does not assert 
 | `ChoiceChip`             | controls | yes   | yes                | inherited-global-root | yes            | no                 |               5 |
 | `Citation`               | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
 | `CitationList`           | source   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |
-| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              11 |
+| `ConfirmDialog`          | layout   | yes   | yes                | inherited-global-root | yes            | no                 |              13 |
 | `DateDisplay`            | source   | yes   | yes                | inherited-global-root | yes            | no                 |               4 |
 | `Disclosure`             | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               3 |
 | `DisclosureGroup`        | layout   | yes   | yes                | inherited-global-root | yes            | no                 |               1 |

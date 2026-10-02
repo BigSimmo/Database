@@ -89,6 +89,9 @@ it("rechecks a waiting swap before approving and sends no actor", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Swap · Alex and Sam/ }));
   await screen.findByText(/Rechecked/);
   fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+  const review = await screen.findByRole("dialog", { name: "Review fresh roster checks" });
+  expect(posts).toEqual([]);
+  fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
   await waitFor(() => expect(posts).toEqual([{ action: "swap.approve", swapId: "swap" }]));
   expect(fetcher.mock.calls.some(([input]) => String(input).includes("what=assignments"))).toBe(true);
 });
@@ -200,6 +203,8 @@ it("a decision in the calendar strip also refreshes the Approve tab, from one sh
   const manageReads = () => reads.filter((what) => what === "manage").length;
   const before = manageReads();
   fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+  const review = await screen.findByRole("dialog", { name: "Review fresh roster checks" });
+  fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
   // The calendar reads again for itself, and the Approve tab reads again with it.
   await waitFor(() => expect(manageReads()).toBeGreaterThanOrEqual(before + 2));
 });

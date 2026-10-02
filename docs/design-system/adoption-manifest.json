@@ -814,9 +814,11 @@
         "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/roster/manage/roster-decision-sheet.tsx",
         "src/components/roster/roster-settings-page.tsx",
         "src/components/roster/roster-shifts-page.tsx",
-        "src/components/roster/swaps/roster-swaps-page.tsx"
+        "src/components/roster/swaps/roster-swaps-page.tsx",
+        "src/components/roster/team/calendar/needs-you-strip.tsx"
       ],
       "productImportFiles": [
         "src/components/calendar/calendar-subscribe.tsx",
@@ -827,9 +829,11 @@
         "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/on-call/on-call-entry-editor.tsx",
+        "src/components/roster/manage/roster-decision-sheet.tsx",
         "src/components/roster/roster-settings-page.tsx",
         "src/components/roster/roster-shifts-page.tsx",
-        "src/components/roster/swaps/roster-swaps-page.tsx"
+        "src/components/roster/swaps/roster-swaps-page.tsx",
+        "src/components/roster/team/calendar/needs-you-strip.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,

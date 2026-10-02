@@ -8,6 +8,7 @@ import {
   type RosterCommandResult,
   type RosterReadResult,
   type RosterReadWhat,
+  type RosterRules,
   type RosterTeam,
 } from "@/lib/roster/team/model";
 
@@ -105,6 +106,32 @@ export type RosterTeamsPayload = { teams: RosterTeam[]; actorId?: string; sample
 /** The teams I belong to. */
 export function useRosterTeams(): RosterReadState<RosterTeamsPayload> {
   return useLoaded<RosterTeamsPayload>("/api/roster/team", "teams");
+}
+
+/** Rules remain scoped to their team; changing membership discards the previous answers. */
+export function useRosterTeamRules(serviceIds: readonly string[]): ReadonlyMap<string, RosterRules> {
+  const key = JSON.stringify([...new Set(serviceIds)].sort());
+  const [answer, setAnswer] = useState<{ key: string; rules: Map<string, RosterRules> } | null>(null);
+  useEffect(() => {
+    const controller = new AbortController();
+    const ids = JSON.parse(key) as string[];
+    void Promise.all(
+      ids.map(async (id) => {
+        const result = await load<RosterReadResult<"overview">>(
+          `${rosterTeamUrl(id)}?what=overview`,
+          "overview",
+          controller.signal,
+        );
+        return result.status === "ready" && result.data.settings?.rules
+          ? ([id, result.data.settings.rules] as const)
+          : null;
+      }),
+    ).then((rows) => {
+      if (!controller.signal.aborted) setAnswer({ key, rules: new Map(rows.filter((row) => row !== null)) });
+    });
+    return () => controller.abort();
+  }, [key]);
+  return answer?.key === key ? answer.rules : new Map();
 }
 
 /** One read of one team. Pass a null `serviceId` to wait (no request is made). */

@@ -96,3 +96,23 @@ export function restCues(myShifts: readonly RestCueShift[], rules: RosterRules):
     };
   });
 }
+
+/** Each team's limits judge its own shifts against the person's complete worked history. */
+export function restCuesByTeam(
+  shifts: readonly (RestCueShift & { readonly serviceId?: string | null })[],
+  rulesByTeam: ReadonlyMap<string, RosterRules>,
+): RestCue[] {
+  const baseline = restCues(shifts, {});
+  const warnings = new Map<string, Map<string, string>>();
+  for (const [id, rules] of rulesByTeam) {
+    warnings.set(
+      id,
+      new Map(restCues(shifts, rules).flatMap((cue) => (cue.warning ? [[cue.shiftId, cue.warning] as const] : []))),
+    );
+  }
+  return baseline.map((cue, index) => {
+    const team = shifts[index]?.serviceId;
+    const warning = team ? warnings.get(team)?.get(cue.shiftId) : undefined;
+    return warning ? { ...cue, warning } : cue;
+  });
+}

@@ -127,6 +127,7 @@ export function ShiftSheet({
             />
           ))}
           <DecisionAnswer message={decision.message} errors={decision.errors} />
+          {decision.reviewDialog}
         </div>
       ) : null}
       {offered ? (

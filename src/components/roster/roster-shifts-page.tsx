@@ -42,7 +42,7 @@ import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
 import { RosterNewButton } from "./roster-new-button";
 import { RosterRestChip } from "./roster-rest-chip";
 import { RosterShareButton } from "./roster-share-button";
-import { restCues, type RestCue } from "@/lib/roster/rest-cues";
+import { restCuesByTeam, type RestCue } from "@/lib/roster/rest-cues";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
 import { RosterHoursPanel, type RosterExtraTime } from "./roster-hours-panel";
 import { RosterImportFlow } from "./roster-import-flow";
@@ -51,7 +51,7 @@ import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
-import { useRosterRead, useRosterTeams } from "./use-roster-team";
+import { useRosterRead, useRosterTeams, useRosterTeamRules } from "./use-roster-team";
 import { RosterPageHeader } from "./roster-ui";
 
 /**
@@ -283,6 +283,7 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const enabledTeams = (Array.isArray(teams.data?.teams) ? teams.data.teams : []).filter((team) => team.enabled);
   const oneTeamId = enabledTeams.length === 1 ? enabledTeams[0]!.serviceId : null;
   const teamOverview = useRosterRead(oneTeamId, "overview");
+  const rulesByTeam = useRosterTeamRules(enabledTeams.map((team) => team.serviceId));
   const links = useRosterLinks();
   const settings = useRosterSettings();
   const [addView, setAddView] = useState<RosterAddView | null>(null);
@@ -294,10 +295,9 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
   const [removing, setRemoving] = useState(false);
 
   const events = useMemo(() => toCalendarEvents(shifts.shifts), [shifts.shifts]);
-  const teamRules = teamOverview.status === "ready" ? teamOverview.data?.settings?.rules : undefined;
   const cues = useMemo(
-    () => new Map(restCues(shifts.shifts, teamRules ?? {}).map((cue) => [cue.shiftId, cue])),
-    [shifts.shifts, teamRules],
+    () => new Map(restCuesByTeam(shifts.shifts, rulesByTeam).map((cue) => [cue.shiftId, cue])),
+    [shifts.shifts, rulesByTeam],
   );
   const holidayEvents = useMemo<CalendarEvent[]>(
     () =>
