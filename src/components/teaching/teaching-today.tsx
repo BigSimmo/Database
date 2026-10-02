@@ -38,14 +38,13 @@ export function TeachingToday({ demoMode }: { demoMode: boolean }) {
   const now = useTeachingNow();
   const today = now ? perthDateKey(now) : null;
   const range = useMemo(() => (today ? { from: today, to: addDays(today, 6) } : null), [today]);
-  const [signedOutDemo, setSignedOutDemo] = useState(false);
-  const view = useTeachingWeek(range, { demoMode, signedOutDemo }, now);
+  const view = useTeachingWeek(range, { demoMode }, now);
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-today">
       <div className="grid gap-3">
         <h1 className="sr-only">Today</h1>
         {now && today ? (
-          <TodayBody view={view} now={now} today={today} onOpenDemo={() => setSignedOutDemo(true)} />
+          <TodayBody view={view} now={now} today={today} />
         ) : (
           <ModeModuleSkeleton rows={2} twoLine eyebrow />
         )}
@@ -54,17 +53,7 @@ export function TeachingToday({ demoMode }: { demoMode: boolean }) {
   );
 }
 
-function TodayBody({
-  view,
-  now,
-  today,
-  onOpenDemo,
-}: {
-  view: TeachingWeekState;
-  now: Date;
-  today: string;
-  onOpenDemo: () => void;
-}) {
+function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; today: string }) {
   const [team, setTeam] = useState(ALL_TEAMS);
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -84,7 +73,7 @@ function TodayBody({
     next !== null && next.hasJoinLink && sessionHref(next) !== null && perthDateKey(next.startsAt) === today;
   const detail = useSessionDetail(wantsJoin && next ? next.occurrenceId : null, !live, now);
 
-  if (view.status === "signed-out") return <TeachingSignInNotice onOpenDemo={onOpenDemo} />;
+  if (view.status === "signed-out") return <TeachingSignInNotice />;
   if (view.status === "offline" || view.status === "error" || view.status === "setup")
     return <TeachingStateNotice state={view.status} onRetry={view.retry} />;
   if (!week || (!inRange && later.status === "loading")) return <ModeModuleSkeleton rows={2} twoLine eyebrow />;
