@@ -425,6 +425,8 @@ describe("canonical producer adapters", () => {
       // Test the pending contract independently of the live catalogue's sign-offs.
       const unsigned = records.map((entry) => {
         const { contentHash: _contentHash, publicationVersion: _publicationVersion, ...projection } = entry;
+        void _contentHash;
+        void _publicationVersion;
         return createSiteContentRecord({ ...projection, validationStatus: "unverified" });
       });
       const manifest = buildStaticSiteContentManifest(unsigned, metadata);
