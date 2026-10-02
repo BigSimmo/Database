@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "8b7f4d24-2154-42a6-8aaa-368313d426de",
+  "createdOn": "2026-10-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Teaching: no in-app QR scanner; check-in relies on the phone's own camera app",
+    "detail": "Owner product decision needed (raised in the Teaching Mode polish, PR #3200). Today attendees scan the projector QR with the phone camera or type the 6-digit code; the Today button was renamed 'Check in with code' so it does not promise a scanner. Next action: owner decides whether an in-app scanner (camera permission, BarcodeDetector or a library, fallback to typed code) is worth building; if yes, design it inside the Today hero action, keep typed-code fallback, add no new route without wiring.",
+    "source": "Session 2026-10-02, PR #3200 / #3204",
+    "issueUlid": "01M3YR0B81ZTDZ4Z29TMEPRGFZ"
+  }
+}
