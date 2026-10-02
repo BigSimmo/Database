@@ -11,7 +11,7 @@
  */
 
 import { createServer } from "node:http";
-import { env } from "../src/lib/env";
+import { createAdminClient } from "../src/lib/supabase/admin";
 import { probeSupabaseHealth } from "../src/lib/supabase/health";
 import { safeErrorLogDetails } from "../src/lib/privacy";
 
@@ -51,7 +51,7 @@ async function performHealthCheck(): Promise<HealthResponse> {
 
   // Check 1: Supabase connectivity
   try {
-    await probeSupabaseHealth();
+    await probeSupabaseHealth(createAdminClient());
     checks.supabase = { status: "ok" };
   } catch (error) {
     checks.supabase = {

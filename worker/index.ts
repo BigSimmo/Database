@@ -12,28 +12,13 @@ loadEnvConfig(process.cwd());
 
 import { safeErrorLogDetails } from "../src/lib/privacy";
 import { captureWorkerException, flushWorkerErrorTracking, initWorkerErrorTracking } from "./observability";
-import { createHealthCheckServer } from "./health";
 
 // Initialize before ./main is imported so module-level failures there are
 // reported too. Inert without SENTRY_DSN (docs/error-tracking.md).
 initWorkerErrorTracking();
 
 async function startWorker() {
-  // Start health check server (optional; Railway/K8s can hit http://0.0.0.0:3001/health)
-  const healthPort = parseInt(process.env.WORKER_HEALTH_PORT || "3001", 10);
-  const healthServer = createHealthCheckServer(healthPort);
-  healthServer.listen(healthPort, "0.0.0.0", () => {
-    console.log(`Worker health check listening on http://0.0.0.0:${healthPort}/health`);
-  });
-
-  // Main worker loop
   await import("./main");
-
-  // Graceful shutdown
-  process.on("SIGTERM", () => {
-    console.log("SIGTERM received, shutting down health server");
-    healthServer.close();
-  });
 }
 
 startWorker().catch(async (error) => {

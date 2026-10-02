@@ -63,6 +63,11 @@ const ragAliasCacheKey = Symbol.for("psychsift.ragAliasCache");
 const ragAliasCache: RagAliasCache = ((globalThis as { [ragAliasCacheKey]?: RagAliasCache })[ragAliasCacheKey] ??=
   new Map());
 
+/** Pending requests by cache key to prevent concurrent fetches for the same scope. */
+const ragAliasCacheRequestsKey = Symbol.for("psychsift.ragAliasCacheRequests");
+const ragAliasCacheRequests: Map<string, Promise<RagAliasInput[]>> = ((globalThis as { [ragAliasCacheRequestsKey]?: Map<string, Promise<RagAliasInput[]>> })[ragAliasCacheRequestsKey] ??=
+  new Map());
+
 /** Normalize retrieval variant. */
 export function normalizeRetrievalVariant(value: string) {
   return value.normalize("NFKC").replace(/\s+/g, " ").trim();
@@ -132,13 +137,19 @@ export function shouldApplyUnsupportedSearchShortCircuit(
 /**
  * Warm the global (owner_id IS NULL) rag_aliases cache at server startup so the
  * first search after a deploy does not pay the cold-cache DB RTT.
- * Failures are swallowed — warmup must never block boot.
+ * Failures are swallowed — warmup must never block boot or hang indefinitely.
  */
 export async function warmEnabledRagAliasCache(
   supabase: ReturnType<typeof createAdminClient> = createAdminClient(),
 ): Promise<void> {
   try {
-    await fetchEnabledRagAliases(supabase, undefined, { includePublic: true });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    try {
+      await fetchEnabledRagAliases(supabase, undefined, { includePublic: true }, controller.signal);
+    } finally {
+      clearTimeout(timeoutId);
+    }
   } catch (error) {
     console.warn("rag_aliases cache warmup failed; first request will retry.", {
       message: error instanceof Error ? error.message : String(error),
@@ -146,8 +157,39 @@ export async function warmEnabledRagAliasCache(
   }
 }
 
-/** Fetch enabled rag aliases. */
+/** Fetch enabled rag aliases with per-scope in-flight request deduplication. */
 export async function fetchEnabledRagAliases(
+  supabase: ReturnType<typeof createAdminClient>,
+  ownerId?: string,
+  accessScope?: RetrievalAccessScope,
+  signal?: AbortSignal,
+): Promise<RagAliasInput[]> {
+  throwIfAborted(signal);
+  const scope = retrievalAccessScopeForArgs({ ownerId, accessScope });
+  const cacheKey = retrievalAccessScopeKey(scope);
+  const cached = readExpiringCacheEntry(ragAliasCache, cacheKey);
+  if (cached) return cached.aliases;
+
+  // A caller-owned signal must not control a promise shared with other callers.
+  // Keep cancellation local and deduplicate only signal-free requests.
+  if (signal) return fetchEnabledRagAliasesUnshared(supabase, ownerId, accessScope, signal);
+
+  const pending = ragAliasCacheRequests.get(cacheKey);
+  if (pending) return pending;
+
+  const request = fetchEnabledRagAliasesUnshared(supabase, ownerId, accessScope, signal);
+  ragAliasCacheRequests.set(cacheKey, request);
+  try {
+    return await request;
+  } finally {
+    if (ragAliasCacheRequests.get(cacheKey) === request) {
+      ragAliasCacheRequests.delete(cacheKey);
+    }
+  }
+}
+
+/** Fetch enabled rag aliases without joining an existing in-flight request. */
+async function fetchEnabledRagAliasesUnshared(
   supabase: ReturnType<typeof createAdminClient>,
   ownerId?: string,
   accessScope?: RetrievalAccessScope,
@@ -293,7 +335,7 @@ export function buildRetrievalQueryVariants(
     // Match the zone the query actually names so an amber-zone question does not
     // pull red-zone chunks into its candidate pool.
     const zoneColour = queriedZoneColour(query);
-    if (zoneColour) {
+    if (zoneColour?.trim()) {
       addVariant(`${zoneColour} zone`);
     }
   }
