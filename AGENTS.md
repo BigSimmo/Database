@@ -304,6 +304,8 @@ surface, read `docs/rag-behaviour/` (README → behaviour-map → refuted-approa
 
 # Publication workflows
 
+- If a PR has auto-merge armed, its auto-merge state is user-owned and automation must not disable or re-enable it. Ordinary fast-forward pushes, bundled additions, and an `update-branch`/merge-main-in sync that the branch-sync rule above allows may proceed. A force-push, history rewrite, or base/target change while armed still hard-blocks with no override; wait for the user to change that state first.
+
 ## Anti-conflict and CI-speed operating procedure
 
 Read and follow [Publication workflows](docs/agents/native-startup/publication-workflows.md) before acting in this area. The full policy remains in force.
