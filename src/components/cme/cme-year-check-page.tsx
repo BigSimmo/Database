@@ -13,6 +13,7 @@ import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { formatCalendarDateShort } from "@/lib/cme/cpd-year";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { buildCmeYearCheck, type CmeYearCheckRow } from "@/lib/cme/year-check";
+import { cmePageTitle } from "@/components/cme/cme-page-frame";
 
 /** How many proving activities a row names before "and N more". */
 const PROOF_LIMIT = 4;
@@ -55,7 +56,7 @@ export function CmeYearCheckPage({ set, entries }: { set: CmeRequirementSet; ent
   return (
     <main data-testid="cme-year-check" className="mx-auto w-full max-w-3xl px-4 pb-24 pt-6 sm:px-6">
       <p className={eyebrowText}>{set.year} year check</p>
-      <h1 className="mt-1 text-xl font-semibold text-[color:var(--text)]">
+      <h1 className={cn(cmePageTitle, "mt-1")}>
         {check.readyCount} of {check.rows.length} done
       </h1>
       <div

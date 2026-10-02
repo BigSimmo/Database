@@ -64,6 +64,7 @@ import {
   type ReminderSettings,
   type ReminderType,
 } from "@/lib/reminders/settings";
+import { cmePageTitle } from "@/components/cme/cme-page-frame";
 
 /**
  * TODAY — the screen the whole mode is judged by.
@@ -324,7 +325,7 @@ export function CmeDashboard({
     <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)] pt-6 sm:px-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[color:var(--text)]">Today</h1>
+          <h1 className={cmePageTitle}>Today</h1>
           <p data-testid="cme-data-freshness" className={cn(textMuted, "mt-1 flex items-center gap-1.5 text-xs")}>
             <span
               aria-hidden="true"

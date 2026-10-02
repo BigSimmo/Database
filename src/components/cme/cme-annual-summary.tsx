@@ -9,6 +9,7 @@ import { evaluateYear } from "@/lib/cme/evaluate";
 import { activeCmeYearEntries } from "@/lib/cme/export";
 import { describeConfirmedSource } from "@/lib/cme/presets";
 import { cmeCategoryLabels, type CmeEntry, type CmeRequirementSet, type CmeYearClose } from "@/lib/cme/types";
+import { cmePageTitle } from "@/components/cme/cme-page-frame";
 /**
  * The phone's own print screen is the PDF maker: iOS offers Share and Save to
  * Files from it, Android and desktop browsers offer Save as PDF. The page title
@@ -80,7 +81,7 @@ export function CmeAnnualSummary({
       </div>
 
       <header className="grid gap-1">
-        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">CPD annual summary — {set.year}</h1>
+        <h1 className={cmePageTitle}>CPD annual summary — {set.year}</h1>
         {demoMode ? (
           <p className={cn(textMuted, "text-sm")}>Synthetic demonstration — not a personal CPD record.</p>
         ) : null}

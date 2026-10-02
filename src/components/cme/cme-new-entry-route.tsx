@@ -11,6 +11,7 @@ import type { CmeDraft, CmeDraftPayload } from "@/lib/cme/drafts";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { perthCalendarDate } from "@/lib/perth-time";
+import { cmePageTitle, cmePageWidth } from "@/components/cme/cme-page-frame";
 
 export { CME_NEW_ENTRY_DRAFT_KEY };
 
@@ -167,8 +168,8 @@ export function CmeNewEntryRoute({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-      <h1 className="text-xl font-semibold text-[color:var(--text)]">Log an activity</h1>
+    <main className={cn(cmePageWidth, "px-4 py-6 sm:px-6")}>
+      <h1 className={cmePageTitle}>Log an activity</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         What it was, when, how long it ran for, and which category the hours count toward. Nothing is recorded until you
         save it.
