@@ -164,6 +164,17 @@ describe("Roster Shifts", () => {
     expect(screen.queryByText("Less than 6 hours' rest before this shift")).toBeNull();
     for (const id of [first, second]) expect(fetchCalls(`/api/roster/team/${id}?what=overview`, "GET")).toHaveLength(1);
   });
+  it("offers Who can cover? on a team shift, beside the existing request rows", async () => {
+    mockShifts([]);
+    mockTeamWindow("2026-09-21", "2026-10-27", ["2026-10-15"]);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    const row = await screen.findByTestId("roster-shifts-row");
+    fireEvent.click(row);
+    const sheet = await screen.findByTestId("roster-team-shift-actions");
+    expect(within(sheet).getByRole("link", { name: "Swap" })).toBeInTheDocument();
+    expect(within(sheet).getByTestId("roster-who-can-cover")).toHaveTextContent("Who can cover?");
+  });
+
   it("loads the newly selected week before saying it has no team shifts", async () => {
     mockShifts([]);
     // Each week is read 21 days back (team rule lookback) and through the

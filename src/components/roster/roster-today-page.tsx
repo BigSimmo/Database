@@ -48,6 +48,8 @@ import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
 import { useRosterTeamRules } from "./use-roster-team";
 import { RosterRestChip } from "./roster-rest-chip";
+import { RosterWhoCanCover } from "./roster-who-can-cover";
+import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
 import { restCuesByTeam, type RestCue } from "@/lib/roster/rest-cues";
 
 /**
@@ -328,6 +330,14 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
       ),
     [shifts.shifts, now],
   );
+  // "Who can cover?" is offered for the next team shift still to start, never one already under way.
+  const coverId =
+    summary.lead.state === "before"
+      ? summary.lead.shift.id
+      : summary.lead.state === "day_off"
+        ? (summary.lead.next?.id ?? null)
+        : null;
+  const coverShift = coverId ? byId.get(coverId) : undefined;
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
     [shifts.shifts],
@@ -426,6 +436,15 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onAddShift={() => setAddView("shift")}
                 cues={cues}
               />
+              {coverShift?.serviceId && coverShift.assignmentId ? (
+                <ModeGroupedList testId="roster-today-cover">
+                  <RosterWhoCanCover
+                    serviceId={coverShift.serviceId}
+                    assignmentId={coverShift.assignmentId}
+                    startsAt={coverShift.startsAt}
+                  />
+                </ModeGroupedList>
+              ) : null}
               <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
                 <>

@@ -41,6 +41,7 @@ import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
 import { RosterNewButton } from "./roster-new-button";
 import { RosterRestChip } from "./roster-rest-chip";
+import { RosterWhoCanCover } from "./roster-who-can-cover";
 import { RosterShareButton } from "./roster-share-button";
 import { restCuesByTeam, type RestCue } from "@/lib/roster/rest-cues";
 import { formatDateSpan, formatHours, formatShiftRange, kindOf, useRosterNow } from "./roster-format";
@@ -490,6 +491,13 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
                 href={`/roster/requests?start=${start}&assignment=${encodeURIComponent(teamShift.assignmentId!)}${teamShift.serviceId ? `&team=${encodeURIComponent(teamShift.serviceId)}` : ""}`}
               />
             ))}
+            {teamShift.serviceId ? (
+              <RosterWhoCanCover
+                serviceId={teamShift.serviceId}
+                assignmentId={teamShift.assignmentId}
+                startsAt={teamShift.startsAt}
+              />
+            ) : null}
           </ModeGroupedList>
         ) : null}
       </Sheet>
