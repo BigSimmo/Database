@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, CreditCard, Edit3, Plus, ShieldCheck } from "lucide-react";
+import { Check, Copy, CreditCard, Edit3, ShieldCheck } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -14,21 +14,16 @@ import {
   loadDoctorCredentials,
   saveDoctorCredentials,
   type DoctorCredentials,
-  type SiteProviderNumber,
 } from "@/lib/admin/credentials-storage";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
 
 export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: { readonly testId?: string }) {
-  const [creds, setCreds] = useState<DoctorCredentials>(DEFAULT_CREDENTIALS);
+  const [creds, setCreds] = useState<DoctorCredentials>(() => loadDoctorCredentials());
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState<DoctorCredentials>(DEFAULT_CREDENTIALS);
+  const [draft, setDraft] = useState<DoctorCredentials>(() => loadDoctorCredentials());
 
   useEffect(() => {
-    const loaded = loadDoctorCredentials();
-    setCreds(loaded);
-    setDraft(loaded);
-
     return subscribeAccountTransition(() => {
       setCreds(DEFAULT_CREDENTIALS);
       setDraft(DEFAULT_CREDENTIALS);

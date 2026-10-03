@@ -5,9 +5,8 @@ import Link from "next/link";
 import { useMemo } from "react";
 
 import { focusRing } from "@/components/card-recipes";
-import { modeSummaryHairline, modeSummaryMutedText, modeSummarySurface } from "@/components/mode-kit/recipes";
+import { modeSummaryMutedText, modeSummarySurface } from "@/components/mode-kit/recipes";
 import { modeDisplayNumberText, modeNumberText } from "@/components/mode-kit/type";
-import { Button } from "@/components/ui/button";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import type { OnCallShift } from "@/lib/roster/shifts/model";
 import { formatDuration } from "./roster-format";

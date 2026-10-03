@@ -163,7 +163,7 @@ export function TeachingCpdBridgeSheet({
                   className="grid size-6 place-items-center rounded-full bg-[color:var(--success)] text-[color:var(--command-contrast)]"
                   aria-hidden="true"
                 >
-                  <Check className="size-3.5" />
+                  <Check className="size-3.5" aria-hidden="true" />
                 </span>
                 <span className="text-sm font-medium">
                   {savedResult.created ? `Logged ${hours.toFixed(1)} h to CPD` : "Already in your CPD record"}

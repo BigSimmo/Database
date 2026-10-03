@@ -86,7 +86,7 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
     sessionStartsAt && sessionEndsAt
       ? Number(defaultCpdHours({ startsAt: sessionStartsAt, endsAt: sessionEndsAt }))
       : 1.0;
-  const hasEnded = sessionEndsAt ? new Date(sessionEndsAt).getTime() <= (now?.getTime() ?? Date.now()) : true;
+  const hasEnded = Boolean(sessionEndsAt && now && new Date(sessionEndsAt).getTime() <= now.getTime());
 
   const run = useCallback(
     async (step: Step, known: CheckinOpened | null) => {

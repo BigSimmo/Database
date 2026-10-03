@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ChevronDown, Phone, ShieldAlert, Stethoscope, UserCheck, X } from "lucide-react";
+import { Phone, ShieldAlert, Stethoscope, UserCheck, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -156,7 +156,7 @@ export function EmergencyThumbArc({
                       )}
                       aria-hidden="true"
                     >
-                      <Icon className="size-5" />
+                      <Icon className="size-5" aria-hidden={true} />
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium leading-tight">{action.label}</span>
