@@ -45,15 +45,15 @@ function contactsPage(input: ContentInput) {
 }
 
 describe("Bedside", () => {
-  it("composes example line, hero, crisis strip, search, Situation, tools and Acknowledgement in that order", () => {
+  it("composes example line, crisis strip, hero, Situation, tools, search and Acknowledgement in the Today order", () => {
     render(<BedsideHomeView model={buildBedsideModel(testInputs({ profile, approvals: [ack] }))} />);
-    expect(parts().filter((p) => p !== "plan-panel")).toEqual([
+    expect(parts().filter((p) => p !== "plan-panel" && p !== "review-stamp")).toEqual([
       "example",
-      "hero",
       "crisis",
-      "search",
+      "hero",
       "situation",
       "tools",
+      "search",
       "acknowledgement",
     ]);
   });
