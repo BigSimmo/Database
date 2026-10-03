@@ -46,7 +46,7 @@ export function rosterMyDayItems(input: RosterMyDayInput, now: Date): MyDayItem[
         title: `${swap.requesterName ?? "A colleague"} asks to swap`,
         due: swap.expiresAt,
         severity: myDaySeverityForDue(swap.expiresAt, now),
-        href: "/roster/swaps",
+        href: `/roster/swaps?team=${encodeURIComponent(team.serviceId)}`,
       });
     }
     const waiting =
@@ -60,7 +60,7 @@ export function rosterMyDayItems(input: RosterMyDayInput, now: Date): MyDayItem[
         title: `${waiting} waiting in Manage`,
         due: null,
         severity: "info",
-        href: "/roster/manage",
+        href: `/roster/manage?team=${encodeURIComponent(team.serviceId)}`,
       });
     }
     const cutoff = overview?.nextCutoffOn;
@@ -71,7 +71,7 @@ export function rosterMyDayItems(input: RosterMyDayInput, now: Date): MyDayItem[
         title: `Next roster closes ${formatPerthDay(cutoff)}. Add dates you can't work.`,
         due: cutoff,
         severity: myDaySeverityForDue(cutoff, now),
-        href: "/roster/requests?start=dates",
+        href: `/roster/requests?start=dates&team=${encodeURIComponent(team.serviceId)}`,
       });
     }
   }

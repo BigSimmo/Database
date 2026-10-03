@@ -91,11 +91,9 @@ export function adminMyDayItems(
   }
 
   const needsYou = selectNeedsYou(own, now);
-  const notRecorded = needsYou
-    ? [needsYou.featured, ...needsYou.rows].find((row) => row.kind === "not-recorded")
-    : undefined;
-  if (notRecorded && notRecorded.kind === "not-recorded") {
-    const count = notRecorded.titles.length;
+  // Count from the selector, not the capped rows: a cap can drop the grouped row while dates are still unrecorded.
+  const count = needsYou?.notRecordedCount ?? 0;
+  if (count > 0) {
     items.push({
       id: "my-work:not-recorded",
       mode: "my-work",

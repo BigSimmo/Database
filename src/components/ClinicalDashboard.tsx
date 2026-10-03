@@ -3493,7 +3493,8 @@ function ClinicalDashboardContent({
                   compactMobileModeHome,
                   hasAnswer: Boolean(answer),
                   showSharedHome,
-                  topAlignSharedHome: authStatus === "authenticated",
+                  // Constant, not auth-derived: auth resolves after first paint, and a changing alignment would shift the home.
+                  topAlignSharedHome: true,
                 })}
               >
                 <h2 data-testid="answer-section-heading" className="sr-only">

@@ -61,7 +61,7 @@ describe("rosterMyDayItems", () => {
         title: "Sam asks to swap",
         due: "2026-10-10T00:00:00Z",
         severity: "soon",
-        href: "/roster/swaps",
+        href: `/roster/swaps?team=${SERVICE}`,
       },
     ]);
   });
@@ -96,7 +96,7 @@ describe("rosterMyDayItems", () => {
         title: "2 waiting in Manage",
         due: null,
         severity: "info",
-        href: "/roster/manage",
+        href: `/roster/manage?team=${SERVICE}`,
       },
     ]);
     expect(rosterMyDayItems(rosterInput({ manage }), NOW)).toEqual([]);
@@ -113,7 +113,7 @@ describe("rosterMyDayItems", () => {
       title: "Next roster closes Thu 8 Oct. Add dates you can't work.",
       due: "2026-10-08",
       severity: "soon",
-      href: "/roster/requests?start=dates",
+      href: `/roster/requests?start=dates&team=${SERVICE}`,
     });
   });
 

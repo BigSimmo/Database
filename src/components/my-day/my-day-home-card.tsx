@@ -41,7 +41,10 @@ export function MyDayHomeCard({ now: nowProp }: { now?: Date } = {}) {
   const enabled = myDayEnabledForAuth(authStatus);
   const now = useMyDayNow(nowProp);
   const state = useMyDayItems({ enabled, now });
-  const [seed] = useState(() => freshCache(authEpoch));
+  // The remembered items belong to the sign-in they were read under. If the epoch changes while mounted (a
+  // direct account switch), they are dropped at once so one account's titles never render for another.
+  const [remembered] = useState(() => ({ epoch: authEpoch, items: freshCache(authEpoch) }));
+  const seed = remembered.epoch === authEpoch ? remembered.items : null;
 
   const ready = state.status === "ready" && !state.demoMode;
   useEffect(() => {

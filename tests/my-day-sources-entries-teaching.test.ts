@@ -58,6 +58,17 @@ describe("adminMyDayItems", () => {
     });
   });
 
+  it("still reports the not-recorded count when passed dates fill Needs you's capped rows", () => {
+    const many = ["A", "B", "C", "D"].map((name) =>
+      complianceFixture(`Passed ${name}`, { category: "Training", expiresOn: "2026-08-01" }),
+    );
+    const needsYou = selectNeedsYou(many, NOW);
+    const expected = needsYou?.notRecordedCount ?? 0;
+    expect(expected).toBeGreaterThan(0);
+    const item = adminMyDayItems(many, NOW).find((entry) => entry.id === "my-work:not-recorded");
+    expect(item?.title).toBe(`${expected} ${expected === 1 ? "date" : "dates"} not recorded yet`);
+  });
+
   it("treats a future date inside its renewal window as soon, and one before it as later", () => {
     const inWindow = complianceFixture("Indemnity", { category: "Registration", expiresOn: "2026-10-20" });
     const beforeWindow = complianceFixture("Working with children", {

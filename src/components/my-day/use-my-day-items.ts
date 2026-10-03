@@ -26,6 +26,13 @@ export function useMyDayItems({ enabled, now }: { readonly enabled: boolean; rea
   const cme = useCmeMyDaySource({ enabled, now });
   const teaching = useTeachingMyDaySource({ enabled, now });
 
+  // Every source answering "signed out" while auth still says authenticated means the session lapsed: the whole
+  // view is signed out (so the sign-in prompt shows), not a failed read that Retry could never fix.
+  const sessionLapsed =
+    enabled &&
+    [entries.onCall, roster.result, cme.result, teaching.result, entries.admin].every(
+      (source) => source.status === "signed-out",
+    );
   const sources: readonly MyDaySourceResult[] = useMemo(() => {
     const all = [entries.onCall, roster.result, cme.result, teaching.result, entries.admin];
     // While enabled, a source that answers "signed out" (the session lapsed under it) did not check anything.
@@ -48,7 +55,7 @@ export function useMyDayItems({ enabled, now }: { readonly enabled: boolean; rea
     retryTeaching();
   }, [retryEntries, retryRoster, retryCme, retryTeaching]);
 
-  const signedOut = !enabled;
+  const signedOut = !enabled || sessionLapsed;
   const loading = sources.some((source) => source.status === "loading");
   return {
     status: signedOut ? "signed-out" : loading ? "loading" : "ready",

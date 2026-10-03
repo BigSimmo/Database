@@ -402,6 +402,21 @@ describe("MyDayHomeCard", () => {
     vi.useRealTimers();
   });
 
+  it("never shows one account's remembered items to another when the epoch changes while mounted", () => {
+    setState({ items: [item("a", "overdue")] });
+    render(<MyDayHomeCard now={NOW} />);
+    cleanup();
+
+    setState({ status: "loading", items: [] });
+    const { rerender } = render(<MyDayHomeCard now={NOW} />);
+    expect(screen.getByTestId("my-day-item-a")).toBeTruthy();
+
+    auth.authEpoch = 2;
+    rerender(<MyDayHomeCard now={NOW} />);
+    expect(screen.queryByTestId("my-day-home-card")).toBeNull();
+    expect(screen.queryByTestId("my-day-item-a")).toBeNull();
+  });
+
   it("says which modes could not load instead of the counts", () => {
     setState({
       items: [item("a", "overdue"), item("b", "soon")],

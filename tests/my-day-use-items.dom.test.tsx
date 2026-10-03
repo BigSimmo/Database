@@ -75,6 +75,19 @@ describe("useMyDayItems", () => {
     expect(result.current.sources.find((source) => source.mode === "teaching")?.status).toBe("failed");
   });
 
+  it("is signed out when every source says signed out while auth still says authenticated", () => {
+    mocks.entries = {
+      onCall: { mode: "on-call", status: "signed-out", items: [] },
+      admin: { mode: "my-work", status: "signed-out", items: [] },
+    };
+    mocks.roster = { mode: "roster", status: "signed-out", items: [] };
+    mocks.cme = { mode: "cme", status: "signed-out", items: [] };
+    mocks.teaching = { mode: "teaching", status: "signed-out", items: [] };
+    const { result } = renderHook(() => useMyDayItems({ enabled: true, now: NOW }));
+    expect(result.current.status).toBe("signed-out");
+    expect(result.current.items).toEqual([]);
+  });
+
   it("is signed out, with no items, when not enabled", () => {
     mocks.entries = {
       onCall: { mode: "on-call", status: "signed-out", items: [] },
