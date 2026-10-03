@@ -38,6 +38,10 @@ describe("isNamedPerson", () => {
     }
     expect(isNamedPerson("PsychSift Team")).toBe(false);
     expect(isNamedPerson("Consultant Psychiatrist")).toBe(false);
+    for (const role of ["Ward Lead", "Medical Director", "On Call", "Clinical Governance", "Not Signed"]) {
+      expect(isNamedPerson(role)).toBe(false);
+    }
+    expect(isNamedPerson("Dr Jane Ward")).toBe(true);
   });
 });
 
@@ -67,5 +71,23 @@ describe("ruleGate", () => {
 
   it("pins content, not key order", () => {
     expect(ruleContentSha256({ b: 1, a: { d: 2, c: 3 } })).toBe(ruleContentSha256({ a: { c: 3, d: 2 }, b: 1 }));
+  });
+});
+
+describe("ungated engines stay out of screens", () => {
+  it("no page or component imports an *Ungated function", async () => {
+    const { readdirSync, readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const item of readdirSync(dir, { withFileTypes: true })) {
+        const path = join(dir, item.name);
+        if (item.isDirectory()) walk(path);
+        else if (/\.(ts|tsx)$/.test(item.name) && /\w+Ungated/.test(readFileSync(path, "utf8"))) offenders.push(path);
+      }
+    };
+    walk("src/app");
+    walk("src/components");
+    expect(offenders).toEqual([]);
   });
 });

@@ -21,11 +21,12 @@ import type { RosterAssignment } from "@/lib/roster/team/model";
  * written agreement), which the roster cannot see.
  *
  * Reused, not copied: worked time, rest and consecutive-day runs are the definitions
- * `team/rule-flags.ts` uses (leave and on call from home are not worked), and the break, 7 and 14
- * day hours and days-in-a-row checks are `ruleFlags` itself, fed the agreement's numbers.
+ * `team/rule-flags.ts` uses (leave and on call from home are not worked), and the break and 7 and
+ * 14 day hours checks are `ruleFlags` itself, fed the agreement's numbers.
  *
  * Known limits, stated so a signer can judge them:
- * - "12 days' work" counts days with a worked shift; on call from home is not counted as work.
+ * - "12 days' work" counts Perth dates with a worked shift since the last 48 hours free from all
+ *   duty (on call counts as duty there, but an on-call-only day is not counted as a day's work).
  * - The 7 and 14 day totals look back from the end of each shift, as `ruleFlags` does.
  * - Rest after nights counts on call as duty, because the clause says "free from all duty
  *   (including on call)". Runs longer than five nights get the night-run warning instead.
@@ -90,14 +91,12 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
   const duty = rows.filter((row) => row.kind !== "leave").sort(byStart);
   const warnings: FatigueWarning[] = [];
 
-  // Break, 7 and 14 day hours, and days in a row: the team rule helper, fed the agreement's numbers.
+  // Break, 7 and 14 day hours: the team rule helper, fed the agreement's numbers.
   const flags = ruleFlags(rows, {
     minBreakHours: rules.minBreakHours.hours,
     maxHours7d: rules.maxHours7d.hours,
     maxHours14d: rules.maxHours14d.hours,
-    maxDaysInRow: rules.maxDaysBeforeTwoDaysOff.days,
   });
-  const days = runPositions(worked);
   for (const flag of flags) {
     const row = worked.find((candidate) => candidate.id === flag.assignmentId)!;
     switch (flag.rule) {
@@ -124,15 +123,32 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
         break;
       }
       case "maxDaysInRow":
-        warnings.push({
-          shiftId: row.id,
-          rule: "maxDaysBeforeTwoDaysOff",
-          words: `${ordinal(days.get(row.id) ?? 0)} day in a row with a worked shift.`,
-          citation: cite(rules.maxDaysBeforeTwoDaysOff),
-        });
-        break;
       case "maxNightsInRow":
-        break; // Not passed to ruleFlags: the agreement's five-night exception is handled below.
+        break; // Not passed to ruleFlags: both are handled below with the agreement's own wording.
+    }
+  }
+
+  // Days of work since the last 48 consecutive hours free from ALL duty, on call included. A single
+  // empty calendar day is not 48 hours free, so it does not restart the count; leave does not count
+  // as duty or as work.
+  const twoDaysOff = rules.maxDaysBeforeTwoDaysOff;
+  let lastDutyEnd: number | null = null;
+  let workedDates = new Set<string>();
+  for (const row of duty) {
+    const start = Date.parse(row.startsAt);
+    if (lastDutyEnd !== null && (start - lastDutyEnd) / HOUR_MS >= twoDaysOff.hoursOff) workedDates = new Set();
+    lastDutyEnd = Math.max(lastDutyEnd ?? start, Date.parse(row.endsAt));
+    if (!isWorkedKind(row.kind)) continue;
+    const date = perthDateOf(row.startsAt);
+    if (workedDates.has(date)) continue;
+    workedDates.add(date);
+    if (workedDates.size > twoDaysOff.days) {
+      warnings.push({
+        shiftId: row.id,
+        rule: "maxDaysBeforeTwoDaysOff",
+        words: `${ordinal(workedDates.size)} day of work without 48 hours free from all duty.`,
+        citation: cite(twoDaysOff),
+      });
     }
   }
 

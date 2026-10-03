@@ -145,6 +145,42 @@ describe("mhaTimers", () => {
     expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "switched-off")).toBe(true);
   });
 
+  it("turns off when only the reviewer changes, with the content untouched", () => {
+    const system = [signedBy(entry("long", 72), "PsychSift")];
+    const timerSwitch = onSwitch(system);
+    const renamed = [signedBy(entry("long", 72), "Dr Jane Example")];
+    expect(renamed[0]!.reviewedContentSha256).toBe(system[0]!.reviewedContentSha256);
+    expect(mhaTimerGate(timerSwitch, renamed)).toEqual({ on: false, reason: "stale-switch" });
+  });
+
+  it("needs a real date and a written record for the medical-device ruling", () => {
+    for (const ruling of [
+      { confirmedOn: "", record: "" },
+      { confirmedOn: "2026-10-04", record: "  " },
+      { confirmedOn: "2026-02-30", record: "invented record" },
+    ]) {
+      const content = currentMhaTimerSwitchContent(named, ruling);
+      const timerSwitch: MhaTimerSwitch = {
+        content,
+        signOff: {
+          enabled: true,
+          signedBy: "Dr Jane Example",
+          signedAt: "2026-10-04T02:00:00.000Z",
+          signedContentSha256: ruleContentSha256(content),
+        },
+      };
+      expect(mhaTimerGate(timerSwitch, named)).toEqual({ on: false, reason: "medical-device-ruling-pending" });
+    }
+  });
+
+  it("will not count from an order time later than now", () => {
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt: new Date("2026-10-05T00:00:00.000Z") }], now, {
+      entries: named,
+      timerSwitch: onSwitch(named),
+    });
+    expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "future-start")).toBe(true);
+  });
+
   it("reports an invalid start rather than inventing a deadline", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt: new Date("not a date") }], now, {
       entries: named,

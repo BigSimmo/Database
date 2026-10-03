@@ -127,9 +127,26 @@ describe("fatigueWarnings", () => {
     const days = run("2026-10-05", 13, "08:00", "16:00", "day");
     const warnings = fatigueWarningsUngated(days);
     expect(warnings.map((warning) => [warning.rule, warning.shiftId, warning.words])).toEqual([
-      ["maxDaysBeforeTwoDaysOff", days[12]!.id, "13th day in a row with a worked shift."],
+      ["maxDaysBeforeTwoDaysOff", days[12]!.id, "13th day of work without 48 hours free from all duty."],
     ]);
     expect(rules(days.slice(0, 12))).toEqual([]);
+  });
+
+  it("does not let one empty day restart the 12 day count", () => {
+    const first = run("2026-10-05", 12, "08:00", "16:00", "day");
+    const second = run("2026-10-18", 1, "08:00", "16:00", "day"); // one free date: 40 hours off
+    expect(fatigueWarningsUngated([...first, ...second]).map((warning) => [warning.rule, warning.shiftId])).toEqual([
+      ["maxDaysBeforeTwoDaysOff", second[0]!.id],
+    ]);
+    const afterTwoDays = run("2026-10-19", 1, "08:00", "16:00", "day"); // two free dates: 64 hours off
+    expect(rules([...first, ...afterTwoDays])).toEqual([]);
+  });
+
+  it("counts on call as duty when looking for the 48 hours free", () => {
+    const first = run("2026-10-05", 12, "08:00", "16:00", "day");
+    const onCall = shift("2026-10-17", "17:00", "08:00", "on_call");
+    const next = run("2026-10-19", 1, "08:00", "16:00", "day");
+    expect(rules([...first, onCall, ...next])).toEqual(["maxDaysBeforeTwoDaysOff"]);
   });
 
   it("warns past 75 hours in seven days", () => {

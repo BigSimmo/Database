@@ -5,7 +5,9 @@ import { sha256Hex } from "@/lib/mha-timeline";
  * warnings and CPD category coaching. A rule set is ON only when all of these hold:
  *
  * - `enabled` is true;
- * - it is signed by a named person (a real name, never "PsychSift", "system" or a role);
+ * - it is signed by a named person (a backstop check that rejects "PsychSift", "system", common role
+ *   and placeholder words and single names; it cannot prove a name is real, so the signer is still
+ *   accountable for writing their own name);
  * - the sign-off carries a real UTC time;
  * - the sign-off pin still matches the rule set's content, so any edit to a number, a quote or a
  *   citation after signing turns the engine off again until it is re-signed.
@@ -82,6 +84,23 @@ const NOT_A_PERSON = new Set([
   "consultant",
   "test",
   "unknown",
+  "lead",
+  "director",
+  "registrar",
+  "manager",
+  "call",
+  "governance",
+  "committee",
+  "team",
+  "service",
+  "department",
+  "signed",
+  "unsigned",
+  "tbd",
+  "tba",
+  "pending",
+  "placeholder",
+  "example clinician",
 ]);
 
 /**

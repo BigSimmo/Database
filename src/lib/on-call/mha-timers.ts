@@ -13,9 +13,9 @@ import { isReviewedTimeframe, timelineFor, type MhaTimeframeEntry, type MhaTimef
  * 1. Each entry must be signed off by a NAMED clinician. The nine shipped entries are marked
  *    reviewed by "PsychSift", which `isNamedPerson` rejects, so today every entry is quote-only.
  * 2. The countdown switch (`MHA_TIMER_SWITCH`) must be signed by a named clinician over the exact
- *    entries and pins it covers, and must record that the medical-device ruling was re-checked
+ *    entries, pins, signers and sign-off times it covers, and this module's logic version, and must record that the medical-device ruling was re-checked
  *    for per-patient countdowns (the Today plan, "Safety, privacy and clinical sign-off").
- *    Re-signing any timeframe changes its pin and turns the switch off until it is signed again.
+ *    Re-signing any timeframe, even with its content unchanged, turns the switch off until it is signed again.
  *
  * Patient labels: a timer is identified only by the caller's opaque `timerId`. This module never
  * sees or stores a bed number or initials; a caller that shows one keeps it in the on-device
@@ -29,13 +29,31 @@ const shippedEntries = (mhaTimeframes as MhaTimeframesFile).entries;
 /** What the countdown switch is signed over. Changing any of it needs a fresh sign-off. */
 export type MhaTimerSwitchContent = {
   /** Every timeframe the switch covers, with the sign-off pin it was checked against. */
-  readonly timeframes: readonly { readonly id: string; readonly reviewedContentSha256: string | null }[];
+  readonly timeframes: readonly MhaTimerSwitchTimeframe[];
+  /** Bump when this module's countdown logic changes, so a logic change also needs a fresh sign-off. */
+  readonly interpretation: typeof MHA_TIMER_INTERPRETATION;
   /**
    * The date (YYYY-MM-DD) the owner confirmed or revised the medical-device ruling for per-patient
    * countdowns, and where that decision is written down. Null until then, which keeps the switch off.
    */
   readonly medicalDeviceRuling: { readonly confirmedOn: string; readonly record: string } | null;
 };
+
+/**
+ * One covered timeframe as the switch signer saw it: its content pin AND who signed it, when and
+ * in what state. The content pin alone leaves those out, so without them changing only
+ * `reviewedBy` from "PsychSift" to a name would start countdowns under an old switch signature.
+ */
+export type MhaTimerSwitchTimeframe = {
+  readonly id: string;
+  readonly status: MhaTimeframeEntry["status"];
+  readonly reviewedBy: string | null;
+  readonly reviewedAt: string | null;
+  readonly reviewedContentSha256: string | null;
+};
+
+export const MHA_TIMER_INTERPRETATION =
+  "mha-timers v1: elapsed hours from the order time; quote-only unless named sign-off";
 
 export type MhaTimerSwitch = { readonly content: MhaTimerSwitchContent; readonly signOff: RuleSignOff };
 
@@ -45,7 +63,14 @@ export function currentMhaTimerSwitchContent(
   medicalDeviceRuling: MhaTimerSwitchContent["medicalDeviceRuling"] = null,
 ): MhaTimerSwitchContent {
   return {
-    timeframes: entries.map((entry) => ({ id: entry.id, reviewedContentSha256: entry.reviewedContentSha256 })),
+    timeframes: entries.map((entry) => ({
+      id: entry.id,
+      status: entry.status,
+      reviewedBy: entry.reviewedBy,
+      reviewedAt: entry.reviewedAt,
+      reviewedContentSha256: entry.reviewedContentSha256,
+    })),
+    interpretation: MHA_TIMER_INTERPRETATION,
     medicalDeviceRuling,
   };
 }
@@ -59,6 +84,14 @@ export const MHA_TIMER_SWITCH: MhaTimerSwitch = {
 export type MhaTimerGate =
   RuleGate | { readonly on: false; readonly reason: "medical-device-ruling-pending" | "stale-switch" };
 
+/** A real YYYY-MM-DD date and a non-blank record of where the decision is written. */
+function isRecordedRuling(ruling: MhaTimerSwitchContent["medicalDeviceRuling"]): boolean {
+  if (ruling === null || typeof ruling.record !== "string" || ruling.record.trim() === "") return false;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(ruling.confirmedOn)) return false;
+  const date = new Date(`${ruling.confirmedOn}T00:00:00.000Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(ruling.confirmedOn);
+}
+
 /** Whether countdowns may run at all. Fails closed. */
 export function mhaTimerGate(
   timerSwitch: MhaTimerSwitch = MHA_TIMER_SWITCH,
@@ -66,11 +99,15 @@ export function mhaTimerGate(
 ): MhaTimerGate {
   const signed = ruleGate(timerSwitch.signOff, timerSwitch.content);
   if (!signed.on) return signed;
-  if (timerSwitch.content.medicalDeviceRuling === null) return { on: false, reason: "medical-device-ruling-pending" };
-  // The switch must cover today's entries with today's pins: a re-signed or added timeframe
-  // needs the switch signed again.
-  const current = ruleContentSha256(currentMhaTimerSwitchContent(entries).timeframes);
-  if (ruleContentSha256(timerSwitch.content.timeframes) !== current) return { on: false, reason: "stale-switch" };
+  if (!isRecordedRuling(timerSwitch.content.medicalDeviceRuling)) {
+    return { on: false, reason: "medical-device-ruling-pending" };
+  }
+  // The switch must cover today's entries, signers and logic: a re-signed or added timeframe, or
+  // changed countdown logic, needs the switch signed again.
+  const current = currentMhaTimerSwitchContent(entries, timerSwitch.content.medicalDeviceRuling);
+  if (ruleContentSha256(timerSwitch.content) !== ruleContentSha256(current)) {
+    return { on: false, reason: "stale-switch" };
+  }
   return { on: true };
 }
 
@@ -87,7 +124,9 @@ export type MhaTimerQuoteOnlyReason =
   /** The Act ends this period at a second event the start time cannot see (`computeAllowed: false`). */
   | "not-calculable"
   /** The start time given is not a real instant. */
-  | "invalid-start";
+  | "invalid-start"
+  /** The order time is later than now, which would stretch the countdown past the Act's period. */
+  | "future-start";
 
 export type MhaTimerItem =
   | {
@@ -128,7 +167,8 @@ export function mhaTimers(
   const quoteOnly: Extract<MhaTimerItem, { kind: "quote-only" }>[] = [];
 
   for (const input of inputs) {
-    const validStart = !Number.isNaN(input.madeAt.getTime());
+    const startMs = input.madeAt.getTime();
+    const validStart = !Number.isNaN(startMs);
     for (const item of timelineFor(input.formCode, validStart ? input.madeAt : null, entries)) {
       const { entry } = item;
       const quote = (reason: MhaTimerQuoteOnlyReason) =>
@@ -141,6 +181,8 @@ export function mhaTimers(
         quote("switched-off");
       } else if (!validStart || item.deadline === null) {
         quote("invalid-start");
+      } else if (startMs > nowMs) {
+        quote("future-start");
       } else {
         const remainingMs = item.deadline.getTime() - nowMs;
         countdowns.push({

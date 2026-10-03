@@ -17,6 +17,8 @@ import { UNSIGNED, type RuleSignOff } from "@/lib/admin/rule-sign-off";
  */
 
 export const CPD_CATEGORY_RULE_SET = {
+  /** Bump whenever `category-coaching.ts` changes how the figures are applied; it is inside the sign-off pin. */
+  interpretation: "category-coaching v1",
   source: {
     title: "Medical Board of Australia — Registration standard: Continuing professional development",
     effectiveFrom: "2023-01-01",

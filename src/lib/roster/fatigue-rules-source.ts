@@ -31,6 +31,11 @@ export type FatigueRuleId =
 export type FatigueRuleCitation = { readonly clause: string; readonly quote: string };
 
 export const FATIGUE_RULE_SET = {
+  /**
+   * Bump whenever `fatigue-rules.ts` changes how a rule is applied (what counts as duty, how a
+   * window or a run is measured). It is inside the sign-off pin, so a logic change needs re-signing.
+   */
+  interpretation: "fatigue-rules v1",
   source: {
     title: "WA Health System – Medical Practitioners – AMA Industrial Agreement 2024",
     citation: "2024 WAIRC 00992",
