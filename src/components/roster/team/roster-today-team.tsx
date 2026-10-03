@@ -1,8 +1,9 @@
 "use client";
 import { managerWaiting } from "@/components/roster/manage/roster-manage-waiting";
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { Button } from "@/components/ui/button";
 import { useRosterTeams, useRosterRead, postRosterAction } from "@/components/roster/use-roster-team";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { personalRosterChanges, timelineSpan } from "@/lib/roster/team/team-view";
@@ -10,6 +11,8 @@ import type { RosterTeam } from "@/lib/roster/team/model";
 import type { RosterDisplayShift } from "@/lib/roster/team/team-view";
 import { WA_PUBLIC_HOLIDAYS } from "@/lib/on-call/wa-public-holidays";
 import { formatShiftRange } from "@/components/roster/roster-format";
+import { RosterChangeRows } from "@/components/roster/roster-change-rows";
+import { teamChangeNotices } from "@/lib/roster/what-changed";
 import { RosterSampleNotice } from "./roster-sample-notice";
 
 function TeamSummary({
@@ -37,13 +40,15 @@ function TeamSummary({
     overview.data?.latestPublication && !overview.data.seenLatest ? team.serviceId : null,
     "my_changes",
   );
-  const marked = useRef<string | null>(null);
   const publication = overview.data?.latestPublication;
-  useEffect(() => {
-    if (!publication || overview.data?.seenLatest || marked.current === publication.id) return;
-    marked.current = publication.id;
+  // A republished roster's changes stay in Needs you until the user taps "Got it". Opening the page
+  // no longer marks the publication seen by itself, so a glance can't make the lines vanish unread.
+  const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const dismissChanges = () => {
+    if (!publication) return;
+    setDismissedId(publication.id);
     void postRosterAction(team.serviceId, { action: "seen.mark", publicationId: publication.id });
-  }, [team.serviceId, publication, overview.data?.seenLatest]);
+  };
   if (overview.status !== "ready" || !overview.data)
     return overview.status === "error" ? <ModeNotice tone="warning">{overview.message}</ModeNotice> : null;
   const assignments = Array.isArray(shifts.data?.assignments) ? shifts.data.assignments : [];
@@ -78,20 +83,21 @@ function TeamSummary({
         .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0]
     : null;
   const nextTeamName = enabledTeams.find((candidate) => candidate.serviceId === nextTeamShift?.serviceId)?.name;
+  const unseen = Boolean(publication && !overview.data.seenLatest && dismissedId !== publication.id);
   const changed =
-    myChanges.status === "ready" && myChanges.data
+    unseen && myChanges.status === "ready" && myChanges.data
       ? personalRosterChanges(myChanges.data.before, myChanges.data.after)
       : [];
-  const duties = (rows: typeof assignments) =>
-    rows.length
-      ? rows
-          .map((row) => `${row.shiftCode} ${formatShiftRange(row)}${row.siteName ? ` · ${row.siteName}` : ""}`)
-          .join(", ")
-      : "Off";
+  const changeNotices = teamChangeNotices(changed, today);
   return (
     <>
-      {needsYou.length > 0 || waiting > 0 ? (
+      {needsYou.length > 0 || waiting > 0 || changeNotices.length > 0 ? (
         <ModeGroupedList eyebrow="Needs you" mode="roster">
+          <RosterChangeRows
+            notices={changeNotices}
+            onDismiss={dismissChanges}
+            testId={`roster-today-team-change-${team.serviceId}`}
+          />
           {needsYou.map((swap) => (
             <ModeRow key={swap.id} title={`${swap.requesterName ?? "A colleague"} asks to swap`} href="/roster/swaps" />
           ))}
@@ -126,25 +132,17 @@ function TeamSummary({
             href="/roster/requests?start=dates"
           />
         ) : null}
-        {!overview.data.seenLatest && publication ? (
-          changed.length ? (
-            changed.map((change) => {
-              return (
-                <ModeRow
-                  key={change.date}
-                  title={`Your roster changed · ${formatPerthDay(change.date)}`}
-                  subtitle={
-                    <>
-                      <s>{duties(change.before)}</s> → {duties(change.after)}
-                    </>
-                  }
-                  href="/roster/shifts"
-                />
-              );
-            })
-          ) : (
-            <ModeRow title="Your roster changed" subtitle={`Version ${publication.version}`} href="/roster/shifts" />
-          )
+        {unseen && publication && myChanges.status === "ready" && changeNotices.length === 0 ? (
+          // A new version that changed none of your days from today on: still say so, once.
+          <ModeRow
+            title="New roster published"
+            subtitle={`Version ${publication.version} · no change to your coming shifts`}
+            trailing={
+              <Button variant="secondary" size="sm" onClick={dismissChanges}>
+                Got it
+              </Button>
+            }
+          />
         ) : null}
         {team.role === "manager" ? (
           <ModeRow title="Manage" subtitle={team.name} href="/roster/manage" />

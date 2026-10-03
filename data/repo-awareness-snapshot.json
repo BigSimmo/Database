@@ -226,6 +226,11 @@
         "area": "product"
       },
       {
+        "path": "/admin/new-job/pack",
+        "file": "src/app/(search-app)/admin/new-job/pack/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/roster/team",
         "file": "src/app/(search-app)/roster/team/page.tsx",
         "area": "product"
@@ -12140,6 +12145,14 @@
         "checks": "`npx vitest run tests/visual-evidence-tabs.dom.test.tsx` (6/6 passed); `npm run eval:rag:offline` (21/21 suites passed, 308 tests passed). No provider-backed checks run."
       },
       {
+        "date": "2026-10-02",
+        "ref": "claude/teaching-mode-review-fixes",
+        "head": "59a0d50806dba17dea030223e55ba8c3293a4b2f",
+        "scope": "Teaching browser CI timing repair",
+        "outcome": "Independent review accepted the same midweek clock repair; production behavior and assertions preserved.",
+        "checks": "Whole-tree format and source typecheck passed; Teaching Chromium 10 passed; same-input focused lint reused from PR3203. Mocked projector QR black/white in actual light/dark themes fits 1280x600; two visible-label readiness changes remain checked and enabled in demo."
+      },
+      {
         "date": "2026-07-13",
         "ref": "codex/deep-memory-live-reconcile",
         "head": "59a976be639e1dede8acec65c1c14166ca71cadb",
@@ -18602,6 +18615,14 @@
         "scope": "Clinical medication graph & deduplication (#322, #323)",
         "outcome": "READY",
         "checks": "npm run check:medication-lexicon-report; npx vitest run tests/medication-interaction-lexicon-coverage.test.ts; npm run typecheck:internal; npm run lint:internal; npm run format"
+      },
+      {
+        "date": "2026-10-02",
+        "ref": "claude/teaching-mode-followup",
+        "head": "a32146d424c716f12c5eb769d7e596c37c4cbe13",
+        "scope": "Teaching browser CI timing repair",
+        "outcome": "Independent review found no defect in the midweek clock fix; production behavior and assertions preserved.",
+        "checks": "Whole-tree format, focused ESLint, source typecheck, and Chromium Teaching suite: 10 passed. Paid/provider tests not run."
       },
       {
         "date": "2026-08-13",
