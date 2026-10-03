@@ -113,7 +113,7 @@ describe("AdminTodayPage", () => {
     state.isOffline = true;
     state.loadError = "offline";
     render(<AdminTodayPage now={NOW} />);
-    expect(screen.getByTestId("admin-today-load-failed")).toBeTruthy();
+    expect(screen.getByTestId("today-state-failed")).toBeTruthy();
     expect(screen.queryByTestId("admin-today-renew-next")).toBeNull();
     expect(screen.queryByTestId("admin-today-needs-you")).toBeNull();
   });
@@ -126,19 +126,30 @@ describe("AdminTodayPage", () => {
     expect(window.innerHTML).not.toContain("--clinical-accent");
   });
 
-  it("words a failed load for Admin, not as 'On Call entries' (M3)", () => {
+  it("words a failed load in the shared Today words for Admin, not as 'On Call entries' (M3)", () => {
     state.isOffline = true;
     state.loadError = "offline";
+    const { unmount } = render(<AdminTodayPage now={NOW} />);
+    const offline = screen.getByTestId("today-state-failed");
+    expect(offline.textContent).toContain("You're offline");
+    expect(offline.textContent).toContain("Admin needs a connection");
+    expect(offline.textContent).not.toMatch(/On Call/);
+    unmount();
+    state.isOffline = false;
+    state.loadError = "failed";
     render(<AdminTodayPage now={NOW} />);
-    const failed = screen.getByTestId("admin-today-load-failed");
-    expect(failed.textContent).toContain("Couldn't load your Admin records");
+    const failed = screen.getByTestId("today-state-failed");
+    expect(failed.textContent).toContain("Couldn't load Admin");
     expect(failed.textContent).not.toMatch(/On Call/);
+    fireEvent.click(within(failed).getByRole("button", { name: "Try again" }));
+    expect(state.retry).toHaveBeenCalledTimes(1);
   });
 
   it("offers sign-in and a way to Help when the reader is signed out, nothing else", () => {
     state.signedOut = true;
     render(<AdminTodayPage now={NOW} />);
-    expect(screen.getByTestId("admin-today-signed-out")).toBeTruthy();
+    const signedOut = screen.getByTestId("today-state-signed-out");
+    expect(signedOut.textContent).toContain("Sign in to see your day");
     const help = screen.getByRole("link", { name: /Help/ });
     expect(help.getAttribute("href")).toBe("/admin/help");
     expect(screen.queryByTestId("admin-today-renew-next")).toBeNull();
@@ -372,7 +383,7 @@ describe("AdminTodayPage redesign (Admin proposal)", () => {
     expect(within(empty).getByRole("link").getAttribute("href")).toBe("/admin/renewals");
   });
 
-  it("orders the page Renew next, At a glance, Needs you, Coming up, Requirements, New job", () => {
+  it("orders the page Renew next, Needs you, Coming up, New job, At a glance, Requirements", () => {
     const step = onCallEntryFixture({
       section: "logistics",
       title: "Sign and return your contract",
@@ -395,16 +406,20 @@ describe("AdminTodayPage redesign (Admin proposal)", () => {
       );
     expect(order).toEqual([
       "admin-today-renew-next",
-      "admin-today-at-a-glance",
       "admin-today-needs-you",
       "admin-today-coming-up",
-      "admin-today-requirements",
       "admin-today-new-job",
+      "admin-today-at-a-glance",
+      "admin-today-requirements",
     ]);
-    // Two columns from lg: act-on on the left, what is ahead on the right.
-    expect(ready.className).toContain("lg:grid-cols-2");
-    expect(within(screen.getByTestId("admin-today-column-act")).getByTestId("admin-today-needs-you")).toBeTruthy();
-    expect(within(screen.getByTestId("admin-today-column-ahead")).getByTestId("admin-today-coming-up")).toBeTruthy();
+    // Two columns from lg: act-on (Renew next, Needs you) on the left, what is ahead on the right.
+    const act = ready.querySelector('[data-today-column="act"]') as HTMLElement;
+    const ahead = ready.querySelector('[data-today-column="ahead"]') as HTMLElement;
+    expect(act.parentElement?.className).toContain("lg:grid-cols-2");
+    expect(within(act).getByTestId("admin-today-needs-you")).toBeTruthy();
+    expect(within(act).queryByTestId("admin-today-at-a-glance")).toBeNull();
+    expect(within(ahead).getByTestId("admin-today-coming-up")).toBeTruthy();
+    expect(within(ahead).getByTestId("admin-today-at-a-glance")).toBeTruthy();
     // The greeting stays the page's only h1.
     expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   });
