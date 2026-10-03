@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-10-03"
+    "committed_at": "2026-10-04"
   },
   "routes": {
     "modes": [
@@ -3577,6 +3577,11 @@
         "path": "docs/archive/cloud-chat-reconciliation-postmortem-2026-07-23.md",
         "section": "archive",
         "catalogued": true
+      },
+      {
+        "path": "docs/evidence/mha-timeframes-owner-attribution.md",
+        "section": "evidence",
+        "catalogued": false
       },
       {
         "path": "docs/codebase-index.md",
