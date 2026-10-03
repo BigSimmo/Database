@@ -1543,7 +1543,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await moreModesSheet.getByRole("button", { name: "Close more modes" }).click();
     expect(
       await navigation.getByRole("link").evaluateAll((links) => links.map((link) => link.getAttribute("aria-label"))),
-    ).toEqual(["Answer", "Documents", "Services", "Medication", "Factsheets", "Forms", "Tools"]);
+    ).toEqual(["My Day", "Answer", "Documents", "Services", "Medication", "Factsheets", "Forms", "Tools"]);
     await expect(rail.getByTestId("sidebar-more-modes")).toBeVisible();
     await expect(rail.getByTestId("sidebar-more-modes")).toBeFocused();
 
