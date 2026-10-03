@@ -197,19 +197,32 @@ record's badge changes from "Awaiting clinical review" to "Clinically reviewed" 
 
 ## Signing off Therapy
 
-Therapy uses its own tool, with seven questions per record instead of three: clinical
-accuracy, source correspondence, evidence appraisal, safety and cautions, the patient-facing
-explanation, proofreading, and Australian English. The walk-through goes through all 205 in
-catalogue order. Confirm each one by typing `REVIEW` and its short name, which the tool shows.
+Therapy records can be reviewed either in batch via an HTML review pack (recommended) or one-by-one in the terminal.
+
+### Visual HTML Review Pack & Batch Sign-off (Recommended)
+
+Instead of answering questions 205 times in the terminal, generate a visual HTML review pack to read in your browser:
+
+1. Generate the review pack:
+   ```bash
+   npm run therapy:review -- --pack --reviewed-by "Dr <your surname>"
+   ```
+2. Open `sign-off-packs/therapy.html` in your browser and review the records. Note the sign-off code shown at the top.
+3. Sign the batch in one step:
+   ```bash
+   npm run therapy:review -- --write --batch --reviewed-by "Dr <your surname>"
+   ```
+   If any specific record needs revision before sign-off, exclude it by short name: `--exclude <slug1>,<slug2>`.
+
+### Terminal Walk-Through (One-by-One)
+
+The interactive walk-through steps through records in the terminal with seven clinical questions per record:
 
 ```bash
 npm run therapy:review -- --write --walk --reviewed-by "Dr <your surname>"
 ```
 
-47 Therapy records list no references yet. The walk-through leaves them out, because the
-source correspondence question cannot be answered yes without a source; they stay awaiting
-review until one is adopted. Type `skip` at any question to move on to the next record
-without saving the one on screen.
+47 Therapy records list no references yet. The tool leaves them out until sources are adopted; they stay awaiting review. Type `skip` at any question to skip a record.
 
 ## Indigenous content is never signed off here
 
