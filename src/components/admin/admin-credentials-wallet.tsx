@@ -1,6 +1,6 @@
 "use client";
 
-import { Check, Copy, CreditCard, Edit3, ShieldCheck } from "lucide-react";
+import { Check, Copy, CreditCard, Edit3, Lock } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -115,7 +115,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
         </h3>
         <div className="flex items-center gap-2">
           <span className="inline-flex items-center gap-1 text-2xs text-[color:var(--text-muted)]">
-            <ShieldCheck className="size-3" aria-hidden="true" />
+            <Lock className="size-3" aria-hidden="true" />
             Device-only
           </span>
           <button
@@ -154,7 +154,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
                   "relative flex min-h-16 flex-col justify-between rounded-xl border p-2.5 text-left transition-colors active:scale-97",
                   hasValue
                     ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] hover:border-[color:var(--command)] hover:bg-[color:var(--surface-inset)]"
-                    : "border-dashed border-[color:var(--border-subtle)] bg-transparent text-[color:var(--text-muted)]",
+                    : "border-dashed border-[color:var(--border-dashed)] bg-transparent text-[color:var(--text-muted)]",
                   focusRing,
                 )}
               >
