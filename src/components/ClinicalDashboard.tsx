@@ -96,6 +96,8 @@ import {
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerCrisisBanner } from "@/components/clinical-dashboard/answer-crisis-banner";
+import { EmergencyProtocolBanner } from "@/components/clinical-dashboard/emergency-protocol-banner";
+import { selectEmergencyProtocolsForSurface } from "@/lib/emergency-protocols";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -362,6 +364,7 @@ function ClinicalDashboardContent({
   // reading stale closure state.
   const [priorAnswerTurns, setPriorAnswerTurns] = useState<AnswerTurn[]>([]);
   const [latestAnswerQuery, setLatestAnswerQuery] = useState<string | null>(null);
+  const [setupBlockedQuery, setSetupBlockedQuery] = useState<string | null>(null);
   const [collapsedTurnIds, setCollapsedTurnIds] = useState<Set<string>>(() => new Set());
   const [showEarlierTurns, setShowEarlierTurns] = useState(false);
   const threadRestoreScrolledRef = useRef(false);
@@ -1952,7 +1955,9 @@ function ClinicalDashboardContent({
       window.requestAnimationFrame(() => scrollSurface(mainRef.current, 0, resolveScrollBehavior()));
       return;
     }
+    setSetupBlockedQuery(null);
     if (!canRunSearch) {
+      if (isAnswerRequest) setSetupBlockedQuery(trimmedQuery);
       // requestId was already bumped above, so a superseded in-flight request's
       // finally block can no longer reset loading — reset it here or the answer
       // skeleton can stay on screen indefinitely.
@@ -3182,6 +3187,15 @@ function ClinicalDashboardContent({
     void executeSearch(submittedUrlQuery || query, searchMode, scopeFilters, queryMode, false, undefined);
   }
 
+  // The card is local and provider-independent, so it also shows for a submitted answer
+  // query that never reached the backend (setup not ready) via `setupBlockedQuery`.
+  const matchedEmergencyProtocols = selectEmergencyProtocolsForSurface({
+    isAnswerSurface: activeModeResultKind === "answer",
+    hasResultSurface: Boolean(loading || answer),
+    resultQuery: answerLifecycle.query ?? latestAnswerQuery ?? query,
+    setupBlockedQuery,
+  });
+
   return (
     <div
       className={cn(
@@ -3565,6 +3579,10 @@ function ClinicalDashboardContent({
                 hasCrisisWording(answerLifecycle.query ?? latestAnswerQuery) ? (
                   <AnswerCrisisBanner />
                 ) : null}
+
+                {matchedEmergencyProtocols.map((protocol) => (
+                  <EmergencyProtocolBanner key={protocol.id} protocol={protocol} />
+                ))}
 
                 {searchMode !== "prescribing" &&
                   (activeModeResultKind === "answer" ? (
