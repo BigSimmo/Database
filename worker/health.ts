@@ -71,7 +71,35 @@ async function checkPythonVenvAvailability(): Promise<{ status: "ok" | "error"; 
   return cachedPythonStatus;
 }
 
-async function performHealthCheck(): Promise<HealthResponse> {
+export function computeOverallHealthStatus(
+  hasErrors: boolean,
+  lastClaimAt: Date | null,
+  now = Date.now(),
+  staleThresholdMs = 5 * 60 * 1000,
+): "ok" | "degraded" | "error" {
+  if (hasErrors) {
+    return "error";
+  }
+  if (lastClaimAt) {
+    const staleness = now - lastClaimAt.getTime();
+    if (staleness > staleThresholdMs) {
+      return "degraded";
+    }
+  }
+  return "ok";
+}
+
+export function setLastClaimProcessedAtForTests(date: Date | null) {
+  lastClaimProcessedAt = date;
+}
+
+export function resetHealthStateForTests() {
+  lastClaimProcessedAt = null;
+  cachedPythonStatus = null;
+  lastPythonCheckAt = 0;
+}
+
+export async function performHealthCheck(): Promise<HealthResponse> {
   const checks: HealthResponse["checks"] = {
     supabase: { status: "ok" },
     python_venv: { status: "ok" },
@@ -100,21 +128,12 @@ async function performHealthCheck(): Promise<HealthResponse> {
   // Check 3: Last claim processed (staleness detection)
   if (lastClaimProcessedAt) {
     checks.last_claim_processed = lastClaimProcessedAt.toISOString();
-    const staleness = Date.now() - lastClaimProcessedAt.getTime();
-    const staleThresholdMs = 5 * 60 * 1000; // 5 minutes
-
-    if (staleness > staleThresholdMs) {
-      // Degraded but not failed: worker may be waiting for claims
-      return {
-        status: "degraded",
-        timestamp: new Date().toISOString(),
-        checks,
-      };
-    }
   }
 
+  const status = computeOverallHealthStatus(hasErrors, lastClaimProcessedAt);
+
   return {
-    status: hasErrors ? "error" : "ok",
+    status,
     timestamp: new Date().toISOString(),
     checks,
   };
