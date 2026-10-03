@@ -78,6 +78,12 @@
         "dev_only": false
       },
       {
+        "id": "my-day",
+        "label": "My Day",
+        "home": "/my-day",
+        "dev_only": false
+      },
+      {
         "id": "my-work",
         "label": "Admin",
         "home": "/admin",
@@ -1184,6 +1190,11 @@
         "path": "/mockups/therapy-recommend-popup-triage",
         "file": "src/app/mockups/therapy-recommend-popup-triage/page.tsx",
         "area": "mockup"
+      },
+      {
+        "path": "/my-day",
+        "file": "src/app/(search-app)/my-day/page.tsx",
+        "area": "product"
       },
       {
         "path": "/specifiers/map",
