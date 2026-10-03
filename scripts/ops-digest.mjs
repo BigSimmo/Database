@@ -23,7 +23,7 @@
  * the run without re-parsing.
  */
 import { appendFileSync, readFileSync, writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { evaluateOperationalAlerts, summarizeOperationalAlerts } from "./lib/operational-alerts.mjs";
 
 const allowedStatuses = new Set(["ok", "degraded", "unreachable", "unknown"]);
@@ -293,7 +293,7 @@ async function main() {
   process.exit(0);
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectEntrypoint(import.meta.url);
 if (invokedDirectly) {
   main();
 }

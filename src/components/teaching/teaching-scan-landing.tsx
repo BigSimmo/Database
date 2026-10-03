@@ -8,7 +8,10 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
 import { perthDateKey, perthTime, shortDayLabel } from "@/components/teaching/teaching-dates";
+import { LogToCpdSheet } from "@/components/teaching/log-to-cpd-sheet";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
+import { useSessionDetail } from "@/components/teaching/use-session-detail";
+import { useTeachingNow } from "@/components/teaching/use-teaching-now";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { cn, textMuted } from "@/components/ui-primitives";
@@ -69,7 +72,16 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [cpdBridgeOpen, setCpdBridgeOpen] = useState(false);
   const started = useRef(false);
+
+  const occurrenceId = state.kind === "done" ? state.mark.occurrenceId : null;
+  const now = useTeachingNow();
+  const sessionDetail = useSessionDetail(occurrenceId, false, now);
+
+  const sessionStartsAt = sessionDetail.data?.startsAt ?? state.opened?.startsAt;
+  const sessionEndsAt = sessionDetail.data?.endsAt;
+  const hasEnded = Boolean(sessionEndsAt && now && new Date(sessionEndsAt).getTime() <= now.getTime());
 
   const run = useCallback(
     async (step: Step, known: CheckinOpened | null) => {
@@ -128,16 +140,24 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
   }
 
   const opened = state.opened;
+  const todayLink = (
+    <Link href="/teaching" className={cn(buttonFaceClass({ variant: "ghost", block: true }), "no-underline")}>
+      Go to Today
+    </Link>
+  );
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-scan">
       <div className="grid gap-3">
-        <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">
-          {state.kind === "done"
-            ? "You're checked in"
-            : state.kind === "sign-in"
-              ? "Sign in to finish checking in"
-              : "Check in"}
-        </h1>
+        {/* A live region around the heading (always present, so a change is announced): "You're checked in" is read out without losing the heading. */}
+        <div role="status">
+          <h1 className="text-xl font-semibold text-[color:var(--text-heading)]">
+            {state.kind === "done"
+              ? "You're checked in"
+              : state.kind === "sign-in"
+                ? "Sign in to finish checking in"
+                : "Check in"}
+          </h1>
+        </div>
         {opened ? (
           <div className={cn(modeModuleSurface, "grid gap-0.5 p-3")}>
             <p className="text-base-minus font-medium text-[color:var(--text-heading)]">{opened.title}</p>
@@ -152,20 +172,72 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
         {state.kind === "done" ? (
           <>
             <p className="text-sm text-[color:var(--text-heading)]">{attendanceLabels[state.mark.method]}</p>
+            {!hasEnded && sessionEndsAt ? (
+              <p className="text-xs text-[color:var(--text-muted)]">
+                You can log this session to CPD once it has ended at {perthTime(sessionEndsAt)}.
+              </p>
+            ) : null}
+            <Button
+              variant="primary"
+              block
+              disabled={!hasEnded}
+              onClick={() => setCpdBridgeOpen(true)}
+              data-testid="teaching-scan-cpd-bridge-open"
+            >
+              {hasEnded ? "Log to CPD" : "Available once session ends"}
+            </Button>
             <Link
               href={`/teaching/session/${state.mark.occurrenceId}`}
               className={cn(buttonFaceClass({ variant: "secondary", block: true }), "no-underline")}
             >
               Open the session
             </Link>
+            {todayLink}
+            {hasEnded && sessionStartsAt && sessionEndsAt ? (
+              <LogToCpdSheet
+                open={cpdBridgeOpen}
+                onClose={() => setCpdBridgeOpen(false)}
+                occurrenceId={state.mark.occurrenceId}
+                startsAt={sessionStartsAt}
+                endsAt={sessionEndsAt}
+              />
+            ) : null}
           </>
         ) : null}
 
         {state.kind === "sign-in" ? (
           state.sent ? (
-            <ModeNotice>Check your email. Open the link on this phone, in this browser, within 10 minutes.</ModeNotice>
-          ) : (
             <div className="grid gap-2">
+              <ModeNotice>
+                Check your email. Open the link on this phone, in this browser, within 10 minutes.
+              </ModeNotice>
+              <Button
+                variant="secondary"
+                block
+                busy={sending}
+                busyLabel="Sending"
+                onClick={() => void sendLink(opened)}
+              >
+                Send again
+              </Button>
+              <Button variant="ghost" block onClick={() => setState({ kind: "sign-in", opened, sent: false })}>
+                Use a different email
+              </Button>
+              {emailError ? (
+                <div role="alert">
+                  <ModeNotice tone="warning">{emailError}</ModeNotice>
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <form
+              className="grid gap-2"
+              noValidate
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (!sending) void sendLink(opened);
+              }}
+            >
               <p className={cn("text-sm", textMuted)}>Your scan is kept on this phone for 10 minutes.</p>
               <TextField
                 label="Email"
@@ -173,12 +245,13 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                enterKeyHint="send"
                 error={emailError ?? undefined}
               />
-              <Button variant="primary" block busy={sending} busyLabel="Sending" onClick={() => void sendLink(opened)}>
+              <Button type="submit" variant="primary" block busy={sending} busyLabel="Sending">
                 Email me a sign-in link
               </Button>
-            </div>
+            </form>
           )
         ) : null}
 
@@ -192,6 +265,7 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
                 Try again
               </Button>
             ) : null}
+            {todayLink}
           </div>
         ) : null}
 

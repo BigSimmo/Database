@@ -180,7 +180,7 @@ describe("the view model", () => {
     const open = heroModel(session(), { ...heroInput, now: DURING });
     expect(open).toMatchObject({ eyebrowRight: "On now", live: true });
     expect(open.actions.map((a) => [a.label, a.emphasis])).toEqual([
-      ["Scan to check in", "primary"],
+      ["Check in with code", "primary"],
       ["Check in without code", "text"],
     ]);
     const tuesday = session({ startsAt: "2026-10-06T00:00:00.000Z", endsAt: "2026-10-06T00:45:00.000Z" });
@@ -239,10 +239,10 @@ describe("Today", () => {
     render(<TeachingToday demoMode={false} />);
     const hero = await screen.findByTestId("teaching-hero");
     expect(hero).toHaveTextContent("Seminar room 1 · Hospital A psychiatry · check-in opens 12:15");
-    expect(await within(hero).findByRole("link", { name: "Join on Teams" })).toHaveAttribute("href", JOIN);
+    expect(await within(hero).findByRole("link", { name: /^Join on Teams/ })).toHaveAttribute("href", JOIN);
     expect(rawText(screen.getByRole("link", { name: /Rest of this week/ }))).toContain(`1${NB}more session`);
     expect(screen.queryByTestId(/^teaching-row-/)).toBeNull();
-    expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-09-30&to=2026-10-06")).toBe(1);
+    expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-09-28&to=2026-10-06")).toBe(1);
 
     fireEvent.change(screen.getByRole("combobox", { name: "Service" }), { target: { value: TEAM_B } });
     expect(screen.getByTestId("teaching-hero")).toHaveTextContent("Journal club");
@@ -270,12 +270,103 @@ describe("Today", () => {
     });
     render(<TeachingToday demoMode={false} />);
     const hero = await screen.findByTestId("teaching-hero");
-    expect(within(hero).getByRole("link", { name: "Scan to check in" })).toHaveAttribute(
+    expect(within(hero).getByRole("link", { name: "Check in with code" })).toHaveAttribute(
       "href",
       `/teaching/session/${OCC}?check-in=scan`,
     );
     fireEvent.click(within(hero).getByRole("button", { name: "Check in without code" }));
     await waitFor(() => expect(screen.getByTestId("teaching-hero")).toHaveTextContent("Self-reported"));
+    expect(screen.getByTestId("teaching-today-checked-in")).toHaveAttribute("role", "status");
+    expect(screen.getByTestId("teaching-today-checked-in")).toHaveTextContent("Checked in.");
+  });
+
+  it("puts a check-in save error in an alert", async () => {
+    vi.setSystemTime(DURING);
+    serveFetch((url) =>
+      url === `/api/teaching/services/${TEAM_A}`
+        ? apiError(503, "teaching_unavailable")
+        : url.startsWith("/api/teaching?view=week")
+          ? json(200, week())
+          : null,
+    );
+    render(<TeachingToday demoMode={false} />);
+    const hero = await screen.findByTestId("teaching-hero");
+    fireEvent.click(within(hero).getByRole("button", { name: "Check in without code" }));
+    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(screen.queryByTestId("teaching-today-checked-in")).toBeNull();
+  });
+
+  it("counts catch-up from the whole calendar week, so a Wednesday still sees Monday's unmarked session", async () => {
+    // The week read answers only for the dates it is asked about, like the server.
+    const monday = session({
+      occurrenceId: PAST,
+      title: "Monday journal club",
+      startsAt: "2026-09-28T04:30:00.000Z",
+      endsAt: "2026-09-28T05:30:00.000Z",
+    });
+    serveFetch((url) => {
+      if (!url.startsWith("/api/teaching?view=week")) return null;
+      const params = new URL(url, "http://localhost").searchParams;
+      const from = params.get("from") ?? "";
+      const to = params.get("to") ?? "";
+      const inRange = [monday, session()].filter((s) => {
+        const key = s.startsAt.slice(0, 10);
+        return key >= from && key <= to;
+      });
+      return json(200, week({ sessions: inRange }));
+    });
+    render(<TeachingToday demoMode={false} />);
+    expect(await screen.findByTestId("teaching-hero")).toHaveTextContent("Registrar teaching");
+    const needsYou = await screen.findByTestId("teaching-needs-you");
+    expect(rawText(within(needsYou).getByRole("link", { name: /^Catch up on/ }))).toContain(
+      `Catch up on 1${NB}session`,
+    );
+  });
+
+  it("keeps Needs you on screen when there is no session ahead", async () => {
+    const monday = session({
+      occurrenceId: PAST,
+      startsAt: "2026-09-28T04:30:00.000Z",
+      endsAt: "2026-09-28T05:30:00.000Z",
+    });
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week")
+        ? json(200, week({ sessions: [monday] }))
+        : url === "/api/teaching?view=next-session"
+          ? json(200, { session: null })
+          : url === "/api/teaching?view=unlogged-count"
+            ? json(200, { count: 2 })
+            : null,
+    );
+    render(<TeachingToday demoMode={false} />);
+    expect(await screen.findByTestId("teaching-state-empty")).toBeInTheDocument();
+    const needsYou = await screen.findByTestId("teaching-needs-you");
+    expect(within(needsYou).getByRole("link", { name: /^Catch up on/ })).toHaveAttribute(
+      "href",
+      "/teaching/resources#catch-up",
+    );
+    expect(await within(needsYou).findByRole("link", { name: /^Review & log/ })).toHaveAttribute(
+      "href",
+      "/teaching/review",
+    );
+  });
+
+  it("says the next-session read failed rather than claiming there are no sessions", async () => {
+    let calls = 0;
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week")
+        ? json(200, week({ sessions: [] }))
+        : url === "/api/teaching?view=next-session"
+          ? calls++ === 0
+            ? apiError(500, "teaching_unavailable")
+            : json(200, { session: null })
+          : null,
+    );
+    render(<TeachingToday demoMode={false} />);
+    expect(await screen.findByTestId("today-state-failed")).toBeInTheDocument();
+    expect(screen.queryByTestId("teaching-state-empty")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByTestId("teaching-state-empty")).toBeInTheDocument();
   });
 
   it("asks for the next session when nothing falls in the next seven days, and opens the calendar sheet", async () => {
@@ -428,8 +519,47 @@ describe("Week", () => {
     fireEvent.click(screen.getByRole("radio", { name: "Presenting" }));
     expect(screen.queryByTestId(`teaching-row-${OCC}`)).toBeNull();
     expect(screen.getByTestId("teaching-row-mine")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "This week" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Next week" }));
     await waitFor(() => expect(fetchCalls(fetchMock, "/api/teaching?view=week&from=2026-10-05&to=2026-10-11")).toBe(1));
+  });
+
+  it("moves by week with icon arrows, offers This week only away from it, and words an empty week by when it is", async () => {
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week") ? json(200, week({ sessions: [] })) : onCallRoutes(url),
+    );
+    render(<TeachingWeekScreen demoMode={false} />);
+    expect(await screen.findByText("No more sessions this week.")).toBeInTheDocument();
+    const nav = byId("teaching-week-nav");
+    expect(within(nav).getByRole("button", { name: "Previous week" })).toHaveTextContent("");
+    expect(within(nav).queryByRole("button", { name: "This week" })).toBeNull();
+    fireEvent.click(within(nav).getByRole("button", { name: "Previous week" }));
+    expect(await screen.findByText("No sessions this week.")).toBeInTheDocument();
+    expect(byId("teaching-week-nav")).toHaveTextContent("Mon 21 Sep – Sun 27 Sep");
+    fireEvent.click(within(byId("teaching-week-nav")).getByRole("button", { name: "This week" }));
+    expect(await screen.findByText("No more sessions this week.")).toBeInTheDocument();
+    expect(byId("teaching-week-nav")).toHaveTextContent("Mon 28 Sep – Sun 4 Oct");
+  });
+
+  it("keeps a visitor's added sessions instead of the no-service state", async () => {
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week")
+        ? json(200, week({ teams: [], relocated: [], sessions: [session()] }))
+        : onCallRoutes(url),
+    );
+    render(<TeachingWeekScreen demoMode={false} />);
+    expect(
+      await within(await waitFor(() => byId("teaching-week-list"))).findByText("Registrar teaching"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("teaching-state-no-team")).toBeNull();
+  });
+
+  it("says when the reader is not in a teaching service yet", async () => {
+    serveFetch((url) =>
+      url.startsWith("/api/teaching?view=week") ? json(200, week({ teams: [], sessions: [] })) : onCallRoutes(url),
+    );
+    render(<TeachingWeekScreen demoMode={false} />);
+    expect(await screen.findByTestId("teaching-state-no-team")).toBeInTheDocument();
   });
 
   it("adds a service to the calendar, and says In sync once part 2 reports it", async () => {
@@ -455,6 +585,27 @@ describe("Week", () => {
       "https://example.org/t",
     );
     expect(within(handbook).queryByText("Switchboard")).toBeNull();
+  });
+
+  it("says so when the handbook read fails, but not when the reader has no On Call access", async () => {
+    serveFetch((url) => {
+      if (url.startsWith("/api/teaching?view=week"))
+        return json(200, week({ sessions: [monday, session(), mine, journal], teams: [teamA, teamB] }));
+      if (url === "/api/on-call/services") return json(500, {});
+      return onCallRoutes(url);
+    });
+    const { unmount } = render(<TeachingWeekScreen demoMode={false} />);
+    expect(await screen.findByText("Your service handbook's teaching entries couldn't load.")).toBeInTheDocument();
+    unmount();
+    serveFetch((url) => {
+      if (url.startsWith("/api/teaching?view=week"))
+        return json(200, week({ sessions: [monday, session(), mine, journal], teams: [teamA, teamB] }));
+      if (url === "/api/on-call/services") return json(403, {});
+      return onCallRoutes(url);
+    });
+    render(<TeachingWeekScreen demoMode={false} />);
+    await screen.findByTestId(`teaching-row-${JOURNAL}`);
+    expect(screen.queryByText("Your service handbook's teaching entries couldn't load.")).toBeNull();
   });
 
   it("says so when the On Call list could not load", async () => {

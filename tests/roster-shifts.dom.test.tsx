@@ -91,7 +91,9 @@ function fetchCalls(url: string, method: string) {
 beforeEach(() => {
   routes.clear();
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const handler = routes.get(`${init?.method ?? "GET"} ${String(input)}`);
+    // Saved extra time is read for whichever fortnight is shown; one route answers every range.
+    const url = String(input).startsWith("/api/roster/extra-time?") ? "/api/roster/extra-time" : String(input);
+    const handler = routes.get(`${init?.method ?? "GET"} ${url}`);
     return handler ? handler(init) : Response.json({});
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -104,10 +106,81 @@ afterEach(() => {
 });
 
 describe("Roster Shifts", () => {
+  it("loads both teams' rules and applies them to the matching shifts using the full personal history", async () => {
+    mockShifts([]);
+    const first = "22222222-2222-4222-8222-222222222222";
+    const second = "55555555-5555-4555-8555-555555555555";
+    const actorId = "11111111-1111-4111-8111-111111111111";
+    routes.set("GET /api/roster/team", () =>
+      Response.json({
+        actorId,
+        teams: [first, second].map((serviceId) => ({
+          serviceId,
+          name: "Example team",
+          enabled: true,
+          role: "member",
+          grade: "registrar",
+        })),
+      }),
+    );
+    const row = (id: string, startsAt: string, endsAt: string) => ({
+      id,
+      userId: actorId,
+      name: "Dr Alex Example",
+      grade: "registrar",
+      siteId: null,
+      siteName: null,
+      startsAt,
+      endsAt,
+      shiftCode: "D",
+      kind: "day",
+    });
+    const from = "2026-09-21",
+      to = "2026-10-27";
+    routes.set(`GET /api/roster/team/${first}?what=assignments&from=${from}&to=${to}`, () =>
+      Response.json({
+        assignments: [
+          row("33333333-3333-4333-8333-000000000001", "2026-10-12T08:00:00+08:00", "2026-10-12T16:00:00+08:00"),
+          row("33333333-3333-4333-8333-000000000003", "2026-10-13T16:00:00+08:00", "2026-10-13T23:00:00+08:00"),
+        ],
+      }),
+    );
+    routes.set(`GET /api/roster/team/${second}?what=assignments&from=${from}&to=${to}`, () =>
+      Response.json({
+        assignments: [
+          row("33333333-3333-4333-8333-000000000002", "2026-10-13T00:00:00+08:00", "2026-10-13T08:00:00+08:00"),
+        ],
+      }),
+    );
+    for (const [id, minBreakHours] of [
+      [first, 6],
+      [second, 10],
+    ] as const)
+      routes.set(`GET /api/roster/team/${id}?what=overview`, () =>
+        Response.json({ settings: { rules: { minBreakHours } } }),
+      );
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    expect(await screen.findByText("Less than 10 hours' rest before this shift")).toBeInTheDocument();
+    expect(screen.queryByText("Less than 6 hours' rest before this shift")).toBeNull();
+    for (const id of [first, second]) expect(fetchCalls(`/api/roster/team/${id}?what=overview`, "GET")).toHaveLength(1);
+  });
+  it("offers Who can cover? on a team shift, beside the existing request rows", async () => {
+    mockShifts([]);
+    mockTeamWindow("2026-09-21", "2026-10-27", ["2026-10-15"]);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    const row = await screen.findByTestId("roster-shifts-row");
+    fireEvent.click(row);
+    const sheet = await screen.findByTestId("roster-team-shift-actions");
+    expect(within(sheet).getByRole("link", { name: "Swap" })).toBeInTheDocument();
+    expect(within(sheet).getByTestId("roster-who-can-cover")).toHaveTextContent("Who can cover?");
+  });
+
   it("loads the newly selected week before saying it has no team shifts", async () => {
     mockShifts([]);
-    mockTeamWindow("2026-10-12", "2026-10-18", []);
-    const nextUrl = mockTeamWindow("2026-10-19", "2026-10-25", ["2026-10-20"]);
+    // Each week is read 21 days back (team rule lookback) and through the
+    // 14-day share window from today (13 Oct), not just its own seven days.
+    mockTeamWindow("2026-09-21", "2026-10-27", []);
+    const nextUrl = mockTeamWindow("2026-09-22", "2026-10-27", ["2026-10-20"]);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     await screen.findByText("No shifts this week");
     fireEvent.click(screen.getByRole("button", { name: "Next week" }));
@@ -118,7 +191,7 @@ describe("Roster Shifts", () => {
 
   it("never puts a sample team's invented shifts into the doctor's own roster", async () => {
     mockShifts([]);
-    const url = mockTeamWindow("2026-10-12", "2026-10-18", ["2026-10-13"], true);
+    const url = mockTeamWindow("2026-09-21", "2026-10-27", ["2026-10-13"], true);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     await screen.findByText("No shifts this week");
     expect(fetchCalls(url, "GET")).toHaveLength(0);
@@ -128,10 +201,10 @@ describe("Roster Shifts", () => {
   it("stops going back once the previous week is outside the loaded history", async () => {
     mockShifts([]);
     for (const [from, to] of [
-      ["2026-10-12", "2026-10-18"],
-      ["2026-10-05", "2026-10-11"],
-      ["2026-09-28", "2026-10-04"],
-      ["2026-09-21", "2026-09-27"],
+      ["2026-09-21", "2026-10-27"],
+      ["2026-09-14", "2026-10-27"],
+      ["2026-09-07", "2026-10-27"],
+      ["2026-08-31", "2026-10-27"],
     ])
       mockTeamWindow(from, to, []);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
@@ -147,11 +220,12 @@ describe("Roster Shifts", () => {
 
   it("loads the newly selected month before displaying its team shifts", async () => {
     mockShifts([]);
-    mockTeamWindow("2026-10-12", "2026-10-18", []);
+    mockTeamWindow("2026-09-21", "2026-10-27", []);
     const october = monthGridRange("2026-10");
-    const octoberUrl = mockTeamWindow(october.start, october.end, []);
+    const octoberUrl = mockTeamWindow(addDaysToDate(october.start, -21), october.end, []);
     const november = monthGridRange("2026-11");
-    const nextUrl = mockTeamWindow(november.start, november.end, ["2026-11-10"]);
+    // November's grid starts after today, so its read starts 21 days before today.
+    const nextUrl = mockTeamWindow("2026-09-22", november.end, ["2026-11-10"]);
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     await screen.findByText("No shifts this week");
     fireEvent.click(screen.getByRole("radio", { name: "Month" }));
@@ -195,6 +269,7 @@ describe("Roster Shifts", () => {
   it("shows the fortnight's rostered hours and logs a late finish with one tap", async () => {
     // Monday 12 Oct day shift finished at 16:30; it is now 17:45 Perth.
     mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () => Response.json({ records: [] }));
     routes.set("POST /api/roster/extra-time", () => Response.json({ saved: true }));
     render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
     await screen.findByText(/08:00\s*\+1/);
@@ -213,6 +288,67 @@ describe("Roster Shifts", () => {
     });
     expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
     expect(within(screen.getByTestId("roster-hours-facts")).getByText("1.25 h")).toBeInTheDocument();
+    expect(screen.getByTestId("roster-hours-facts")).not.toHaveTextContent("Extra time recorded this visit");
+  });
+
+  it("counts saved extra time after a reload, and will not log the same late finish twice", async () => {
+    mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () =>
+      Response.json({
+        records: [{ kind: "stayed_late", startedAt: "2026-10-12T08:30:00.000Z", endedAt: "2026-10-12T09:30:00.000Z" }],
+      }),
+    );
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByText(/08:00\s*\+1/);
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const facts = await screen.findByTestId("roster-hours-facts");
+    expect(await within(facts).findByText("1 h")).toBeInTheDocument();
+    expect(facts).toHaveTextContent("Extra time");
+    expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
+    const [read] = fetchMock.mock.calls.filter(([input]) => String(input).startsWith("/api/roster/extra-time?"));
+    expect(String(read?.[0])).toMatch(/^\/api\/roster\/extra-time\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("treats one instant as one record whatever its spelling, and a call-in as a different record", async () => {
+    mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () =>
+      Response.json({
+        records: [
+          // Monday's shift ended 08:30Z; the database spells it with +00:00. A call-in shares the start.
+          { kind: "called_in", startedAt: "2026-10-12T08:30:00+00:00", endedAt: "2026-10-12T09:00:00+00:00" },
+        ],
+      }),
+    );
+    routes.set("POST /api/roster/extra-time", () => Response.json({ saved: true }));
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByText(/08:00\s*\+1/);
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const facts = await screen.findByTestId("roster-hours-facts");
+    expect(await within(facts).findByText("0.5 h")).toBeInTheDocument();
+    // The call-in is not a late finish, so "Stayed late" is still offered.
+    const stayed = screen.getByRole("button", { name: "Stayed late" });
+    expect(stayed).toBeEnabled();
+    fireEvent.click(stayed);
+    await screen.findByText("Saved");
+    expect(within(facts).getByText("1.75 h")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
+  });
+
+  it("says so when saved extra time cannot be loaded, and retries", async () => {
+    mockShifts([day("2026-10-12")]);
+    let reads = 0;
+    routes.set("GET /api/roster/extra-time", () => {
+      reads += 1;
+      return reads === 1 ? Response.json({ error: "down" }, { status: 503 }) : Response.json({ records: [] });
+    });
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByRole("radio", { name: "Hours" });
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const error = await screen.findByTestId("roster-hours-extras-error");
+    expect(error).toHaveTextContent("Saved extra time could not be loaded");
+    expect(screen.getByTestId("roster-hours-facts")).toHaveTextContent("Extra time recorded this visit");
+    fireEvent.click(within(error).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByTestId("roster-hours-extras-error")).toBeNull());
   });
 
   it("reads a new calendar link straight away, and shows the new shifts", async () => {
@@ -234,7 +370,7 @@ describe("Roster Shifts", () => {
       return Response.json({ results: [{ id: "new-link", ok: true }] });
     });
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     fireEvent.click(await screen.findByRole("button", { name: /Add a calendar link/ }));
     fireEvent.change(screen.getByLabelText("Calendar link"), {
       target: { value: "https://calendar.example.org/feed.ics" },
@@ -252,7 +388,7 @@ describe("Roster Shifts", () => {
       Response.json({ error: "Duplicate", code: "duplicate_workplace" }, { status: 409 }),
     );
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     fireEvent.click(await screen.findByRole("button", { name: /Add a calendar link/ }));
     fireEvent.change(screen.getByLabelText("Calendar link"), {
       target: { value: "https://calendar.example.org/feed.ics" },
@@ -266,7 +402,7 @@ describe("Roster Shifts", () => {
     mockShifts([]);
     routes.set("POST /api/roster/shifts/manual", () => Response.json({ shifts: [] }));
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
-    fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+    fireEvent.click(await screen.findByRole("button", { name: "New" }));
     fireEvent.click(await screen.findByRole("button", { name: /Add a shift/ }));
     fireEvent.change(screen.getByLabelText("Shift"), { target: { value: "evening" } });
     fireEvent.change(screen.getByLabelText("Repeat weekly"), { target: { value: "3" } });
@@ -294,6 +430,10 @@ describe("Roster Shifts", () => {
     routes.set(`DELETE /api/roster/shifts/manual/${series}`, () => Response.json({ deleted: true }));
     render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
     fireEvent.click(await screen.findByRole("button", { name: "Remove Other work on Wed 14 Oct and its repeats" }));
+    // It asks first, naming what goes, and removes nothing until confirmed.
+    expect(fetchCalls(`/api/roster/shifts/manual/${series}`, "DELETE")).toHaveLength(0);
+    expect(screen.getByTestId("confirm-dialog")).toHaveTextContent("every weekly repeat of it");
+    fireEvent.click(screen.getByRole("button", { name: "Remove shift and repeats" }));
     await screen.findByText("Removed");
     expect(screen.queryByTestId("roster-shifts-row")).toBeNull();
   });

@@ -1,6 +1,6 @@
 ---
 name: deploy
-description: Review Database deployment configuration, environment parity, build and boot behavior, workers, migrations, health checks, and rollback readiness. Use for deployment changes, hosting configuration, runtime failures, or production setup.
+description: Review PsychSift deployment configuration, environment parity, build and boot behavior, workers, migrations, health checks, and rollback readiness. Use for deployment changes, hosting configuration, runtime failures, or production setup.
 ---
 
 # Deploy

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
+import { ModeFactTile } from "@/components/mode-kit/fact-tile";
 import { modeDot, modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { modeNumberText } from "@/components/mode-kit/type";
@@ -219,7 +220,7 @@ function TimelineRowBody({ row }: { row: TimelineRow }) {
           <ModeStateLabel tone={row.status.tone === "warning" ? "warning" : "muted"}>{row.status.text}</ModeStateLabel>
         ) : null}
       </span>
-      <span className="col-start-2 row-span-2 row-start-1 grid place-items-center @min-[17rem]:col-start-3 @min-[17rem]:row-span-1">
+      <span className="relative col-start-2 row-span-2 row-start-1 grid place-items-center @min-[17rem]:col-start-3 @min-[17rem]:row-span-1">
         {row.trailing ??
           (row.href || row.onSelect ? (
             <ChevronRight aria-hidden="true" className={cn("size-icon-sm", textMuted)} />
@@ -265,6 +266,28 @@ export function SessionTimeline({ groups, testId }: { groups: readonly TimelineG
                     >
                       <TimelineRowBody row={row} />
                     </button>
+                  ) : row.trailing && (row.href || row.onSelect) ? (
+                    // A row with its own control (What's on's add toggle) still opens: the
+                    // link stretches under the row and the control paints above it.
+                    <div className={cn(rowClass, hover)}>
+                      {row.href ? (
+                        <Link
+                          href={row.href}
+                          aria-label={row.title}
+                          data-row-open
+                          className={cn("absolute inset-0", focusRing)}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          aria-label={row.title}
+                          data-row-open
+                          onClick={row.onSelect}
+                          className={cn("absolute inset-0", focusRing)}
+                        />
+                      )}
+                      <TimelineRowBody row={row} />
+                    </div>
                   ) : (
                     <div className={rowClass}>
                       <TimelineRowBody row={row} />
@@ -465,25 +488,30 @@ export function TeachingSwitch<T extends string>({
     };
   }, []);
 
+  // The `--teaching-segment-*` pair lives in the Teaching identity block, so a
+  // layout-free wrapper carries it; on the scroller itself the block's plum
+  // `--clinical-accent` would beat the overrides below.
   return (
-    <div
-      ref={scroller}
-      data-testid="teaching-switch"
-      data-fade={fade ? "true" : "false"}
-      className={cn(
-        "min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none]",
-        "[--clinical-accent:var(--text-heading)] [--clinical-accent-soft:var(--teaching-segment-on)] [--clinical-accent-border:var(--teaching-segment-line)]",
-        fade && "[mask-image:linear-gradient(90deg,black_80%,transparent)]",
-      )}
-    >
-      <SegmentedControl
-        value={value}
-        onChange={onChange}
-        options={options}
-        label={label}
-        layout="equal"
-        className="w-max min-w-full"
-      />
+    <div data-mode-identity="teaching" className="contents">
+      <div
+        ref={scroller}
+        data-testid="teaching-switch"
+        data-fade={fade ? "true" : "false"}
+        className={cn(
+          "min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none]",
+          "[--clinical-accent:var(--text-heading)] [--clinical-accent-soft:var(--teaching-segment-on)] [--clinical-accent-border:var(--teaching-segment-line)]",
+          fade && "[mask-image:linear-gradient(90deg,black_80%,transparent)]",
+        )}
+      >
+        <SegmentedControl
+          value={value}
+          onChange={onChange}
+          options={options}
+          label={label}
+          layout="equal"
+          className="w-max min-w-full"
+        />
+      </div>
     </div>
   );
 }
@@ -512,5 +540,22 @@ export function DrainingHairline({
     >
       <line x1="0" y1="1" x2={String(Math.round(left * 100))} y2="1" stroke="currentColor" strokeWidth="2" />
     </svg>
+  );
+}
+
+/** The attendance counts as one compact row: three tiles fit across a 390px phone, four from a little wider. */
+export function AttendanceTileRow({
+  tiles,
+  label,
+}: {
+  tiles: readonly { id: string; label: string; value: string }[];
+  label: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,5rem),1fr))] gap-2">
+      {tiles.map((tile) => (
+        <ModeFactTile key={tile.id} label={tile.label} value={tile.value} />
+      ))}
+    </div>
   );
 }

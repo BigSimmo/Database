@@ -22,6 +22,10 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
   const now = useRosterNow();
   const overview = useRosterRead(serviceId, "overview");
   const [section, setSection] = useState("approve");
+  // Waiting swaps and taken shifts are decided in one place: the calendar's
+  // Needs you strip, inline and rechecked live. The Approve tab lists them
+  // itself only while the strip is not showing (loading, or a manager read failed).
+  const [stripShown, setStripShown] = useState(false);
   // One shared reload for the manager's swaps and open shifts: a decision in
   // the Approve tab or in the calendar's strip refreshes the other too. Each
   // side reloads itself and skips the round it started.
@@ -32,12 +36,12 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
   );
   if (overview.status === "error")
     return (
-      <div>
+      <div role="alert">
         <p>{overview.message}</p>
         <Button onClick={overview.reload}>Try again</Button>
       </div>
     );
-  if (!overview.data) return <p>Loading your team…</p>;
+  if (!overview.data) return <p role="status">Loading your team…</p>;
   if (overview.data.me.role !== "manager") return <p>Only your team&apos;s roster manager can see this page.</p>;
   // Phones keep one column with the tabs first and the calendar below; from
   // `lg` the calendar sits on the left and the tabs on the right.
@@ -46,7 +50,13 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
       <div className="order-1 grid min-w-0 gap-6 lg:order-2">
         <RosterManageNavHeader activeId={section} onSelect={setSection} />
         {section === "approve" ? (
-          <RosterApproveTab serviceId={serviceId} shared={{ ...manageRound, onChanged: manageChanged }} />
+          <RosterApproveTab
+            serviceId={serviceId}
+            shared={{ ...manageRound, onChanged: manageChanged }}
+            decisionsInStrip={stripShown}
+            actorId={actorId}
+            overview={overview.data}
+          />
         ) : section === "cover" ? (
           <RosterCoverTab serviceId={serviceId} overview={overview.data} />
         ) : (
@@ -71,7 +81,13 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
         className="order-2 grid min-w-0 content-start gap-4 lg:order-1"
       >
         <Suspense fallback={<p role="status">Loading the team roster…</p>}>
-          <TeamCalendar team={team} actorId={actorId} now={now} shared={{ ...manageRound, onChanged: manageChanged }} />
+          <TeamCalendar
+            team={team}
+            actorId={actorId}
+            now={now}
+            shared={{ ...manageRound, onChanged: manageChanged }}
+            onManagerLayer={setStripShown}
+          />
         </Suspense>
       </div>
     </div>
@@ -90,13 +106,15 @@ export function RosterManagePage() {
           icon={ClipboardList}
           eyebrow="Roster"
           title="Manage"
-          subtitle="Cover, publishing and team settings."
+          subtitle={
+            team ? `${team.name} · Cover, publishing and team settings.` : "Cover, publishing and team settings."
+          }
           ask={false}
         />
         {teams.status === "loading" ? (
-          <p>Loading your teams…</p>
+          <p role="status">Loading your teams…</p>
         ) : teams.status !== "ready" ? (
-          <div>
+          <div role="alert">
             <p>{teams.message}</p>
             <Button onClick={teams.reload}>Try again</Button>
           </div>

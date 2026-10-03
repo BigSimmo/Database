@@ -38,12 +38,16 @@ export async function rosterRead<W extends RosterReadWhat>(
   payload: RosterReadPayload = {},
 ): Promise<RosterReadResult<W>> {
   requireActor(actorId);
-  const { data, error } = await client.rpc("roster_read", {
-    p_actor_id: actorId,
-    p_service_id: serviceId,
-    p_what: what,
-    p_payload: payload,
-  });
+  // The team's members have their own member-readable function, outside roster_read.
+  const { data, error } =
+    what === "members"
+      ? await client.rpc("roster_team_members", { p_actor_id: actorId, p_service_id: serviceId })
+      : await client.rpc("roster_read", {
+          p_actor_id: actorId,
+          p_service_id: serviceId,
+          p_what: what,
+          p_payload: payload,
+        });
   if (error) throw rosterApiError(error);
   const parsed = ROSTER_READ_SCHEMAS[what].safeParse(data);
   if (!parsed.success) throw rosterUnavailable();

@@ -1,6 +1,6 @@
 ---
 name: security
-description: Find and validate concrete Database security risks across secrets, input handling, authentication, authorization, storage, dependencies, and trust boundaries. Use for security review, threat analysis, or confirmed finding remediation.
+description: Find and validate concrete PsychSift security risks across secrets, input handling, authentication, authorization, storage, dependencies, and trust boundaries. Use for security review, threat analysis, or confirmed finding remediation.
 ---
 
 # Security

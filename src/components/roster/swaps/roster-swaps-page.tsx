@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
+import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { RosterSentBar, type SentReceipt } from "@/components/roster/requests/roster-sent-bar";
 import { kindOf, useRosterNow } from "@/components/roster/roster-format";
@@ -12,7 +14,9 @@ import { SwapProgressLine } from "@/components/roster/swaps/swap-progress-line";
 import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notice";
 import { useRosterRead, useRosterTeams, postRosterAction } from "@/components/roster/use-roster-team";
 import { useRosterShifts } from "@/components/roster/use-roster-shifts";
+import { RosterSignInNotice } from "@/components/roster/invite/roster-sign-in-notice";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Tabs } from "@/components/ui/tabs";
 import { cn } from "@/components/ui-primitives";
 import { SHIFT_KIND_LABEL, SHIFT_LETTER } from "@/lib/roster/shift-kind";
@@ -21,8 +25,10 @@ import { gradeRank, placementProblem } from "@/lib/roster/team/eligibility";
 import type { RosterAction, RosterManageSwap, RosterOpenShift, RosterSwap } from "@/lib/roster/team/model";
 import { requestStatusWords } from "@/lib/roster/team/request-status";
 import { swapProgress } from "@/lib/roster/team/swap-progress";
-import { ArrowLeftRight, CheckCircle2 } from "lucide-react";
+import { ArrowLeftRight, CalendarOff, CheckCircle2, Plane } from "lucide-react";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
+import { RosterNewButton } from "@/components/roster/roster-new-button";
+import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 
 type TabId = "needs_you" | "sent" | "open" | "history" | "all";
 
@@ -72,6 +78,7 @@ const returnLine = (swap: RosterSwap | RosterManageSwap) =>
 /** Swaps and open shifts for one team. Answers are session-only React state; nothing is stored on the device. */
 export function RosterSwapsPage() {
   const now = useRosterNow();
+  const phoneFooterHidden = usePhoneFooterLayerScrollHidden() === true;
   const teams = useRosterTeams();
   const ownShifts = useRosterShifts();
   const enabled = useMemo(() => teams.data?.teams.filter((team) => team.enabled) ?? [], [teams.data]);
@@ -93,6 +100,9 @@ export function RosterSwapsPage() {
   const [error, setError] = useState<string | null>(null);
   const [hiddenOpenIds, setHiddenOpenIds] = useState<string[]>([]);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState<
+    { kind: "withdraw"; swap: RosterSwap } | { kind: "take"; item: RosterOpenShift } | null
+  >(null);
   const clearSent = useCallback(() => setSent(null), []);
 
   const reload = useCallback(() => {
@@ -205,7 +215,7 @@ export function RosterSwapsPage() {
         action={
           <div className="grid gap-1">
             {mine && swap.status === "requested" && progress.ended === null ? (
-              <Button size="sm" disabled={busyId === swap.id} onClick={() => void swapAction(swap, "swap.cancel")}>
+              <Button size="sm" disabled={busyId === swap.id} onClick={() => setConfirm({ kind: "withdraw", swap })}>
                 Withdraw
               </Button>
             ) : null}
@@ -262,7 +272,7 @@ export function RosterSwapsPage() {
   const ready = !!serviceId && !!actorId && requests.status === "ready";
 
   return (
-    <InformationPageShell testId="roster-swaps-page">
+    <InformationPageShell testId="roster-swaps-page" className={phoneFooterHidden ? "max-sm:pb-4" : "max-sm:pb-20"}>
       <RosterPageHeader
         icon={ArrowLeftRight}
         eyebrow="Roster"
@@ -275,6 +285,21 @@ export function RosterSwapsPage() {
             </Link>
             .
           </>
+        }
+        actions={
+          <RosterNewButton
+            entries={[
+              {
+                id: "swap",
+                label: "Swap or give away",
+                description: "Pick the shift on the Team calendar",
+                icon: ArrowLeftRight,
+                href: "/roster/team?view=week",
+              },
+              { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+              { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
+            ]}
+          />
         }
       />
       <RosterSampleNotice sample={teams.data?.sample} />
@@ -297,15 +322,34 @@ export function RosterSwapsPage() {
       ) : null}
       {enabled.length > 1 && !selectedServiceId ? <p>Choose a team to see its swaps.</p> : null}
       {teams.status === "loading" ? <p role="status">Loading your teams…</p> : null}
-      {teams.status === "signed-out" ? <p>Sign in to see your swaps.</p> : null}
-      {teams.status === "error" ? <p role="alert">{teams.message}</p> : null}
+      {teams.status === "signed-out" ? (
+        <RosterSignInNotice testId="roster-swaps-signed-out">Sign in to see your swaps.</RosterSignInNotice>
+      ) : null}
+      {teams.status === "not-confirmed" || teams.status === "unavailable" ? (
+        <ModeNotice testId="roster-swaps-team-pending">
+          {teams.status === "not-confirmed" && teams.message
+            ? teams.message
+            : "Team swaps aren\u2019t available yet. Try again later."}
+        </ModeNotice>
+      ) : null}
+      {teams.status === "error" ? (
+        <div role="alert" className="grid gap-2">
+          <p>{teams.message}</p>
+          <Button className="justify-self-start" onClick={teams.reload}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
       {teams.status === "ready" && !enabled.length ? (
         <p>No confirmed team yet, so there are no swaps to show.</p>
       ) : null}
       {serviceId && (requests.status === "error" || assignments.status === "error" || overview.status === "error") ? (
-        <p role="alert">
-          The team roster couldn&apos;t be checked. <Button onClick={reload}>Try again</Button>
-        </p>
+        <div role="alert" className="grid gap-2">
+          <p>The team roster couldn&apos;t be checked.</p>
+          <Button className="justify-self-start" onClick={reload}>
+            Try again
+          </Button>
+        </div>
       ) : null}
       {serviceId && ownShifts.status === "error" ? (
         <p role="alert">Your own shifts couldn&apos;t be checked. Open shifts are hidden until they can be checked.</p>
@@ -318,6 +362,14 @@ export function RosterSwapsPage() {
       ) : null}
       {error ? <p role="alert">{error}</p> : null}
       <RosterSentBar receipt={sent} clear={clearSent} />
+      {serviceId && actorId && requests.status === "loading" ? (
+        <>
+          <p role="status" className="sr-only">
+            Loading swaps and open shifts…
+          </p>
+          <ModeModuleSkeleton rows={3} twoLine testId="roster-swaps-loading" />
+        </>
+      ) : null}
       {ready ? (
         <Tabs label="Swaps" items={items} value={activeTab} onChange={(id) => setTab(id as TabId)}>
           {activeTab === "needs_you" ? (
@@ -360,7 +412,7 @@ export function RosterSwapsPage() {
                       <Button
                         size="sm"
                         disabled={busyId === item.id}
-                        onClick={() => void openAction(item, "open.claim")}
+                        onClick={() => setConfirm({ kind: "take", item })}
                       >
                         Take it
                       </Button>
@@ -408,6 +460,27 @@ export function RosterSwapsPage() {
           ) : null}
         </Tabs>
       ) : null}
+      <ConfirmDialog
+        open={confirm !== null}
+        onCancel={() => setConfirm(null)}
+        onConfirm={() => {
+          const chosen = confirm;
+          setConfirm(null);
+          if (chosen?.kind === "withdraw") void swapAction(chosen.swap, "swap.cancel");
+          else if (chosen?.kind === "take") void openAction(chosen.item, "open.claim");
+        }}
+        tone={confirm?.kind === "take" ? "primary" : "danger"}
+        title={confirm?.kind === "take" ? "Take this shift?" : "Withdraw this swap?"}
+        description={
+          confirm?.kind === "take"
+            ? `This asks to take the open ${SHIFT_KIND_LABEL[confirm.item.kind].toLowerCase()} shift on ${formatPerthDay(perthDateOf(confirm.item.startsAt))}.`
+            : confirm?.kind === "withdraw"
+              ? `This cancels your swap request for ${shiftDay(confirm.swap)}. To swap later, send a new request.`
+              : ""
+        }
+        confirmLabel={confirm?.kind === "take" ? "Take shift" : "Withdraw swap"}
+        cancelLabel={confirm?.kind === "take" ? "Cancel" : "Keep swap"}
+      />
     </InformationPageShell>
   );
 }

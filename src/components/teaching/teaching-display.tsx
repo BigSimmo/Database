@@ -1,11 +1,15 @@
 "use client";
 
+import { Maximize, Minimize } from "lucide-react";
+import { useEffect, useState } from "react";
+
 import { CheckinQr } from "@/components/teaching/checkin-qr";
 import { formatTypedCode } from "@/components/teaching/session-view-model";
 import { perthTime } from "@/components/teaching/teaching-dates";
 import { DrainingHairline } from "@/components/teaching/teaching-modules";
-import { CHECKIN_WINDOW_MS, useCheckinCode } from "@/components/teaching/use-checkin-code";
-import { useTeachingNow } from "@/components/teaching/use-teaching-now";
+import { CHECKIN_WINDOW_MS, useCheckinClock, useCheckinCode } from "@/components/teaching/use-checkin-code";
+import { useWakeLock } from "@/components/teaching/use-wake-lock";
+import { Button } from "@/components/ui/button";
 import { cn, textMuted } from "@/components/ui-primitives";
 import { checkinScanPath, isTeachingSecret } from "@/lib/teaching/checkin-token";
 import type { DisplayCode } from "@/lib/teaching/model";
@@ -17,23 +21,53 @@ import type { DisplayCode } from "@/lib/teaching/model";
  * the search shell's layout never wraps it. The same 20-second rule as the
  * presenter's screen takes a stale code down (review focus 3).
  */
+/** Full screen, offered only where the browser allows it; follows Esc and the browser's own controls. */
+function useFullscreen(): { supported: boolean; on: boolean; toggle: () => void } {
+  const [supported, setSupported] = useState(false);
+  const [on, setOn] = useState(false);
+  useEffect(() => {
+    const sync = () => {
+      setSupported(document.fullscreenEnabled === true);
+      setOn(document.fullscreenElement !== null && document.fullscreenElement !== undefined);
+    };
+    sync();
+    document.addEventListener("fullscreenchange", sync);
+    return () => document.removeEventListener("fullscreenchange", sync);
+  }, []);
+  const toggle = () => {
+    const request = document.fullscreenElement
+      ? document.exitFullscreen()
+      : document.documentElement.requestFullscreen();
+    // A refused request leaves the screen as it was.
+    void request?.catch(() => undefined);
+  };
+  return { supported, on, toggle };
+}
+
 export function TeachingDisplayScreen({ secret }: { secret: string }) {
   const valid = isTeachingSecret(secret);
-  const now = useTeachingNow(1000);
+  const now = useCheckinClock();
   const nowMs = now ? now.getTime() : null;
   const code = useCheckinCode<DisplayCode>(valid ? `/api/teaching/display/${secret}` : null, nowMs);
   const payload = code.code?.payload ?? null;
+  const live = code.phase === "live";
+  // A projector left on the code must not dim or lock.
+  useWakeLock(live);
+  const fullscreen = useFullscreen();
 
   return (
     <main
       className="grid min-h-dvh place-items-center bg-[color:var(--surface)] p-6 text-[color:var(--text-heading)]"
       data-testid="teaching-display"
     >
-      <div className="grid w-full max-w-lg justify-items-center gap-4 text-center">
+      <div className="grid w-full justify-items-center gap-4 text-center">
         {!valid || code.phase === "ended" ? (
-          <p className="text-lg-minus" data-testid="teaching-display-ended">
-            This display link has ended. Open a new one from the session page.
-          </p>
+          <>
+            <h1 className="sr-only">Check-in code</h1>
+            <p className="text-lg-minus" data-testid="teaching-display-ended">
+              This display link has ended. Open a new one from the session page.
+            </p>
+          </>
         ) : code.phase === "live" && payload && code.code && nowMs !== null ? (
           <>
             <h1 className="text-xl font-semibold">{payload.title}</h1>
@@ -41,9 +75,9 @@ export function TeachingDisplayScreen({ secret }: { secret: string }) {
             <CheckinQr
               value={`${window.location.origin}${checkinScanPath(payload.token)}`}
               label="Check-in QR code. Scan it with your phone's camera."
-              className="max-w-[min(80vw,60vh)]"
+              className="max-w-[min(80vw,60vh,calc(100dvh_-_22rem))]"
             />
-            <p className="nums text-hero font-normal tracking-widest" data-testid="teaching-typed-code">
+            <p className="nums text-hero font-normal tracking-widest lg:text-display" data-testid="teaching-typed-code">
               {formatTypedCode(payload.typedCode)}
             </p>
             <div className="w-full max-w-72">
@@ -54,14 +88,31 @@ export function TeachingDisplayScreen({ secret }: { secret: string }) {
             </p>
           </>
         ) : code.phase === "reconnecting" ? (
-          <p role="status" className="text-lg-minus" data-testid="teaching-display-reconnecting">
-            Reconnecting. The code shows again when the connection is back.
-          </p>
+          <>
+            <h1 className="sr-only">Check-in code</h1>
+            <p role="status" className="text-lg-minus" data-testid="teaching-display-reconnecting">
+              Reconnecting. The code shows again when the connection is back.
+            </p>
+          </>
         ) : (
-          <p role="status" className={cn("text-base-minus", textMuted)}>
-            Loading the check-in code
-          </p>
+          <>
+            <h1 className="sr-only">Check-in code</h1>
+            <p role="status" className={cn("text-base-minus", textMuted)}>
+              Loading the check-in code
+            </p>
+          </>
         )}
+        {fullscreen.supported && valid && code.phase !== "ended" ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            icon={fullscreen.on ? Minimize : Maximize}
+            onClick={fullscreen.toggle}
+            testId="teaching-display-fullscreen"
+          >
+            {fullscreen.on ? "Exit full screen" : "Full screen"}
+          </Button>
+        ) : null}
       </div>
     </main>
   );

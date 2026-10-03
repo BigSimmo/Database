@@ -4,12 +4,14 @@ import { createBrowserClient } from "@supabase/ssr";
 import { isAuthRetryableFetchError, type Session, type SupabaseClient } from "@supabase/supabase-js";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { clearAccountScopedBrowserStorage } from "@/lib/account-scoped-browser-state";
+import { clearAdminPins } from "@/lib/admin/pin-storage-keys";
 import { clearPersistedAnswerThread } from "@/lib/answer-thread-storage";
 import { authSessionFingerprint, createAuthRequestLifecycle } from "@/lib/auth-request-lifecycle";
 import { clearOnCallEntryCache } from "@/lib/on-call/entry-cache-keys";
 import { clearOnCallChecklists } from "@/lib/on-call/checklist-storage-keys";
 import { clearOnCallDeviceState } from "@/lib/on-call/device-state-keys";
 import { clearOnCallRecent } from "@/lib/on-call/recent-storage-keys";
+import { clearPatientLabels, watchPatientLabelExpiry } from "@/lib/patient-label-storage";
 import { clearPatientProfile } from "@/lib/patient-profile-storage";
 import { clearRecentQueries } from "@/lib/recent-query-storage";
 import { clearSignedUrlCache } from "@/lib/signed-url-cache";
@@ -73,6 +75,9 @@ function clearAccountScopedBrowserState() {
   clearSignedUrlCache();
   // Patient physiology + medication list behind the prescribing alerts (audit M4).
   clearPatientProfile();
+  // Bed numbers and initials (timers, call notes, handover drafts). They also
+  // expire at the end of the shift; see the watcher in AuthProvider.
+  clearPatientLabels("account-transition");
   // On Call entries are the owner's own ward numbers, escalation contacts and
   // personal lines (added on main while this branch was open). A shared ward
   // computer switches accounts without ever signing out, so without this the
@@ -83,6 +88,8 @@ function clearAccountScopedBrowserState() {
   // entries — including personal ones — so it goes with the cache rather than
   // outliving it on a shared ward phone.
   clearOnCallRecent();
+  // Admin's pinned numbers: row ids only, but they name what this person rings.
+  clearAdminPins();
   // And the orientation ticks, for the same shared-computer reason from a
   // third direction: a tick says "I have collected the on-call phone", which
   // is true of a person and not of the next one to sit down.
@@ -263,6 +270,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
   const isAuthEpochCurrent = useCallback((epoch: number) => authRequestsRef.current.isCurrent(epoch), []);
 
+  // Patient labels expire at the end of the shift whether or not anyone signs
+  // out, so the check runs on every page, signed in or not, auth configured or not.
+  useEffect(() => watchPatientLabelExpiry(), []);
+
   useEffect(() => {
     if (!client) return () => undefined;
     let active = true;
@@ -315,6 +326,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // clear via sign-out / user-id change / expiry handlers below.
           clearRecentQueries();
           clearSignedUrlCache();
+          // A stored session the auth server rejected on boot is a session that
+          // expired while the page was closed. Patient labels must not outlive it,
+          // even before the shift ends; the guest stores above are kept as before.
+          if (sessionResult.data.session && !resolved.session) clearPatientLabels("account-transition");
           if (callbackError) {
             setError(callbackError);
             setNotice(null);

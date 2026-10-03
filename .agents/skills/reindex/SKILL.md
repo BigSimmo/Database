@@ -1,6 +1,6 @@
 ---
 name: reindex
-description: Plan and verify Database index generations, backfills, promotions, cleanup, health checks, and rollback without touching live data automatically. Use for reindex jobs, generation changes, index migrations, or backfill operations.
+description: Plan and verify PsychSift index generations, backfills, promotions, cleanup, health checks, and rollback without touching live data automatically. Use for reindex jobs, generation changes, index migrations, or backfill operations.
 ---
 
 # Reindex

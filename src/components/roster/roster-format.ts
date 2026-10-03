@@ -13,6 +13,12 @@ import { perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
  */
 
 const NBSP = " ";
+/**
+ * How long every Roster Undo stays offered: a held swap or open-shift action,
+ * and a just-sent request's Undo bar. One number so the screens agree.
+ */
+export const ROSTER_UNDO_MS = 10_000;
+
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"] as const;
 
 /** The shift's kind, inferred from its title and times when it was never set. */

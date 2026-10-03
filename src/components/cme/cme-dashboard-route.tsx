@@ -64,6 +64,7 @@ export function CmeDashboardRoute({
         set={set}
         entries={entries}
         now={now}
+        demoMode={demoMode}
         routines={routines}
         onLogRoutine={(prefill) => router.push(cmeRoutineLogHref(prefill))}
         onOpenCustomise={() => router.push("/cme/customise")}

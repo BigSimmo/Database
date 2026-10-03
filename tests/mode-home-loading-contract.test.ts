@@ -52,6 +52,8 @@ const OWN_SKELETON: Partial<Record<(typeof MODE_HOME_LOADING_ROUTES)[number], st
   cme: "CmeLoadingSkeleton",
   // First Nations' home: static skeleton plus the real crisis strip (spec §5).
   "first-nations": "FirstNationsLoading",
+  // Roster's narrow, top-aligned pages: identity tile, title, then modules.
+  roster: "RosterLoadingSkeleton",
 };
 
 describe("mode-home loading contract", () => {

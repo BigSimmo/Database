@@ -1,6 +1,6 @@
 ---
 name: rag
-description: Validate Database retrieval, classification, ranking, grounding, citations, and answer behavior offline before preparing any live evaluation approval gate. Use for RAG changes, golden regressions, search quality, or answer-quality work.
+description: Validate PsychSift retrieval, classification, ranking, grounding, citations, and answer behavior offline before preparing any live evaluation approval gate. Use for RAG changes, golden regressions, search quality, or answer-quality work.
 ---
 
 # RAG

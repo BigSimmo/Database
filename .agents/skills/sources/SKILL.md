@@ -1,6 +1,6 @@
 ---
 name: sources
-description: Audit Database source metadata, citations, approvals, labels, provenance, rendering, and release-governance coverage. Use for citation defects, source-governance changes, document labels, public promotion, or clinical evidence traceability.
+description: Audit PsychSift source metadata, citations, approvals, labels, provenance, rendering, and release-governance coverage. Use for citation defects, source-governance changes, document labels, public promotion, or clinical evidence traceability.
 ---
 
 # Sources

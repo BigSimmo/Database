@@ -112,7 +112,7 @@ export function Checkbox({
 
   return (
     <Row label={label} description={description} disabled={disabled} htmlFor={fieldId} describedBy={descId}>
-      <span className="relative mt-0.5 flex">
+      <span className="group/choice relative mt-0.5 flex">
         <input
           {...props}
           id={fieldId}
@@ -150,7 +150,13 @@ export function Checkbox({
           {indeterminate ? (
             <span className="h-0.5 w-2.5 rounded-full bg-current" />
           ) : (
-            <Check aria-hidden="true" className="size-icon-xs opacity-0 peer-checked:opacity-100" strokeWidth={3} />
+            // The tick sits inside the peer's sibling, not beside the input, so
+            // `peer-checked:` can never reach it; the wrapper's `:has(:checked)` can.
+            <Check
+              aria-hidden="true"
+              className="size-icon-xs opacity-0 group-has-checked/choice:opacity-100"
+              strokeWidth={3}
+            />
           )}
         </span>
       </span>
@@ -254,7 +260,7 @@ export function RadioGroup({
               htmlFor={inputId}
               describedBy={descId}
             >
-              <span className="relative mt-0.5 flex">
+              <span className="group/choice relative mt-0.5 flex">
                 <input
                   id={inputId}
                   type="radio"
@@ -278,7 +284,7 @@ export function RadioGroup({
                     "forced-colors:border",
                   )}
                 >
-                  <span className="size-2 rounded-full bg-[color:var(--command)] opacity-0 peer-checked:opacity-100" />
+                  <span className="size-2 rounded-full bg-[color:var(--command)] opacity-0 group-has-checked/choice:opacity-100" />
                 </span>
               </span>
             </Row>

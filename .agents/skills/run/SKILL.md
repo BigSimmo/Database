@@ -1,6 +1,6 @@
 ---
 name: run
-description: Start or verify the correct local Database application with repository identity checks and return its actual URL. Use when the user says run, asks for the local app, or needs browser work against this project.
+description: Start or verify the correct local PsychSift application with repository identity checks and return its actual URL. Use when the user says run, asks for the local app, or needs browser work against this project.
 ---
 
 # Run

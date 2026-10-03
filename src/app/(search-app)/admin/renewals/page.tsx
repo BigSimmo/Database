@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
 import { AdminRenewalsPage } from "@/components/admin/admin-renewals-page";
+import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 
 export const metadata: Metadata = {
   title: "Renewals | Admin | PsychSift",
@@ -10,5 +12,13 @@ export const metadata: Metadata = {
 };
 
 export default function AdminRenewalsRoute() {
-  return <AdminRenewalsPage />;
+  // The page reads `?show=`, `?item=` and `?record=` through `useSearchParams`,
+  // which needs a Suspense boundary in the App Router. Its fallback is the
+  // same skeleton as Admin's route loading, so a direct load that suspends on
+  // the search params is never a blank page before (or without) hydration.
+  return (
+    <Suspense fallback={<ModeHomeRouteLoading />}>
+      <AdminRenewalsPage />
+    </Suspense>
+  );
 }

@@ -1,6 +1,6 @@
 ---
 name: privacy
-description: Review Database sensitive-data collection, ownership, retention, logging, caching, export, deletion, telemetry, and client exposure. Use for privacy changes, clinical queries, user data, logs, analytics, or data-subject operations.
+description: Review PsychSift sensitive-data collection, ownership, retention, logging, caching, export, deletion, telemetry, and client exposure. Use for privacy changes, clinical queries, user data, logs, analytics, or data-subject operations.
 ---
 
 # Privacy

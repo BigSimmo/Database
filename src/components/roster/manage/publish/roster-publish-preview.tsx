@@ -43,12 +43,14 @@ export function RosterPublishPreview({
                 <span className="flex flex-wrap gap-2">
                   <Button
                     variant={swapChoices[swap.swapId] !== "file" ? "primary" : "secondary"}
+                    aria-pressed={swapChoices[swap.swapId] !== "file"}
                     onClick={() => onSwapChoice(swap.swapId, "keep")}
                   >
                     Keep the swap
                   </Button>
                   <Button
                     variant={swapChoices[swap.swapId] === "file" ? "primary" : "secondary"}
+                    aria-pressed={swapChoices[swap.swapId] === "file"}
                     onClick={() => onSwapChoice(swap.swapId, "file")}
                   >
                     Use file, undo swap
@@ -72,12 +74,14 @@ export function RosterPublishPreview({
                 <span className="flex flex-wrap gap-2">
                   <Button
                     variant={openChoices[claim.openShiftId] !== "file" ? "primary" : "secondary"}
+                    aria-pressed={openChoices[claim.openShiftId] !== "file"}
                     onClick={() => onOpenChoice(claim.openShiftId, "keep")}
                   >
                     Keep the claim
                   </Button>
                   <Button
                     variant={openChoices[claim.openShiftId] === "file" ? "primary" : "secondary"}
+                    aria-pressed={openChoices[claim.openShiftId] === "file"}
                     onClick={() => onOpenChoice(claim.openShiftId, "file")}
                   >
                     Use file, undo claim

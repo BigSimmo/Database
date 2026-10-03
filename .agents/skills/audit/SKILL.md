@@ -1,6 +1,6 @@
 ---
 name: audit
-description: Perform a deep evidence-backed Database repository audit and produce severity-ranked, reproducible findings without mutating code unless fixes are requested. Use for repo-wide audits, risk assessments, or exhaustive review requests.
+description: Perform a deep evidence-backed PsychSift repository audit and produce severity-ranked, reproducible findings without mutating code unless fixes are requested. Use for repo-wide audits, risk assessments, or exhaustive review requests.
 ---
 
 # Audit

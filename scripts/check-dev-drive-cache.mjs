@@ -8,7 +8,8 @@
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 export function resolveNpmCache(exec = execFileSync) {
   try {
@@ -146,7 +147,7 @@ function selfTest() {
   return 0;
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectEntrypoint(import.meta.url)) {
   if (process.argv.includes("--self-test")) {
     process.exit(selfTest());
   }

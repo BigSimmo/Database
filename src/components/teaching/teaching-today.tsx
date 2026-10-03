@@ -1,13 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { TodayShell, type TodaySharedState } from "@/components/mode-kit/today/today-shell";
+import { catchUpCount } from "@/components/teaching/teaching-catch-up";
 import { TeachingCalendarSheet } from "@/components/teaching/teaching-calendar-sheet";
-import { addDays, perthDateKey } from "@/components/teaching/teaching-dates";
+import { addDays, mondayOf, perthDateKey } from "@/components/teaching/teaching-dates";
 import { TeachingHero } from "@/components/teaching/teaching-hero";
 import { TeachingContextBar } from "@/components/teaching/teaching-modules";
 import { NeedsYou } from "@/components/teaching/teaching-needs-you";
@@ -29,26 +31,61 @@ import { useTeachingWeek, type TeachingWeekState } from "@/components/teaching/u
 import { teachingErrorMessage, teachingPost, teachingServiceUrl } from "@/lib/teaching/client";
 
 /*
- * Today: the hero, then (U5) Needs you, then one row to Week. The page name is
- * the pill, so the h1 is sr-only. The hero is the next session in the coming
- * seven days across every service the reader is in; when nothing falls in
- * those seven days, `view=next-session` supplies it.
+ * Today on the shared Today shell: the hero is Now (the mode's own surface),
+ * Needs you is the existing module, and "Rest of this week" is Coming up. The
+ * page name is the pill, so the h1 is sr-only; it and the team picker are the
+ * status slot. The hero is the next session in the coming seven days across
+ * every service the reader is in; when nothing falls in those seven days,
+ * `view=next-session` supplies it.
+ *
+ * Teaching keeps its own sign-in, offline, setup, no-team and empty notices
+ * (`blocking`): the sign-in one carries the demo link and the offline one the
+ * seven-day check-in note, neither of which the shared states have. A generic
+ * load error uses the shared failed state.
  */
+function TeachingTodayShell({
+  bar,
+  ...rest
+}: {
+  bar?: ReactNode;
+  now?: ReactNode;
+  needsYouNode?: ReactNode;
+  comingUp?: ReactNode;
+  state?: TodaySharedState | null;
+  blocking?: ReactNode;
+}) {
+  return (
+    <TodayShell
+      mode="teaching"
+      modeName="Teaching"
+      nowSurface="own"
+      loadingFallback={<ModeModuleSkeleton rows={2} twoLine eyebrow />}
+      status={
+        <>
+          <h1 className="sr-only">Today</h1>
+          {bar}
+        </>
+      }
+      now={null}
+      {...rest}
+    />
+  );
+}
+
 export function TeachingToday({ demoMode }: { demoMode: boolean }) {
   const now = useTeachingNow();
   const today = now ? perthDateKey(now) : null;
-  const range = useMemo(() => (today ? { from: today, to: addDays(today, 6) } : null), [today]);
+  // From this Monday, so the catch-up count sees the whole calendar week (as Resources does); the hero
+  // and Rest of this week only look at sessions that have not ended, so the earlier days change nothing there.
+  const range = useMemo(() => (today ? { from: mondayOf(today), to: addDays(today, 6) } : null), [today]);
   const view = useTeachingWeek(range, { demoMode }, now);
   return (
     <InformationPageShell width="narrow" gap={false} testId="teaching-today">
-      <div className="grid gap-3">
-        <h1 className="sr-only">Today</h1>
-        {now && today ? (
-          <TodayBody view={view} now={now} today={today} />
-        ) : (
-          <ModeModuleSkeleton rows={2} twoLine eyebrow />
-        )}
-      </div>
+      {now && today ? (
+        <TodayBody view={view} now={now} today={today} />
+      ) : (
+        <TeachingTodayShell state={{ kind: "loading" }} />
+      )}
     </InformationPageShell>
   );
 }
@@ -58,6 +95,7 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [checkedIn, setCheckedIn] = useState(false);
   const live = view.demo === "off";
   const week = view.status === "ready" ? view.week : null;
   const teamValue = week && (team === ALL_TEAMS || week.teams.some((t) => t.id === team)) ? team : ALL_TEAMS;
@@ -73,11 +111,20 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
     next !== null && next.hasJoinLink && sessionHref(next) !== null && perthDateKey(next.startsAt) === today;
   const detail = useSessionDetail(wantsJoin && next ? next.occurrenceId : null, !live, now);
 
-  if (view.status === "signed-out") return <TeachingSignInNotice />;
-  if (view.status === "offline" || view.status === "error" || view.status === "setup")
-    return <TeachingStateNotice state={view.status} onRetry={view.retry} />;
-  if (!week || (!inRange && later.status === "loading")) return <ModeModuleSkeleton rows={2} twoLine eyebrow />;
-  if (week.teams.length === 0 && week.relocated.length === 0) return <TeachingStateNotice state="no-team" />;
+  if (view.status === "signed-out") return <TeachingTodayShell blocking={<TeachingSignInNotice />} />;
+  if (view.status === "error") return <TeachingTodayShell state={{ kind: "failed", onRetry: view.retry }} />;
+  if (view.status === "offline" || view.status === "setup")
+    return <TeachingTodayShell blocking={<TeachingStateNotice state={view.status} onRetry={view.retry} />} />;
+  if (!week || (!inRange && later.status === "loading")) return <TeachingTodayShell state={{ kind: "loading" }} />;
+  if (week.teams.length === 0 && week.relocated.length === 0)
+    return <TeachingTodayShell blocking={<TeachingStateNotice state="no-team" />} />;
+  // A failed `view=next-session` read is not "No sessions yet": say what went wrong.
+  const laterStatus = later.status;
+  const laterFailure =
+    !inRange &&
+    (laterStatus === "offline" || laterStatus === "error" || laterStatus === "setup" || laterStatus === "signed-out")
+      ? laterStatus
+      : null;
 
   const bar = (
     <TeachingContextBar
@@ -87,17 +134,39 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
       demoTag={!live || week.teams.some((t) => t.isDemo)}
     />
   );
+  if (laterFailure) {
+    return laterFailure === "error" ? (
+      <TeachingTodayShell bar={bar} state={{ kind: "failed", onRetry: later.retry }} />
+    ) : (
+      <TeachingTodayShell
+        bar={bar}
+        blocking={
+          laterFailure === "signed-out" ? (
+            <TeachingSignInNotice />
+          ) : (
+            <TeachingStateNotice state={laterFailure} onRetry={later.retry} />
+          )
+        }
+      />
+    );
+  }
   if (!next) {
     const chosen = week.teams.find((t) => t.id === teamValue) ?? (week.teams.length === 1 ? week.teams[0] : undefined);
     return (
-      <>
-        {bar}
-        <TeachingStateNotice
-          state="empty"
-          serviceName={chosen?.name}
-          onSwitchService={teamValue !== ALL_TEAMS ? () => setTeam(ALL_TEAMS) : undefined}
-        />
-      </>
+      <TeachingTodayShell
+        bar={bar}
+        blocking={
+          <div className="grid gap-3">
+            <TeachingStateNotice
+              state="empty"
+              serviceName={chosen?.name}
+              onSwitchService={teamValue !== ALL_TEAMS ? () => setTeam(ALL_TEAMS) : undefined}
+            />
+            {/* No session ahead still leaves past ones to log, give feedback on or catch up on. */}
+            <NeedsYou live={live} today={today} catchUp={catchUpCount(week, now)} />
+          </div>
+        }
+      />
     );
   }
 
@@ -120,11 +189,13 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
     }
     setSaving(true);
     setSaveError(null);
+    setCheckedIn(false);
     try {
       await teachingPost(teachingServiceUrl(next.serviceId), {
         action: "attendance.self",
         occurrenceId: next.occurrenceId,
       });
+      setCheckedIn(true);
       view.retry();
     } catch (cause) {
       setSaveError(teachingErrorMessage(cause));
@@ -143,17 +214,30 @@ function TodayBody({ view, now, today }: { view: TeachingWeekState; now: Date; t
 
   return (
     <>
-      {bar}
-      <TeachingHero {...hero} actions={actions} />
-      {saveError ? <ModeNotice tone="warning">{saveError}</ModeNotice> : null}
-      <NeedsYou live={live} />
-      <ModeGroupedList testId="teaching-rest-of-week">
-        <ModeRow
-          href="/teaching/week"
-          title="Rest of this week"
-          subtitle={restOfWeek(sessions, next.occurrenceId, now, today)}
-        />
-      </ModeGroupedList>
+      <TeachingTodayShell
+        bar={bar}
+        now={
+          <>
+            <TeachingHero {...hero} actions={actions} />
+            {checkedIn ? <ModeNotice testId="teaching-today-checked-in">Checked in.</ModeNotice> : null}
+            {saveError ? (
+              <div role="alert">
+                <ModeNotice tone="warning">{saveError}</ModeNotice>
+              </div>
+            ) : null}
+          </>
+        }
+        needsYouNode={<NeedsYou live={live} today={today} catchUp={catchUpCount(week, now)} />}
+        comingUp={
+          <ModeGroupedList testId="teaching-rest-of-week">
+            <ModeRow
+              href="/teaching/week"
+              title="Rest of this week"
+              subtitle={restOfWeek(sessions, next.occurrenceId, now, today)}
+            />
+          </ModeGroupedList>
+        }
+      />
       {live ? (
         <TeachingCalendarSheet
           open={calendarOpen}

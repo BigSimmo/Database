@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { shortDayLabel } from "@/components/teaching/teaching-dates";
 import type { OrganiseRead } from "@/components/teaching/organise-model";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
 import { Button } from "@/components/ui/button";
@@ -51,16 +52,17 @@ export function TeachingSupervisionAdmin({
   }
   return (
     <section className="grid gap-3 border-t border-[color:var(--border)] pt-3">
-      <h2 className="text-lg font-medium">Supervision pairings</h2>
+      <h2 className="text-base-minus font-medium text-[color:var(--text-heading)]">Supervision pairings</h2>
       <ModeNotice>
         A pairing involving the organiser must be set by a Teaching admin. Programme access never gives access to
         private CPD.
       </ModeNotice>
       {resource.status === "ready" ? (
-        <ul>
+        <ul role="list" className="grid gap-1 text-sm text-[color:var(--text-heading)]">
           {resource.data?.pairings.map((pairing) => (
             <li key={pairing.pairingId}>
-              {pairing.registrarName} · {pairing.supervisorName} · {pairing.startsOn} to {pairing.endsOn}
+              {pairing.registrarName} · {pairing.supervisorName} · {shortDayLabel(pairing.startsOn)} to{" "}
+              {shortDayLabel(pairing.endsOn)}
             </li>
           ))}
         </ul>

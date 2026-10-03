@@ -88,6 +88,13 @@ export function isHeaderAddonSlotOwnedRoute(pathname: string): boolean {
     ].includes(pathname)
   )
     return true;
+  // One activity and Customise mount `CmeDetailNavHeader` (the breadcrumb
+  // shape, also in `cme/cme-nav-header.tsx`). Both are information pages, so
+  // the shell never drew a bar into the slot on them. `/cme/log/[id]` is
+  // matched as exactly one segment under `/cme/log/`, so nothing deeper and
+  // not `/cme/log` itself (which claims it above, through its tab row).
+  if (pathname === "/cme/customise") return true;
+  if (/^\/cme\/log\/[^/]+$/.test(pathname)) return true;
   // Every First Nations route mounts `FirstNationsNavHeader`
   // (`first-nations/first-nations-nav-header.tsx`), an `InPageNavHeader`, for
   // the mode's own reason: it is an information page on every route (see

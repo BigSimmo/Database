@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, Copy } from "lucide-react";
+import { ChevronRight, Copy, FileDown } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 
 import { useAccountData } from "@/components/account-data-provider";
@@ -11,7 +11,7 @@ import { AdminShowAll } from "@/components/admin/admin-show-all";
 import { AdminNewJobStart } from "@/components/admin/new-job/admin-new-job-start";
 import { AdminNewJobStepRow } from "@/components/admin/new-job/admin-new-job-step-row";
 import { AdminSavedUndoBar } from "@/components/admin/new-job/admin-saved-undo-bar";
-import { cardSurface } from "@/components/card-recipes";
+import { cardSurface, focusRing } from "@/components/card-recipes";
 import { inPageAnchor } from "@/components/in-page-nav/in-page-nav-classes";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
@@ -110,6 +110,15 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
   const leftCount = totalCount - doneCount;
   // Write to the row the date is read from, so a new or cleared date is never ignored.
   const startEntry = start?.entry ?? ownLogins[0]?.entry ?? null;
+  // Why the start date cannot be set, said under the start line. Example
+  // records win (signing in does not make them editable); nothing is claimed
+  // while loading or after a failed load.
+  const startReadOnlyReason: "signed-out" | "demo" | null =
+    loadState === "ready" && state.demoMode
+      ? "demo"
+      : loadState === "signed-out" || (loadState === "ready" && !isAuthenticated)
+        ? "signed-out"
+        : null;
 
   function upsertCachedEntry(entry: OnCallEntry) {
     const next = entries.some((existing) => existing.id === entry.id)
@@ -178,12 +187,14 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
     <>
       <AdminNavHeader title="New job" sections={ADMIN_NEW_JOB_SECTIONS} />
       <InformationPageShell testId="admin-new-job-main">
-        <h1 className="sr-only">New job</h1>
+        <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">New job</h1>
 
         <AdminNewJobStart
           startsOn={start?.startsOn ?? null}
           now={now}
           canEdit={loadState === "ready" && !state.demoMode && isAuthenticated && Boolean(startEntry)}
+          readOnlyReason={startReadOnlyReason}
+          onSignIn={() => setSignInOpen(true)}
           onSave={handleSetStart}
           onClear={() => void handleClearStart()}
         />
@@ -205,7 +216,6 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
             <Button variant="primary" onClick={() => setSignInOpen(true)}>
               Sign in
             </Button>
-            <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
           </div>
         ) : (
           <>
@@ -279,6 +289,33 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
             </section>
 
             <section
+              id="admin-new-job-credential-pack"
+              aria-labelledby="admin-new-job-credential-pack-heading"
+              className={cn(inPageAnchor, "grid gap-3")}
+            >
+              <h2 id="admin-new-job-credential-pack-heading" className={eyebrowText}>
+                For your new employer
+              </h2>
+              <Link
+                href="/admin/new-job/pack"
+                data-testid="admin-new-job-credential-pack-link"
+                className={cn(
+                  cardSurface,
+                  focusRing,
+                  "flex min-h-12 items-center gap-2 px-3 py-2.5 no-underline text-[color:var(--text-heading)]",
+                )}
+              >
+                <FileDown aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
+                <span className="grid min-w-0 flex-1 gap-0.5">
+                  <span className="text-sm font-medium">Credential pack</span>
+                  <span className={cn(textMuted, "text-xs")}>
+                    Registration numbers and renewal dates as one PDF, made on this device
+                  </span>
+                </span>
+                <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
+              </Link>
+            </section>
+            <section
               id="admin-new-job-leaving"
               aria-labelledby="admin-new-job-leaving-heading"
               className={cn(inPageAnchor, "grid gap-3")}
@@ -286,22 +323,21 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
               <h2 id="admin-new-job-leaving-heading" className={eyebrowText}>
                 Leaving
               </h2>
-              <p
-                className={cn(cardSurface, "px-3 py-2 text-sm text-[color:var(--text)]")}
-                data-testid="admin-new-job-leaving-notice"
-              >
-                When you leave, your records go with you. Open Your Admin records to copy or print them.
-              </p>
+              {/* One tappable card: the explanation and the way to Your Admin records. */}
               <Link
                 href="/admin/new-job/records"
                 data-testid="admin-new-job-records-link"
                 className={cn(
                   cardSurface,
-                  "flex min-h-12 items-center gap-2 px-3 py-2 no-underline text-[color:var(--text-heading)]",
+                  focusRing,
+                  "flex min-h-12 items-center gap-2 px-3 py-2.5 no-underline text-[color:var(--text-heading)]",
                 )}
               >
                 <Copy aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
                 <span className="grid min-w-0 flex-1 gap-0.5">
+                  <span className="text-sm text-[color:var(--text)]" data-testid="admin-new-job-leaving-notice">
+                    When you leave, your records go with you. Open Your Admin records to copy or print them.
+                  </span>
                   <span className="text-sm font-medium">Your Admin records</span>
                   <span className={cn(textMuted, "text-xs")}>Renewals, history and New job ticks</span>
                 </span>
@@ -311,6 +347,11 @@ export function AdminNewJobPage({ now: nowProp }: { now?: Date } = {}) {
           </>
         )}
       </InformationPageShell>
+
+      {/* Mounted only where a sign-in control is offered (it needs the auth provider, as on Today). */}
+      {startReadOnlyReason === "signed-out" ? (
+        <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
+      ) : null}
 
       {undo ? (
         <AdminSavedUndoBar

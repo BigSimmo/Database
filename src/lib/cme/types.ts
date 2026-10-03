@@ -82,6 +82,13 @@ export type CmeRequirementStatus = {
   readonly met: boolean;
   /** Null for shapes with no single scalar, such as a per-bucket count. */
   readonly progress: { readonly value: number; readonly target: number } | null;
+  /**
+   * Hours still needed before this is met, when that is more than
+   * `progress.target - progress.value` — an `hours-across-categories`
+   * requirement whose combined total is reached can still be short in one of
+   * its categories. Absent when the aggregate gap already tells the whole story.
+   */
+  readonly hoursShort?: number;
   /** One plain status: "Reached", "3 h to go", "Ethical practice has nothing against it yet". */
   readonly summary: string;
 };

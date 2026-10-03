@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, it, expect, vi } from "vitest";
 import { CmeEntryRouteClient } from "@/components/cme/cme-entry-route-client";
@@ -9,7 +9,7 @@ import { CmeAnnualSummary } from "@/components/cme/cme-annual-summary";
 import { createAustralianRanzcpPreset } from "@/lib/cme/presets";
 import type { CmeEntry } from "@/lib/cme/types";
 const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => nav }));
+vi.mock("next/navigation", () => ({ useRouter: () => nav, usePathname: () => "/cme/log/entry" }));
 vi.mock("@/components/cme/cme-evidence-panel", () => ({
   CmeEvidencePanel: ({ readOnly }: { readOnly: boolean }) => (
     <section aria-label="Evidence">{readOnly ? "Evidence view only" : "Evidence uploads enabled"}</section>
@@ -29,6 +29,11 @@ const entry: CmeEntry = {
   documentId: null,
   buckets: [],
 };
+/** Edit, Log it again and Archive live in the activity header's actions sheet. */
+async function openActivityActions(user: ReturnType<typeof userEvent.setup>) {
+  await user.click(screen.getByRole("button", { name: "Open activity actions" }));
+  return within(await screen.findByTestId("cme-entry-actions-sheet"));
+}
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
@@ -43,15 +48,19 @@ describe("Archive, annual record and learning journeys", () => {
       .mockResolvedValue(new Response(JSON.stringify({ entry: { ...entry, archivedAt: "now" } })));
     render(<CmeEntryRouteClient entry={entry} set={set} edit={false} demoMode={false} />);
     // Archiving asks first (2026-09-24): nothing is sent until it is confirmed.
-    await user.click(screen.getByRole("button", { name: "Archive entry" }));
+    await user.click((await openActivityActions(user)).getByRole("button", { name: "Archive entry" }));
     expect(fetcher).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Archive activity" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("Try again");
-    expect(screen.getByRole("link", { name: "Edit entry" })).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Archive entry" }));
+    let actions = await openActivityActions(user);
+    expect(actions.getByRole("link", { name: "Edit entry" })).toBeInTheDocument();
+    await user.click(actions.getByRole("button", { name: "Archive entry" }));
     await user.click(screen.getByRole("button", { name: "Archive activity" }));
-    await screen.findByRole("button", { name: "Restore entry" });
-    expect(screen.queryByRole("link", { name: "Edit entry" })).toBeNull();
+    await screen.findByRole("status");
+    actions = await openActivityActions(user);
+    expect(actions.getByRole("button", { name: "Restore entry" })).toBeInTheDocument();
+    expect(actions.queryByRole("link", { name: "Edit entry" })).toBeNull();
+    await user.keyboard("{Escape}");
     expect(screen.getByRole("button", { name: "Copy for your CPD home" })).toBeDisabled();
     expect(screen.getByText("Evidence view only")).toBeInTheDocument();
     expect(screen.getByText(/2 hours recorded · excluded from totals/)).toBeInTheDocument();
@@ -59,11 +68,12 @@ describe("Archive, annual record and learning journeys", () => {
       "Activity archived.",
     );
     await user.click(screen.getByRole("button", { name: "Undo archive" }));
-    await screen.findByRole("button", { name: "Archive entry" });
+    expect((await openActivityActions(user)).getByRole("button", { name: "Archive entry" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Undo archive" })).toBeNull();
     expect(JSON.parse(String(fetcher.mock.calls[2][1]?.body))).toEqual({ archived: false });
   });
-  it("closed year retains evidence viewing and disables both archive and restore", () => {
+  it("closed year retains evidence viewing and disables both archive and restore", async () => {
+    const user = userEvent.setup();
     render(
       <CmeEntryRouteClient
         entry={{ ...entry, archivedAt: "now" }}
@@ -72,7 +82,12 @@ describe("Archive, annual record and learning journeys", () => {
         demoMode={false}
       />,
     );
-    expect(screen.getByRole("button", { name: "Restore entry" })).toBeDisabled();
+    const restore = (await openActivityActions(user)).getByRole("button", { name: "Restore entry" });
+    expect(restore).toHaveAttribute("aria-disabled", "true");
+    expect(restore).not.toHaveAttribute("disabled");
+    expect(restore).toHaveAccessibleDescription(
+      "This CPD year is closed, so its activities can't be archived or restored.",
+    );
     expect(screen.getByText("Evidence view only")).toBeInTheDocument();
   });
   it("log defaults active and filters actual uploaded evidence separately from sources", async () => {
@@ -91,7 +106,8 @@ describe("Archive, annual record and learning journeys", () => {
     await user.click(screen.getByRole("button", { name: /^Missing evidence/ }));
     expect(screen.queryByText("With evidence")).toBeNull();
     expect(screen.getByText("Synthetic activity")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Show archived entries" }));
+    await user.click(screen.getByTestId("cme-log-open-filters"));
+    await user.click(screen.getByRole("button", { name: "Show archived activities" }));
     expect(screen.getByText("Archived record")).toBeInTheDocument();
   });
   it("learning prefill requires explicit duration and allocations and never saves on opening", async () => {

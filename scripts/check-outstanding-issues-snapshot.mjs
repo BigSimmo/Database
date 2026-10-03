@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { generate } from "./generate-outstanding-issues-snapshot.mjs";
 
 const OUTPUT_PATH = "data/outstanding-issues-snapshot.json";
@@ -102,7 +102,4 @@ function main() {
   );
 }
 
-// Windows-safe main-module check — see generate-outstanding-issues-snapshot.mjs
-// for why a manual `file://${argv[1]}` string reconstruction never matches
-// `import.meta.url` on Windows.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (isDirectEntrypoint(import.meta.url)) main();

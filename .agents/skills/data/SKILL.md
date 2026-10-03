@@ -1,6 +1,6 @@
 ---
 name: data
-description: Validate Database imports, seeds, transformations, reconciliation, deduplication, integrity, provenance, and rollback controls. Use for dataset changes, bulk operations, registry content, or data migration logic.
+description: Validate PsychSift imports, seeds, transformations, reconciliation, deduplication, integrity, provenance, and rollback controls. Use for dataset changes, bulk operations, registry content, or data migration logic.
 ---
 
 # Data

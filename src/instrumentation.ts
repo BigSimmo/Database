@@ -79,9 +79,13 @@ export async function register() {
   requireSentryEnv();
 
   // Warm rag_aliases so the first post-boot search skips the cold-cache DB RTT.
-  // Non-blocking: failures are swallowed inside warmEnabledRagAliasCache.
+  // Non-blocking: failures are logged via the catch handler below.
   const { warmEnabledRagAliasCache } = await import("@/lib/rag/rag-retrieval-variants");
-  void warmEnabledRagAliasCache();
+  warmEnabledRagAliasCache().catch((error) => {
+    console.warn("rag_aliases cache warmup failed; first request will retry.", {
+      message: error instanceof Error ? error.message : String(error),
+    });
+  });
 
   // Warm the three catalogue kinds universal-search Promise.all's, serially, so an idle
   // process's first federated search is not the cold connection that blows the 1200 ms

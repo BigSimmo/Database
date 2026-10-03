@@ -93,7 +93,22 @@ onboarding path. For drift, repair policy, and live-only caveats, see
 python -m pip install -r worker/python/requirements.txt
 ```
 
-8. Start the app:
+8. Start the app using your preferred method:
+
+**Option A: Docker Compose (full-stack local deployment)**
+
+For a production-like local environment with both app and worker:
+
+```bash
+docker compose up --build
+```
+
+This builds and starts both services with health checks. Services restart on failure.
+Access the app at `http://localhost:3000`. Stop with `docker compose down`.
+
+**Option B: Local development servers (traditional npm-based)**
+
+Run the Next.js app:
 
 ```bash
 npm run dev
@@ -126,6 +141,20 @@ The Next.js API stores uploads and queues ingestion jobs. The worker performs
 heavy parsing, OCR, image captioning, chunking, embedding, and database inserts.
 It uses the conservative worker defaults from `.env.example` when those vars are
 set in `.env.local`.
+
+### Node.js LTS Migration Planning
+
+This project currently uses **Node 24.x** (EOL April 2025). Plan migration to **Node 22 LTS**
+(supported until April 2027) before Node 24 EOL:
+
+1. Update `.node-version`, `.nvmrc`, and `Dockerfile` base image pin to Node 22
+2. Test locally: `nvm use 22` and `npm run verify:full`
+3. Verify CI and Railway deploy with the new base image
+4. For ARM64 production builds, test multi-architecture:
+   ```bash
+   docker buildx build --platform linux/amd64,linux/arm64 -t psychsift:multi .
+   ```
+   Verify sharp native bindings rebuild correctly for both architectures.
 
 ### Codex Cloud
 

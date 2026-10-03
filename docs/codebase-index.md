@@ -48,6 +48,7 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .cursor/          Cursor project rules and local-agent configuration
 .design-sync/     Generated design-system package metadata and validation notes
 .githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.docker/           Buildx configuration for reproducible container builds
 .vscode/          Shared VS Code workspace recommendations and settings
 ```
 
@@ -138,6 +139,7 @@ Smaller top-level directories that are easy to miss:
 | `.cursor/`      | Cursor project rules and local-agent configuration                                                                                                                                                                                                                                                                  |
 | `.design-sync/` | Generated design-system package metadata, validation notes, and project-sync artifacts                                                                                                                                                                                                                              |
 | `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (user-owned auto-merge preservation, format, drift staleness, static lint+typecheck, ledger write discipline)                                                                                                                                  |
+| `.docker/`      | Buildx configuration for reproducible container builds                                                                                                                                                                                                                                                              |
 | `.vscode/`      | Shared VS Code workspace recommendations and settings                                                                                                                                                                                                                                                               |
 
 Local task coordination lives in `.superpowers/`: ignored task briefs, review packets, and verification logs.
@@ -421,6 +423,9 @@ in `src/lib/roster/` (the import folder, `calendar-link-fetch`, `calendar-links`
 - `calendar-links` keeps up to three calendar subscription links (`/api/roster/links`, refreshed
   through the guarded `calendar-link-fetch`). Link addresses are never returned or logged.
 - `hours` and `today` summarise the fortnight and the day.
+- `what-changed` turns a re-imported roster's stored changes, and a republished team roster's
+  `my_changes`, into one "Needs you" line per changed day on Roster Today. The lines stay until the
+  doctor taps "Got it", which sets the existing seen marker (import `seenAt` or `seen.mark`).
 - `settings` keeps the remembered row, code meanings and calendar switch under
   `user_preferences.roster` (`/api/roster/settings`). They are never copied to the device.
 - `/api/roster/extra-time` records "stayed late" into Admin's `extra_time_records` without
@@ -440,15 +445,17 @@ from Admin goes to search or a model provider.
 
 `src/lib/admin/`:
 
-| Module          | Role                                                                                               |
-| --------------- | -------------------------------------------------------------------------------------------------- |
-| `own-entries`   | The reader's own rows (editable) versus other doctors' shared rows (read-only), and the load state |
-| `renewal-dates` | Lead time, renewal start date, and the date wording ("12 Mar 2027", "in 9 weeks"), in Perth days   |
-| `placement`     | Which Admin page an old On Call `logistics` row belongs on (Help guides, Help on site, or New job) |
-| `phone-display` | Short numbers inside the hospital's own list, `(08)` on outside lines; display only                |
-| `download-file` | Hands the viewer a file to save (the renewal calendar file); nothing is uploaded                   |
+| Module            | Role                                                                                                                                                                       |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `own-entries`     | The reader's own rows (editable) versus other doctors' shared rows (read-only), and the load state                                                                         |
+| `renewal-dates`   | Lead time, renewal start date, and the date wording ("12 Mar 2027", "in 9 weeks"), in Perth days                                                                           |
+| `placement`       | Which Admin page an old On Call `logistics` row belongs on (Help guides, Help on site, or New job)                                                                         |
+| `phone-display`   | Short numbers inside the hospital's own list, `(08)` on outside lines; display only                                                                                        |
+| `download-file`   | Hands the viewer a file to save (the renewal calendar file); nothing is uploaded                                                                                           |
+| `credential-pack` | Registration numbers (device wallet) and renewal dates as one page to trim, then print to PDF or share as text; never the radiation licence, proof notes or expiry history |
 
-Routes are `/admin` (Today), `/admin/renewals`, `/admin/new-job` and `/admin/help`; components are
+Routes are `/admin` (Today), `/admin/renewals`, `/admin/new-job` (with `/records` and the credential
+pack at `/pack`) and `/admin/help`; components are
 in `src/components/admin/`. `/my-work`, `/on-call/compliance` and `/on-call/logistics` redirect to
 Admin pages (`staticRouteRedirects` in `src/proxy.ts`, with page backstops). Admin's clock times,
 and every mode's as each is rebuilt, come from the shared 24-hour helper `src/lib/clock-time.ts`.
@@ -591,6 +598,12 @@ deadlines and routines, and non-personal On Call teaching — never logged activ
 entries or patient data), and `/api/calendar/feed` (signed in) reports, makes or turns off the link.
 Every bad or turned-off link gets the same 404. The panel is `calendar-subscribe.tsx`, on both
 calendar pages.
+
+**Today items.** `src/lib/today/today-item.ts` is the one shape every "what needs you" line takes
+(`TodayItem`: id, owning mode, title, optional detail, Perth `due`, severity `overdue` / `soon` /
+`info`, and the in-app href that resolves it). My Day, each mode's Today page and any feature that
+feeds them produce it from their own selectors; it carries no patient identifiers and is never
+stored on a server.
 
 **Reminder controls.** `src/lib/reminders/settings.ts` is a settings layer over the reminders that
 already exist; it never decides when anything is due. Five types (compliance dates, On Call checks,
