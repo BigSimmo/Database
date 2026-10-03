@@ -23,6 +23,13 @@ interface ShellProps {
   comingUp?: ReactNode;
   atAGlance?: ReactNode;
   shortcuts?: ReactNode;
+  now?: ReactNode;
+  nowSurface?: "featured" | "own";
+  needsYouNode?: ReactNode;
+  stateExtra?: ReactNode;
+  loadingFallback?: ReactNode;
+  blocking?: ReactNode;
+  columns?: "one" | "two";
 }
 
 function shell(props: ShellProps = {}) {
@@ -174,5 +181,99 @@ describe("TodayShell shared states", () => {
     render(shell({ ...withBody, state: { kind: "demo" } }));
     expect(screen.getByTestId("today-state-demo").textContent).toContain(todayStateCopy.demo().title);
     expect(screen.getByTestId("today-now")).toBeTruthy();
+  });
+});
+
+describe("TodayShell options", () => {
+  const body: ShellProps = {
+    safety: <p>Safety rail</p>,
+    comingUp: <p>Coming</p>,
+    atAGlance: <p>Glance</p>,
+    shortcuts: <p>Shortcuts</p>,
+  };
+
+  it('nowSurface "own" draws no featured wrapper and renders the child as the Now slot', () => {
+    const { container } = render(shell({ nowSurface: "own", now: <p data-testid="own-hero">Own hero</p> }));
+    expect(screen.queryByTestId("today-now")).toBeNull();
+    const nowSlot = container.querySelector('[data-today-slot="now"]');
+    expect(nowSlot).not.toBeNull();
+    expect(within(nowSlot as HTMLElement).getByTestId("own-hero")).toBeTruthy();
+  });
+
+  it("renders no Now slot when now is null", () => {
+    for (const nowSurface of ["featured", "own"] as const) {
+      const { container, unmount } = render(shell({ now: null, nowSurface, comingUp: <p>Coming</p> }));
+      expect(slots(container)).toEqual(["status", "coming-up"]);
+      unmount();
+    }
+  });
+
+  it("renders needsYouNode in the Needs-you slot, ahead of the shared list", () => {
+    const { container } = render(
+      shell({
+        needsYouNode: <p data-testid="own-needs-you">Own needs you</p>,
+        needsYou: { items: [item("a", "overdue")], seeAllHref: "/all" },
+      }),
+    );
+    const slot = container.querySelector('[data-today-slot="needs-you"]') as HTMLElement;
+    expect(within(slot).getByTestId("own-needs-you")).toBeTruthy();
+    expect(screen.queryByTestId("today-needs-you")).toBeNull();
+    expect(slots(container)).toEqual(["status", "now", "needs-you"]);
+  });
+
+  it("shows stateExtra under signed-out and failed, and not under loading", () => {
+    const extra = <a href="/help">Crisis lines</a>;
+    const { rerender } = render(shell({ stateExtra: extra, state: { kind: "signed-out", onSignIn: vi.fn() } }));
+    expect(screen.getByRole("link", { name: "Crisis lines" })).toBeTruthy();
+    rerender(shell({ stateExtra: extra, state: { kind: "failed", onRetry: vi.fn() } }));
+    expect(screen.getByRole("link", { name: "Crisis lines" })).toBeTruthy();
+    rerender(shell({ stateExtra: extra, state: { kind: "loading" } }));
+    expect(screen.queryByRole("link", { name: "Crisis lines" })).toBeNull();
+  });
+
+  it("loadingFallback replaces the generic skeleton but keeps the sr-only status", () => {
+    const { container } = render(
+      shell({
+        ...body,
+        loadingFallback: <div data-testid="own-skeleton" />,
+        state: { kind: "loading" },
+      }),
+    );
+    const loading = screen.getByTestId("today-state-loading");
+    expect(within(loading).getByTestId("own-skeleton")).toBeTruthy();
+    const status = within(loading).getByRole("status");
+    expect(status.className).toContain("sr-only");
+    expect(status.textContent).toBe(todayStateCopy.loading("Admin").title);
+    expect(container.querySelectorAll("[data-testid='today-state-loading'] > *")).toHaveLength(2);
+    expect(slots(container)).toEqual(["status", "safety"]);
+  });
+
+  it("blocking replaces Now to Shortcuts and keeps status and safety", () => {
+    const { container } = render(shell({ ...body, blocking: <p data-testid="own-blocking">No team yet</p> }));
+    expect(within(screen.getByTestId("today-state-mode")).getByTestId("own-blocking")).toBeTruthy();
+    expect(screen.queryByTestId("today-now")).toBeNull();
+    expect(slots(container)).toEqual(["status", "safety"]);
+  });
+
+  it("columns two puts Now and Needs you in the act column and the rest in the ahead column, in slot order", () => {
+    const { container } = render(
+      shell({
+        ...body,
+        columns: "two",
+        needsYou: { items: [item("a", "info")], seeAllHref: "/all" },
+      }),
+    );
+    const act = container.querySelector('[data-today-column="act"]') as HTMLElement;
+    const ahead = container.querySelector('[data-today-column="ahead"]') as HTMLElement;
+    expect(slots(act as unknown as HTMLElement)).toEqual(["now", "needs-you"]);
+    expect(slots(ahead)).toEqual(["coming-up", "at-a-glance", "shortcuts"]);
+    expect(slots(container)).toEqual([...todaySlotOrder]);
+  });
+
+  it("failed with reason offline uses the failedOffline copy", () => {
+    render(shell({ state: { kind: "failed", onRetry: vi.fn(), reason: "offline" } }));
+    const failed = screen.getByTestId("today-state-failed");
+    expect(failed.textContent).toContain(todayStateCopy.failedOffline("Admin").title);
+    expect(failed.textContent).not.toContain(todayStateCopy.failed("Admin").title);
   });
 });
