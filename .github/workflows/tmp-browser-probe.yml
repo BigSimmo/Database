@@ -1,0 +1,28 @@
+# TEMPORARY diagnostic workflow for claude/fix-safari-tests-3wbil7. Removed before review.
+name: tmp-browser-probe
+on:
+  push:
+    branches: ["claude/fix-safari-tests-3wbil7"]
+permissions:
+  contents: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { engine: webkit, projects: "--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone", grep: "content disclosures are naturally closed|carries a result into wording", repeat: 1 }
+          - { engine: firefox, projects: "--project=firefox", grep: "back arrow skips PDF page changes", repeat: 8 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: ./.github/actions/setup-node-cached
+      - run: npx playwright install --with-deps ${{ matrix.engine }}
+      - name: Probe
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
+        run: npm run test:e2e -- ${{ matrix.projects }} -g "${{ matrix.grep }}" --repeat-each=${{ matrix.repeat }} --reporter=line
