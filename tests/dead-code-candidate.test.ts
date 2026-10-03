@@ -521,6 +521,24 @@ describe("dead-code candidate re-export deletions", () => {
     expect(removedDeclarationsInDiff("base", { root, runGit }).map((c) => c.symbol)).toEqual(["b", "T", "m", "n"]);
   });
 
+  it("detects one member deleted from a retained multi-line re-export", () => {
+    const { root, runGit: baseGit } = diffRemoving(["  protectedName,"]);
+    writeFileSync(join(root, "src", "index.ts"), 'export {\n  retained,\n} from "./x";\n', "utf8");
+    const runGit: GitRunner = (args) =>
+      args[0] === "show" ? 'export {\n  protectedName,\n  retained,\n} from "./x";\n' : baseGit(args);
+    expect(removedDeclarationsInDiff("base", { root, runGit }).map((c) => c.symbol)).toEqual(["protectedName"]);
+    writeFileSync(join(root, "tests", "uses.test.ts"), 'import { protectedName } from "../src";\n', "utf8");
+    const output: string[] = [];
+    const code = main(["--diff", "base"], {
+      root,
+      runGit,
+      stdout: (l: string) => output.push(l),
+      stderr: () => undefined,
+    });
+    expect(code).toBe(1);
+    expect(output.join("\n")).toContain("REFUSE  protectedName  (src/index.ts)");
+  });
+
   it("does not treat a re-export that is still published as a deletion", () => {
     const { root, runGit } = diffRemoving(['export { a } from "./x";'], ['export { a, b } from "./x";']);
     expect(removedDeclarationsInDiff("base", { root, runGit })).toEqual([]);

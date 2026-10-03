@@ -551,6 +551,25 @@ export function removedDeclarationsInDiff(base, { root = process.cwd(), runGit =
     else removed.push({ symbol: declaration[2], file });
   }
   flushBlocks();
+  // `-U0` hides the framing of a multi-line `export { a, b } from`, so deleting one member leaves only a bare
+  // `a,` line. For each file with removed lines, compare the full re-export surface at the base and now.
+  const touched = new Set(removedBlocks.map((block) => block.file));
+  for (const touchedFile of touched) {
+    let oldBody;
+    let newBody;
+    try {
+      oldBody = runGit(["show", `${resolvedBase}:${touchedFile}`], root);
+      newBody = NODE_FILE_SYSTEM.readFileSync(absoluteRepoPath(root, touchedFile), "utf8");
+    } catch {
+      continue; // deleted/renamed file or unavailable object: the block-based read above still applies
+    }
+    const surface = (body) => new Set(reexportStatements(body).flatMap((statement) => reexportedNames(statement)));
+    const before = surface(oldBody);
+    const after = surface(newBody);
+    for (const name of before) {
+      if (!after.has(name)) removed.push({ symbol: name, file: touchedFile });
+    }
+  }
   for (const { file: blockOwner, text } of addedBlocks) {
     for (const statement of reexportStatements(text)) {
       for (const name of reexportedNames(statement)) added.add(`${blockOwner}:${name}`);
