@@ -7,7 +7,7 @@
  * - Python venv availability
  *
  * Used by Railway healthcheck and Kubernetes liveness/readiness probes.
- * Intended to run on http://0.0.0.0:3001/health (see run-loop.ts for binding).
+ * Binds /health on Railway PORT, or an explicit WORKER_HEALTH_PORT override.
  */
 
 import { createServer } from "node:http";
@@ -71,35 +71,7 @@ async function checkPythonVenvAvailability(): Promise<{ status: "ok" | "error"; 
   return cachedPythonStatus;
 }
 
-export function computeOverallHealthStatus(
-  hasErrors: boolean,
-  lastClaimAt: Date | null,
-  now = Date.now(),
-  staleThresholdMs = 5 * 60 * 1000,
-): "ok" | "degraded" | "error" {
-  if (hasErrors) {
-    return "error";
-  }
-  if (lastClaimAt) {
-    const staleness = now - lastClaimAt.getTime();
-    if (staleness > staleThresholdMs) {
-      return "degraded";
-    }
-  }
-  return "ok";
-}
-
-export function setLastClaimProcessedAtForTests(date: Date | null) {
-  lastClaimProcessedAt = date;
-}
-
-export function resetHealthStateForTests() {
-  lastClaimProcessedAt = null;
-  cachedPythonStatus = null;
-  lastPythonCheckAt = 0;
-}
-
-export async function performHealthCheck(): Promise<HealthResponse> {
+async function performHealthCheck(): Promise<HealthResponse> {
   const checks: HealthResponse["checks"] = {
     supabase: { status: "ok" },
     python_venv: { status: "ok" },
@@ -128,12 +100,21 @@ export async function performHealthCheck(): Promise<HealthResponse> {
   // Check 3: Last claim processed (staleness detection)
   if (lastClaimProcessedAt) {
     checks.last_claim_processed = lastClaimProcessedAt.toISOString();
+    const staleness = Date.now() - lastClaimProcessedAt.getTime();
+    const staleThresholdMs = 5 * 60 * 1000; // 5 minutes
+
+    if (staleness > staleThresholdMs) {
+      // Degraded but not failed: worker may be waiting for claims
+      return {
+        status: "degraded",
+        timestamp: new Date().toISOString(),
+        checks,
+      };
+    }
   }
 
-  const status = computeOverallHealthStatus(hasErrors, lastClaimProcessedAt);
-
   return {
-    status,
+    status: hasErrors ? "error" : "ok",
     timestamp: new Date().toISOString(),
     checks,
   };
@@ -167,12 +148,11 @@ export function createHealthCheckServer() {
 }
 
 /**
- * Start health check server on WORKER_HEALTH_PORT, falling back to the PORT
- * Railway injects (its readiness probe requests /health on that port).
+ * Start health check server on WORKER_HEALTH_PORT, falling back to Railway PORT.
  * Returns the running HTTP server instance, or null if unconfigured.
  */
 export function startWorkerHealthServerIfConfigured() {
-  const portStr = process.env.WORKER_HEALTH_PORT ?? process.env.PORT;
+  const portStr = process.env.WORKER_HEALTH_PORT || process.env.PORT;
   if (!portStr) return null;
   const port = parseInt(portStr, 10);
   if (isNaN(port) || port <= 0) return null;

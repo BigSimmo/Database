@@ -33,12 +33,12 @@
   },
   "deploy": {
     "healthcheckPath": "/health",
-    "healthcheckTimeout": 60,
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ALWAYS",
     "preDeployCommand": ["node /app/scripts/deploy/await-migrations.mjs"],
     "multiRegionConfig": {
       "asia-southeast1-eqsg3a": {
-        "numReplicas": 2
+        "numReplicas": 1
       }
     }
   }
