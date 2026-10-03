@@ -20,8 +20,8 @@ import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
 import { OnCallHandbookState } from "@/components/on-call/kit/handbook-state";
 import { OnCallHospitalLine } from "@/components/on-call/kit/hospital-line";
 import { OnCallHubPageFrame } from "@/components/on-call/kit/hub-page-frame";
-import { onCallInsetHairline, onCallPressable, onCallRowHeight } from "@/components/on-call/kit/recipes";
-import { onCallNameText, onCallNumberText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeNameText, modeNumberText, modeSecondaryText } from "@/components/mode-kit/type";
 import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { ON_CALL_HUB_GROUPS, onCallHubPageSections } from "@/components/on-call/on-call-page-sections";
 import { useHospitalHandbook, type HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
@@ -107,20 +107,20 @@ function ShowAllRow({
   readonly label: string;
 }) {
   return (
-    <li className={cn(onCallInsetHairline, "min-w-0")}>
+    <li className={cn(modeInsetHairline, "min-w-0")}>
       <button
         type="button"
         onClick={onShow}
         aria-label={`Show all ${count} in ${label}`}
         className={cn(
-          onCallRowHeight.single,
-          onCallPressable,
+          modeRowHeight.single,
+          modePressable,
           focusRing,
           "flex w-full min-w-0 items-center gap-3 px-3 text-left text-[color:var(--text-heading)]",
         )}
       >
-        <span className={cn(onCallNameText, "min-w-0 flex-1 text-base-minus")}>
-          Show all <span className={onCallNumberText}>{count}</span>
+        <span className={cn(modeNameText, "min-w-0 flex-1 text-base-minus")}>
+          Show all <span className={modeNumberText}>{count}</span>
         </span>
         <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
       </button>
@@ -339,7 +339,7 @@ export function OnCallCallPage() {
                       href={`#${onCallGroupAnchorId(group.slug)}`}
                       className={cn(
                         focusRing,
-                        onCallPressable,
+                        modePressable,
                         "inline-flex min-h-12 items-center rounded-md border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 text-sm text-[color:var(--text)] no-underline",
                       )}
                     >
@@ -424,23 +424,23 @@ export function OnCallCallPage() {
                 />
               ))}
           {signedOut ? (
-            <li className={cn(onCallInsetHairline, onCallRowHeight.single, "flex min-w-0 items-center px-3")}>
-              <span className={cn(onCallSecondaryText, "break-words")}>Sign in to keep your own numbers.</span>
+            <li className={cn(modeInsetHairline, modeRowHeight.single, "flex min-w-0 items-center px-3")}>
+              <span className={cn(modeSecondaryText, "break-words")}>Sign in to keep your own numbers.</span>
             </li>
           ) : null}
-          <li className={cn(onCallInsetHairline, "min-w-0")}>
+          <li className={cn(modeInsetHairline, "min-w-0")}>
             {/* A literal next/link href: route-reachability counts only those. */}
             <Link
               href="/on-call/contacts"
               data-testid="on-call-call-mine-link"
               className={cn(
-                onCallRowHeight.single,
-                onCallPressable,
+                modeRowHeight.single,
+                modePressable,
                 focusRing,
                 "flex min-w-0 items-center gap-3 px-3 text-[color:var(--text-heading)] no-underline",
               )}
             >
-              <span className={cn(onCallNameText, "min-w-0 flex-1 break-words text-base-minus")}>Your own numbers</span>
+              <span className={cn(modeNameText, "min-w-0 flex-1 break-words text-base-minus")}>Your own numbers</span>
               <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
             </Link>
           </li>

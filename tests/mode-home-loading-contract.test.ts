@@ -41,6 +41,8 @@ const MODE_HOME_LOADING_ROUTES = [
   "first-nations",
   // Teaching's dashboard, likewise.
   "teaching",
+  // My Day's merged list, likewise.
+  "my-day",
 ] as const;
 
 /**

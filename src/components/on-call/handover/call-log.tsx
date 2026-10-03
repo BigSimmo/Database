@@ -4,11 +4,11 @@ import { Check, Clipboard, ClipboardCheck, RotateCcw, Trash2 } from "lucide-reac
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type FormEvent } from "react";
 
 import { OnCallIsobarCard } from "@/components/on-call/call/isobar-card";
-import { OnCallActionButton } from "@/components/on-call/kit/action-button";
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
-import { OnCallNotice } from "@/components/on-call/kit/notice";
-import { onCallInsetHairline } from "@/components/on-call/kit/recipes";
-import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { ModeNotice } from "@/components/mode-kit/notice";
+import { modeInsetHairline } from "@/components/mode-kit/recipes";
+import { modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
 import { announce } from "@/components/ui/live-announcer";
@@ -204,7 +204,7 @@ export function OnCallCallLogCard() {
         className="grid min-w-0 gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3"
         data-testid="on-call-call-log-form"
       >
-        <p className={onCallSecondaryText}>
+        <p className={modeSecondaryText}>
           Kept on this phone only, and cleared when your shift ends
           {view?.expiresAt ? ` (at ${clockTime(view.expiresAt)})` : " (at most 12 hours after the first note)"} or you
           sign out. Identifiers stay on this phone and are never sent anywhere.
@@ -245,15 +245,15 @@ export function OnCallCallLogCard() {
           testId="on-call-call-log-follow-up"
         />
         {problem ? (
-          <OnCallNotice tone="warning" testId="on-call-call-log-problem">
+          <ModeNotice tone="warning" testId="on-call-call-log-problem">
             {problem}
-          </OnCallNotice>
+          </ModeNotice>
         ) : null}
         <div className="flex min-w-0 flex-wrap items-center gap-3">
           <Button type="submit" variant="primary" testId="on-call-call-log-save">
             Note this call
           </Button>
-          <p className={onCallSecondaryText}>{saved}</p>
+          <p className={modeSecondaryText}>{saved}</p>
         </div>
       </form>
       {entries && entries.length > 0 ? (
@@ -271,26 +271,24 @@ function CallLogRow({ entry }: { readonly entry: OnCallCallLogEntry }) {
   const title = [onCallCallLogTime(entry.at), entry.label, entry.caller].filter(Boolean).join(" · ");
   return (
     <li
-      className={cn(onCallInsetHairline, "flex min-w-0 items-start gap-2 px-3 py-2")}
+      className={cn(modeInsetHairline, "flex min-w-0 items-start gap-2 px-3 py-2")}
       data-testid="on-call-call-log-row"
     >
       <div className="min-w-0 flex-1">
-        <p className={cn(onCallNameText, "break-words", entry.done && "text-[color:var(--text-muted)]")}>{title}</p>
-        {entry.note ? <p className={cn(onCallSecondaryText, "break-words")}>{entry.note}</p> : null}
+        <p className={cn(modeNameText, "break-words", entry.done && "text-[color:var(--text-muted)]")}>{title}</p>
+        {entry.note ? <p className={cn(modeSecondaryText, "break-words")}>{entry.note}</p> : null}
         {entry.followUp ? (
-          <p className={cn(onCallSecondaryText, "break-words", entry.done && "line-through")}>
-            To do: {entry.followUp}
-          </p>
+          <p className={cn(modeSecondaryText, "break-words", entry.done && "line-through")}>To do: {entry.followUp}</p>
         ) : null}
-        {entry.done ? <p className={onCallSecondaryText}>Done, left out of the handover</p> : null}
+        {entry.done ? <p className={modeSecondaryText}>Done, left out of the handover</p> : null}
       </div>
-      <OnCallActionButton
+      <ModeActionButton
         icon={entry.done ? RotateCcw : Check}
         label={entry.done ? `Put the ${title} call back in the handover` : `Mark the ${title} call done`}
         onClick={() => setOnCallCallLogDone(entry.id, !entry.done)}
         testId="on-call-call-log-done"
       />
-      <OnCallActionButton
+      <ModeActionButton
         icon={Trash2}
         label={`Delete the ${title} note`}
         onClick={() => removeOnCallCallLogEntry(entry.id)}
@@ -351,7 +349,7 @@ export function OnCallHandoverBuilder({ withIsobarCard = false }: { readonly wit
       </h2>
       {withIsobarCard ? <OnCallIsobarCard /> : null}
       {items.length === 0 ? (
-        <p className={cn(onCallSecondaryText, "px-3")} data-testid="on-call-handover-empty">
+        <p className={cn(modeSecondaryText, "px-3")} data-testid="on-call-handover-empty">
           Nothing to hand over yet. Calls you note above, and have not marked done, will appear here.
         </p>
       ) : (
@@ -371,7 +369,7 @@ export function OnCallHandoverBuilder({ withIsobarCard = false }: { readonly wit
             >
               {copy === "copied" ? "Copied" : "Copy handover"}
             </Button>
-            <p className={onCallSecondaryText}>
+            <p className={modeSecondaryText}>
               {copy === "failed" ? "Not copied. Select the text above and copy it by hand." : ""}
             </p>
           </div>

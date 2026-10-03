@@ -152,7 +152,7 @@ describe("favourites auth gate DOM", () => {
 
   afterEach(() => vi.unstubAllGlobals());
 
-  it("keeps the six canonical navigation entries separate from conditional Favourites", () => {
+  it("keeps the seven canonical navigation entries separate from conditional Favourites", () => {
     const { rerender } = render(<ClinicalSidebarContent {...sidebarProps(false)} />);
 
     expect(screen.queryByRole("navigation", { name: "Your library" })).toBeNull();
@@ -160,6 +160,8 @@ describe("favourites auth gate DOM", () => {
     expect(
       navigation.getAllByRole("link").map((link) => ({ name: link.textContent, href: link.getAttribute("href") })),
     ).toEqual([
+      // Design review 2026-10-03, item 4: My Day leads the default shortcuts.
+      { name: "My Day", href: "/my-day" },
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },

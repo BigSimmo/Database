@@ -4,15 +4,15 @@ import { Phone, Share2 } from "lucide-react";
 import { useSyncExternalStore, type ReactNode } from "react";
 
 import { focusRing } from "@/components/card-recipes";
-import { OnCallActionButton } from "@/components/on-call/kit/action-button";
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import {
-  onCallCallDiscShape,
-  onCallInsetHairline,
-  onCallModuleSurface,
-  onCallRowHeight,
-  onCallTapArea,
-} from "@/components/on-call/kit/recipes";
-import { onCallDisplayNumberText, onCallNameText, onCallNumberText } from "@/components/on-call/kit/type";
+  modeCallDiscShape,
+  modeInsetHairline,
+  modeModuleSurface,
+  modeRowHeight,
+  modeTapArea,
+} from "@/components/mode-kit/recipes";
+import { modeDisplayNumberText, modeNameText, modeNumberText } from "@/components/mode-kit/type";
 import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import { OnCallCopyNumber } from "@/components/on-call/on-call-copy-number";
 import { Sheet } from "@/components/ui/sheet";
@@ -122,7 +122,7 @@ export function OnCallDialSheet({
     <Sheet open={open} onClose={onClose} title={title} testId={testId}>
       <div className="grid min-w-0 gap-4" data-testid={testId ? `${testId}-body` : undefined}>
         {hospitalName ? (
-          <p className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-muted)]")}>
+          <p className={cn(modeNameText, "break-words text-base-minus text-[color:var(--text-muted)]")}>
             {hospitalName}
           </p>
         ) : null}
@@ -135,7 +135,7 @@ export function OnCallDialSheet({
               ) : null}
               <span
                 data-testid={testId ? `${testId}-number` : undefined}
-                className={cn(onCallDisplayNumberText, "break-words text-hero text-[color:var(--text-heading)]")}
+                className={cn(modeDisplayNumberText, "break-words text-hero text-[color:var(--text-heading)]")}
               >
                 {hospitalText}
               </span>
@@ -146,9 +146,9 @@ export function OnCallDialSheet({
                 onClick={onCall}
                 aria-label={`Call ${title} from this hospital phone, ${spokenOnCallNumber(extensionCall.display)}`}
                 data-testid={testId ? `${testId}-extension-call` : undefined}
-                className={cn(onCallTapArea, focusRing, "ml-auto rounded-full")}
+                className={cn(modeTapArea, focusRing, "ml-auto rounded-full")}
               >
-                <span aria-hidden="true" className={onCallCallDiscShape.neutral}>
+                <span aria-hidden="true" className={modeCallDiscShape.neutral}>
                   <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
                 </span>
               </a>
@@ -156,18 +156,18 @@ export function OnCallDialSheet({
           </div>
         )}
 
-        <ul role="list" className={onCallModuleSurface}>
+        <ul role="list" className={modeModuleSurface}>
           <li
             className={cn(
-              onCallInsetHairline,
-              onCallRowHeight.double,
+              modeInsetHairline,
+              modeRowHeight.double,
               "flex min-w-0 flex-wrap items-center gap-x-3 py-1.5 pl-3 pr-1",
             )}
           >
             <span className="grid min-w-0 flex-1 gap-0.5">
               <span className="text-sm text-[color:var(--text-muted)]">From your mobile</span>
               {mobile ? (
-                <span className={cn(onCallNumberText, "break-words text-base-minus text-[color:var(--text)]")}>
+                <span className={cn(modeNumberText, "break-words text-base-minus text-[color:var(--text)]")}>
                   {mobile.display}
                 </span>
               ) : (
@@ -179,9 +179,9 @@ export function OnCallDialSheet({
                 href={mobile.tel}
                 onClick={onCall}
                 aria-label={`Call ${title} from your mobile, ${spokenOnCallNumber(mobile.display)}`}
-                className={cn(onCallTapArea, focusRing, "ml-auto rounded-full")}
+                className={cn(modeTapArea, focusRing, "ml-auto rounded-full")}
               >
-                <span aria-hidden="true" className={onCallCallDiscShape.neutral}>
+                <span aria-hidden="true" className={modeCallDiscShape.neutral}>
                   <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
                 </span>
               </a>
@@ -196,7 +196,7 @@ export function OnCallDialSheet({
             <OnCallCopyNumber value={dial.copy} label={copyLabel} testId={testId ? `${testId}-copy` : undefined} />
           ) : null}
           {canShare ? (
-            <OnCallActionButton
+            <ModeActionButton
               icon={Share2}
               label={`Share ${title}`}
               onClick={share}

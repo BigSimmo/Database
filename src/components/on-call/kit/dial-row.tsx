@@ -6,15 +6,15 @@ import { useState, type ReactNode } from "react";
 import { focusRing } from "@/components/card-recipes";
 import { OnCallDialSheet, onCallCallRoute } from "@/components/on-call/kit/dial-sheet";
 import {
-  onCallCallDiscShape,
-  onCallDot,
-  onCallInsetHairline,
-  onCallPressable,
-  onCallRowHeight,
-  onCallTapArea,
-} from "@/components/on-call/kit/recipes";
+  modeCallDiscShape,
+  modeDot,
+  modeInsetHairline,
+  modePressable,
+  modeRowHeight,
+  modeTapArea,
+} from "@/components/mode-kit/recipes";
 import { OnCallStateLabel, type OnCallRowState } from "@/components/on-call/kit/state-label";
-import { onCallNameText, onCallNumberText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeNameText, modeNumberText, modeSecondaryText } from "@/components/mode-kit/type";
 import { useOnCallYouCalledAt } from "@/components/on-call/kit/use-you-called";
 import { cn } from "@/components/ui-primitives";
 import { rememberOnCallYouCalled } from "@/lib/on-call/call-marks";
@@ -164,15 +164,15 @@ export function OnCallDialRow({
   if (dial?.route === "hospital-phone") secondary.push(<span key="route">From a hospital phone</span>);
   if (state) secondary.push(<OnCallStateLabel key="state" state={state} />);
   if (calledAt) {
-    secondary.push(<span key="called" className={onCallNumberText}>{`You called ${formatOnCallTime(calledAt)}`}</span>);
+    secondary.push(<span key="called" className={modeNumberText}>{`You called ${formatOnCallTime(calledAt)}`}</span>);
   }
 
   return (
     <li
       data-testid={testId}
       className={cn(
-        onCallInsetHairline,
-        secondary.length > 0 ? onCallRowHeight.double : onCallRowHeight.single,
+        modeInsetHairline,
+        secondary.length > 0 ? modeRowHeight.double : modeRowHeight.single,
         // No vertical padding here or in either column: the 48px controls on
         // the right set the floor, and the row's min height sets 48/52.
         "grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 pl-3 pr-1",
@@ -185,15 +185,15 @@ export function OnCallDialRow({
             <span
               aria-hidden="true"
               data-testid={`${testId}-emergency-dot`}
-              className={cn(onCallDot, "bg-[color:var(--danger)]")}
+              className={cn(modeDot, "bg-[color:var(--danger)]")}
             />
           ) : null}
-          <span className={cn(onCallNameText, "min-w-0 break-words text-base-minus text-[color:var(--text-heading)]")}>
+          <span className={cn(modeNameText, "min-w-0 break-words text-base-minus text-[color:var(--text-heading)]")}>
             {title}
           </span>
         </span>
         {secondary.length > 0 ? (
-          <span className={cn(onCallSecondaryText, "flex min-w-0 flex-wrap items-center gap-x-1.5 break-words")}>
+          <span className={cn(modeSecondaryText, "flex min-w-0 flex-wrap items-center gap-x-1.5 break-words")}>
             {secondary.flatMap((part, index) =>
               index === 0
                 ? [part]
@@ -221,8 +221,8 @@ export function OnCallDialRow({
             data-dial-row-number=""
             className={cn(
               focusRing,
-              onCallPressable,
-              onCallNumberText,
+              modePressable,
+              modeNumberText,
               "grid min-h-12 w-30 content-center justify-items-end rounded-md px-1 text-right text-base-minus text-[color:var(--text)]",
             )}
           >
@@ -233,12 +233,9 @@ export function OnCallDialRow({
               href={callRoute.tel}
               onClick={recordCall}
               aria-label={callName}
-              className={cn(onCallTapArea, focusRing, "rounded-full")}
+              className={cn(modeTapArea, focusRing, "rounded-full")}
             >
-              <span
-                aria-hidden="true"
-                className={emergency ? onCallCallDiscShape.emergency : onCallCallDiscShape.neutral}
-              >
+              <span aria-hidden="true" className={emergency ? modeCallDiscShape.emergency : modeCallDiscShape.neutral}>
                 <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
               </span>
             </a>

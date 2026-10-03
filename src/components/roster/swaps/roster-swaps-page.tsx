@@ -83,7 +83,10 @@ export function RosterSwapsPage() {
   const ownShifts = useRosterShifts();
   const enabled = useMemo(() => teams.data?.teams.filter((team) => team.enabled) ?? [], [teams.data]);
   const actorId = teams.data?.actorId ?? null;
-  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(null);
+  // A link from My Day names the team it is about (`?team=`); it only selects among the teams the reader may use.
+  const [selectedServiceId, setSelectedServiceId] = useState<string | null>(() =>
+    typeof window === "undefined" ? null : (new URLSearchParams(window.location.search).get("team") ?? null),
+  );
   const serviceId =
     enabled.length > 1
       ? (enabled.find((team) => team.serviceId === selectedServiceId)?.serviceId ?? null)

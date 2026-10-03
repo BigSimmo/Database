@@ -14,6 +14,15 @@ import type { AppModeId } from "@/lib/app-modes";
  * check that now fails instead: every mode id must appear in exactly one group.
  */
 export const phoneModeGroups = [
+  // My Day leads the whole list (design review 2026-10-03, item 4): one list
+  // of what needs you across On Call, Roster, CPD, Teaching and Admin, one tap
+  // from "Choose mode" without scrolling past the clinical modes.
+  {
+    id: "my-day",
+    label: "My Day",
+    hint: "What needs you today",
+    modeIds: ["my-day"],
+  },
   {
     id: "find",
     label: "Find",

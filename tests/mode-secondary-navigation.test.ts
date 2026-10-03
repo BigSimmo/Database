@@ -67,6 +67,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Going home",
     "End of life",
   ],
+  "my-day": ["Today", "Week", "Hours"],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -93,6 +94,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "my-work": "/admin",
   roster: "/roster",
   "first-nations": "/first-nations",
+  "my-day": "/my-day",
 };
 
 /**
@@ -125,9 +127,9 @@ const emptyRegistryModes = [
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {
-  it("covers all 23 modes with the approved destinations and no Home item", () => {
+  it("covers all 24 modes with the approved destinations and no Home item", () => {
     expect(Object.keys(modeSecondaryNavigationRegistry).sort()).toEqual([...appModeIds].sort());
-    expect(appModeIds).toHaveLength(23);
+    expect(appModeIds).toHaveLength(24);
 
     for (const modeId of appModeIds) {
       const labels = modeSecondaryNavigationRegistry[modeId].map((item) => item.label);
@@ -754,6 +756,32 @@ describe("Roster mode secondary navigation active destinations", () => {
       isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster/settings", hasSubmittedSearch: false }),
     ).toBe(true);
     expect(isModeSecondaryNavigationRoute({ modeId: "roster", pathname: "/roster", hasSubmittedSearch: false })).toBe(
+      false,
+    );
+  });
+});
+
+describe("My Day mode secondary navigation", () => {
+  it("registers Today, Week and Hours with unique ids and their own addresses", () => {
+    expect(modeSecondaryNavigationRegistry["my-day"]).toEqual([
+      { id: "my-day-today", label: "Today", href: "/my-day" },
+      { id: "my-day-week", label: "Week", href: "/my-day/week" },
+      { id: "my-day-hours", label: "Hours", href: "/my-day/hours" },
+    ]);
+  });
+
+  it("marks each page current by exact match only", () => {
+    expect(activeModeSecondaryNavigationId("my-day", "/my-day")).toBe("my-day-today");
+    expect(activeModeSecondaryNavigationId("my-day", "/my-day/week")).toBe("my-day-week");
+    expect(activeModeSecondaryNavigationId("my-day", "/my-day/hours")).toBe("my-day-hours");
+    expect(activeModeSecondaryNavigationId("my-day", "/my-day/other")).toBeNull();
+  });
+
+  it("opens the mode bar on the sub-pages but not on the Today home", () => {
+    for (const pathname of ["/my-day/week", "/my-day/hours"]) {
+      expect(isModeSecondaryNavigationRoute({ modeId: "my-day", pathname, hasSubmittedSearch: false })).toBe(true);
+    }
+    expect(isModeSecondaryNavigationRoute({ modeId: "my-day", pathname: "/my-day", hasSubmittedSearch: false })).toBe(
       false,
     );
   });
