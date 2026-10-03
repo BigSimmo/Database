@@ -288,18 +288,21 @@ describe("CME visual contract", () => {
     it("actually moves a module from the keyboard alone, with no pointer involved", async () => {
       const user = userEvent.setup();
       render(<CmeCustomisePage />);
-      const list = screen.getByTestId("cme-module-order");
-      const firstLabelBefore = within(list).getAllByRole("listitem")[0]?.textContent;
-      expect(firstLabelBefore).toContain(cmeDashboardModuleLabels.requirements);
+      const labelsOf = () =>
+        within(screen.getByTestId("cme-module-order"))
+          .getAllByRole("listitem")
+          .map((item) => item.textContent ?? "");
+      const before = labelsOf();
+      expect(before[2]).toContain(cmeDashboardModuleLabels["audited-today"]);
 
-      const moveDown = screen.getByRole("button", { name: `Move ${cmeDashboardModuleLabels.requirements} down` });
+      const moveDown = screen.getByRole("button", { name: `Move ${cmeDashboardModuleLabels["audited-today"]} down` });
       moveDown.focus();
       expect(moveDown).toHaveFocus();
       await user.keyboard("{Enter}");
 
-      const firstLabelAfter = within(screen.getByTestId("cme-module-order")).getAllByRole("listitem")[0]?.textContent;
-      expect(firstLabelAfter).toContain(cmeDashboardModuleLabels["routines-due"]);
-      expect(firstLabelAfter).not.toBe(firstLabelBefore);
+      const after = labelsOf();
+      expect(after[2]).toContain(cmeDashboardModuleLabels["year-dates"]);
+      expect(after).not.toEqual(before);
     });
 
     it("the up control at the top of the list, and the down control at the bottom, are genuinely disabled", () => {

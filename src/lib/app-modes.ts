@@ -27,6 +27,7 @@ export const appModeIds = [
   "my-work",
   "roster",
   "first-nations",
+  "my-day",
 ] as const;
 
 export type AppModeId = (typeof appModeIds)[number];
@@ -699,6 +700,34 @@ export const appModeDefinitions = [
       badgeLabel: null,
     },
   },
+  {
+    id: "my-day",
+    label: "My Day",
+    description: "One list of what needs you today across On Call, Roster, CPD, Teaching and Admin",
+    href: "/my-day",
+    search: {
+      // My Day reads the owner's own records from the modes it gathers, already
+      // in the browser, and searches nothing; it borrows the benign "tools"
+      // command kind, as Admin and Roster do. Nothing from My Day goes to search.
+      kind: "tools",
+      placeholder: "Open My Day...",
+      inputAriaLabel: "Open My Day",
+      submitIdleLabel: "My Day",
+      submitBusyLabel: "My Day",
+      submitAriaLabel: "Open My Day",
+      emptyTitle: "What needs you today",
+      readyTitle: "Overdue, due soon, then the rest",
+      progressLabel: "Opening My Day.",
+      resultKind: "tools",
+      resultHeading: "My Day",
+      // No results page. `/my-day` is one merged list; each row links to the
+      // page in its own mode where the item is resolved.
+      resultsSurface: "none",
+      statusLabel: "My Day",
+      nextStep: "Open an item",
+      badgeLabel: null,
+    },
+  },
 ] as const satisfies readonly AppModeDefinition[];
 
 export function appModeDefinition(modeId: AppModeId) {
@@ -744,6 +773,7 @@ const namespaceIsolatedModes = new Set<AppModeId>([
   "my-work",
   "roster",
   "first-nations",
+  "my-day",
 ]);
 
 export function appModeHomeHref(modeId: AppModeId, options: SearchNavigationOptions = {}) {

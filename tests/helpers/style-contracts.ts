@@ -343,6 +343,8 @@ export const STYLE_EFFECT_CONTRACTS: readonly StyleEffectContract[] = [
 export const STYLE_CONTRACT_EXEMPTIONS: Readonly<Record<string, string>> = {
   // Not component effects.
   dark: "theme root selector, not a component class; token values are asserted by the dark-mode journeys",
+  "dash-surface":
+    "My Day dashboard token scope: sets the --dash-* variables and base ink colour only; the look is checked by the My Day capture in ui-visual-artifacts",
   "touch-card": "sets outline/touch-action only; the shared focus treatment is asserted by ui-accessibility",
   "clinical-ask-field": "Clinical Ask clarification fields are covered by ui-clinical-ask",
   "clinical-ask-output-actions": "Clinical Ask output controls are covered by ui-clinical-ask",

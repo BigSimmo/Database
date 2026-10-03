@@ -78,6 +78,12 @@
         "dev_only": false
       },
       {
+        "id": "my-day",
+        "label": "My Day",
+        "home": "/my-day",
+        "dev_only": false
+      },
+      {
         "id": "my-work",
         "label": "Admin",
         "home": "/admin",
@@ -1186,6 +1192,11 @@
         "area": "mockup"
       },
       {
+        "path": "/my-day",
+        "file": "src/app/(search-app)/my-day/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/specifiers/map",
         "file": "src/app/(search-app)/specifiers/map/page.tsx",
         "area": "product"
@@ -1331,6 +1342,11 @@
         "area": "product"
       },
       {
+        "path": "/my-day/hours",
+        "file": "src/app/(search-app)/my-day/hours/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/mockups/tools-split-safety-deck",
         "file": "src/app/mockups/tools-split-safety-deck/page.tsx",
         "area": "mockup"
@@ -1348,6 +1364,11 @@
       {
         "path": "/first-nations/contacts",
         "file": "src/app/(search-app)/first-nations/contacts/page.tsx",
+        "area": "product"
+      },
+      {
+        "path": "/my-day/week",
+        "file": "src/app/(search-app)/my-day/week/page.tsx",
         "area": "product"
       },
       {
