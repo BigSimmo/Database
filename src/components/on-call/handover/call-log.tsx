@@ -351,7 +351,7 @@ export function OnCallHandoverBuilder({ withIsobarCard = false }: { readonly wit
           </pre>
           <div className="flex min-w-0 flex-wrap items-center gap-3">
             <Button
-              variant="primary"
+              variant="secondary"
               icon={copy === "copied" ? ClipboardCheck : Clipboard}
               onClick={() => void copyHandover()}
               testId="on-call-handover-copy"
@@ -376,7 +376,7 @@ export function OnCallHandoverBuilder({ withIsobarCard = false }: { readonly wit
                 }}
                 testId="on-call-handover-clear-confirm"
               >
-                Clear all {entries.length} notes
+                {entries.length === 1 ? "Clear the note" : `Clear all ${entries.length} notes`}
               </Button>
               <Button variant="ghost" onClick={() => setConfirmClear(false)} testId="on-call-handover-clear-cancel">
                 Keep them
