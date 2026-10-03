@@ -215,8 +215,12 @@ export function cpdCategoryCoaching(
   entries: readonly CmeEntry[],
   signOff: RuleSignOff = CPD_CATEGORY_RULES_SIGN_OFF,
   approvedSigners?: readonly ApprovedRuleSigner[],
+  now: number = Date.now(),
 ): CpdCoachingResult {
-  const gate = ruleGate(signOff, CPD_CATEGORY_RULE_SET, approvedSigners);
+  const gate = ruleGate(signOff, CPD_CATEGORY_RULE_SET, approvedSigners, now);
   if (!gate.on) return { gate, coaching: null };
+  // The standard applies from its effective year; earlier years get no coaching against it.
+  const effectiveYear = Number(CPD_CATEGORY_RULE_SET.source.effectiveFrom.slice(0, 4));
+  if (set.year < effectiveYear) return { gate: { on: false, reason: "standard-not-in-force" }, coaching: null };
   return { gate, coaching: cpdCategoryCoachingUngated(set, entries) };
 }

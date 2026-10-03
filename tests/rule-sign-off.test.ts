@@ -20,7 +20,7 @@ function signed(overrides: Partial<RuleSignOff> = {}): RuleSignOff {
     enabled: true,
     signedBy: "Dr Jane Example",
     signedByUserId: SIGNER_ID,
-    signedAt: "2026-10-04T01:30:00.000Z",
+    signedAt: "2026-10-02T01:30:00.000Z",
     signedContentSha256: ruleContentSha256(content),
     ...overrides,
   };
@@ -64,6 +64,14 @@ describe("ruleGate", () => {
 
   it("is on only with a named signer, a UTC time, a matching pin and the switch on", () => {
     expect(ruleGate(signed(), content, approved)).toEqual({ on: true });
+  });
+
+  it("rejects a sign-off dated after the evaluation time", () => {
+    const future = signed({ signedAt: "9999-01-01T00:00:00.000Z" });
+    expect(ruleGate(future, content, approved)).toEqual({ on: false, reason: "signed-in-future" });
+    const at = Date.parse("2026-10-02T01:30:00.000Z");
+    expect(ruleGate(signed(), content, approved, at)).toEqual({ on: true });
+    expect(ruleGate(signed(), content, approved, at - 1)).toEqual({ on: false, reason: "signed-in-future" });
   });
 
   it("names the first reason it is off", () => {

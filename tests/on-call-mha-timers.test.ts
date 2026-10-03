@@ -56,7 +56,7 @@ function onSwitch(entries: readonly MhaTimeframeEntry[]): MhaTimerSwitch {
       enabled: true,
       signedBy: "Dr Jane Example",
       signedByUserId: SIGNER_ID,
-      signedAt: "2026-10-04T02:00:00.000Z",
+      signedAt: "2026-10-02T02:00:00.000Z",
       signedContentSha256: ruleContentSha256(content),
     },
   };
@@ -139,7 +139,7 @@ describe("mhaTimers", () => {
         enabled: true,
         signedBy: "Dr Jane Example",
         signedByUserId: SIGNER_ID,
-        signedAt: "2026-10-04T02:00:00.000Z",
+        signedAt: "2026-10-02T02:00:00.000Z",
         signedContentSha256: ruleContentSha256(content),
       },
     };
@@ -179,7 +179,7 @@ describe("mhaTimers", () => {
           enabled: true,
           signedBy: "Dr Jane Example",
           signedByUserId: SIGNER_ID,
-          signedAt: "2026-10-04T02:00:00.000Z",
+          signedAt: "2026-10-02T02:00:00.000Z",
           signedContentSha256: ruleContentSha256(content),
         },
       };

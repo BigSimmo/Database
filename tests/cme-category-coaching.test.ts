@@ -11,7 +11,7 @@ const signOff: RuleSignOff = {
   enabled: true,
   signedBy: "Dr Jane Example",
   signedByUserId: "11111111-1111-4111-8111-111111111111",
-  signedAt: "2026-10-04T01:30:00.000Z",
+  signedAt: "2026-10-02T01:30:00.000Z",
   signedContentSha256: ruleContentSha256(CPD_CATEGORY_RULE_SET),
 };
 
@@ -120,6 +120,15 @@ describe("cpdCategoryCoaching", () => {
       ["reviewing", 5],
       ["measuring", 5],
     ]);
+  });
+
+  it("gives no coaching for years before the standard took effect", () => {
+    const old = createAustralianRanzcpPreset(2022, "2022-01-05");
+    expect(cpdCategoryCoaching(old, [], signOff, signers)).toEqual({
+      gate: { on: false, reason: "standard-not-in-force" },
+      coaching: null,
+    });
+    expect(cpdCategoryCoaching({ ...old, year: 2023 }, [], signOff, signers).gate).toEqual({ on: true });
   });
 
   it("counts the per-category floors inside the combined 25 hours", () => {
