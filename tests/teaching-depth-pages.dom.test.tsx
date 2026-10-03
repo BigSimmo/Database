@@ -12,7 +12,7 @@ import { TeachingSupervision } from "@/components/teaching/teaching-supervision"
 import { TeachingTeach } from "@/components/teaching/teaching-teach";
 import { useDelayedPost } from "@/components/teaching/use-delayed-post";
 import { demoFeedbackOpen, demoSupervision, demoTeach } from "@/lib/teaching/depth-demo";
-import { IMPORT_TEMPLATE_HEADERS } from "@/lib/teaching/depth-model";
+import { IMPORT_TEMPLATE_HEADERS, readinessLabels } from "@/lib/teaching/depth-model";
 import { entry, pairingView, NOTE } from "./helpers/teaching-depth-fixtures";
 
 const NB = "\u00a0";
@@ -277,6 +277,45 @@ describe("Teaching depth journeys", () => {
     expect(screen.getByRole("checkbox", { name: "Aims written" })).toBeChecked();
     expect(view.container.querySelector("[data-skeleton-row]")).toBeNull();
     expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps the readiness list usable while a tick saves, and sends the ticks one at a time", async () => {
+    const finishPosts: Array<(response: Response) => void> = [];
+    vi.mocked(fetch).mockImplementation(async (_url, options) => {
+      if (options?.method === "POST") return new Promise<Response>((resolve) => finishPosts.push(resolve));
+      return reply(demoTeach("2026-09-27"));
+    });
+    render(<TeachingTeach demoMode={false} />);
+    const aims = await screen.findByRole("checkbox", { name: "Aims written" });
+    const reading = screen.getByRole("checkbox", { name: readinessLabels.reading_list });
+    aims.focus();
+    fireEvent.click(aims);
+    expect(aims).toBeEnabled();
+    expect(aims).toHaveFocus();
+    fireEvent.click(reading);
+    expect(aims).toBeChecked();
+    expect(reading).toBeChecked();
+    // The second tick waits for the first to finish, so the server sees them in order.
+    expect(posts()).toHaveLength(1);
+    await act(async () => finishPosts[0](reply({ items: ["room", "slides_link", "aims"], deidConfirmedAt: null })));
+    await waitFor(() => expect(posts()).toHaveLength(2));
+    // A server answer that predates a queued tick does not untick it.
+    expect(reading).toBeChecked();
+    await act(async () =>
+      finishPosts[1](reply({ items: ["room", "slides_link", "aims", "reading_list"], deidConfirmedAt: null })),
+    );
+    expect(aims).toBeChecked();
+    expect(reading).toBeChecked();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("moves focus to the confirmation once de-identification is confirmed", async () => {
+    vi.mocked(fetch).mockImplementation(async () => reply(demoTeach("2026-09-27")));
+    render(<TeachingTeach demoMode />);
+    const confirm = await screen.findByRole("button", { name: "I have checked that my material is de-identified" });
+    confirm.focus();
+    fireEvent.click(confirm);
+    expect(await screen.findByText("De-identification confirmed.")).toHaveFocus();
   });
 
   it("rolls a failed readiness tick back and says so", async () => {

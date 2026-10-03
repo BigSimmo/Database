@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
@@ -133,30 +133,52 @@ function Preparation({
   onSaved: () => void;
 }) {
   const [local, setLocal] = useState<Readiness>({ items: session.items, deidConfirmedAt: session.deidConfirmedAt });
-  const [busy, setBusy] = useState(false);
+  const [pending, setPending] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  // Optimistic: the box shows the reader's choice at once. A failed save puts the last saved state back
-  // and says so, so the screen never claims something the server did not keep.
-  async function save(body: Record<string, unknown>, next: Readiness) {
-    const previous = local;
+  // Set when the reader confirms, so the note that replaces the button takes focus as it mounts.
+  const focusDeid = useRef(false);
+  // `localRef` is what the reader sees now; `confirmed` is the server's last answer; `queue` sends one write
+  // at a time, in the order the reader made them.
+  const localRef = useRef(local);
+  const confirmed = useRef<Readiness>(local);
+  const inFlight = useRef(0);
+  const queue = useRef<Promise<void>>(Promise.resolve());
+  const busy = pending > 0;
+
+  function show(next: Readiness) {
+    localRef.current = next;
     setLocal(next);
-    setBusy(true);
+  }
+
+  // Optimistic: the box shows the reader's choice at once and the list stays usable, so focus never drops
+  // and a second quick tap still counts. Writes queue so the server sees them in order. Once the last one
+  // settles the screen shows the server's state: a failed tick rolls back and says so, and an answer that
+  // predates a queued tick never unticks it.
+  function save(body: Record<string, unknown>, change: (current: Readiness) => Readiness) {
+    show(change(localRef.current));
     setError(null);
-    try {
-      const saved = demoMode
-        ? next
-        : await teachingPost<Readiness>(teachingDepthUrl(session.serviceId), {
-            ...body,
-            occurrenceId: session.occurrenceId,
-          });
-      setLocal(saved);
-      onSaved();
-    } catch (cause) {
-      setLocal(previous);
-      setError(`Not saved. ${teachingErrorMessage(cause)}`);
-    } finally {
-      setBusy(false);
-    }
+    const idle = inFlight.current === 0;
+    inFlight.current += 1;
+    setPending(inFlight.current);
+    const write = async () => {
+      try {
+        confirmed.current = demoMode
+          ? change(confirmed.current)
+          : await teachingPost<Readiness>(teachingDepthUrl(session.serviceId), {
+              ...body,
+              occurrenceId: session.occurrenceId,
+            });
+        onSaved();
+      } catch (cause) {
+        setError(`Not saved. ${teachingErrorMessage(cause)}`);
+      } finally {
+        inFlight.current -= 1;
+        setPending(inFlight.current);
+        if (inFlight.current === 0) show(confirmed.current);
+      }
+    };
+    // An idle queue sends at once; otherwise the write waits its turn.
+    queue.current = idle ? write() : queue.current.then(write);
   }
   return (
     <section className={cn(modeModuleSurface, "grid gap-2 p-3")}>
@@ -173,7 +195,7 @@ function Preparation({
             Prepare your aims and reading list outside PsychSift. Do not upload slides, patient details or Teams
             passcodes.
           </p>
-          <fieldset disabled={busy} className="grid gap-0.5">
+          <fieldset className="grid gap-0.5">
             <legend className="mb-1 text-sm font-medium text-[color:var(--text-heading)]">Readiness</legend>
             {readinessItems.map((item) => (
               <Checkbox
@@ -182,27 +204,39 @@ function Preparation({
                 checked={local.items.includes(item)}
                 onChange={(event) => {
                   const done = event.target.checked;
-                  void save(
-                    { action: "readiness.set", item, done },
-                    {
-                      ...local,
-                      items: done ? [...local.items, item] : local.items.filter((value) => value !== item),
-                    },
-                  );
+                  save({ action: "readiness.set", item, done }, (current) => ({
+                    ...current,
+                    items: done
+                      ? [...current.items.filter((value) => value !== item), item]
+                      : current.items.filter((value) => value !== item),
+                  }));
                 }}
               />
             ))}
           </fieldset>
           {local.deidConfirmedAt ? (
-            <p>De-identification confirmed.</p>
+            <p
+              tabIndex={-1}
+              ref={(node) => {
+                if (node && focusDeid.current) {
+                  focusDeid.current = false;
+                  node.focus();
+                }
+              }}
+            >
+              De-identification confirmed.
+            </p>
           ) : (
             <Button
               type="button"
-              disabled={busy}
               variant="primary"
-              onClick={() =>
-                void save({ action: "readiness.deid.confirm" }, { ...local, deidConfirmedAt: new Date().toISOString() })
-              }
+              onClick={() => {
+                focusDeid.current = true;
+                save({ action: "readiness.deid.confirm" }, (current) => ({
+                  ...current,
+                  deidConfirmedAt: current.deidConfirmedAt ?? new Date().toISOString(),
+                }));
+              }}
             >
               I have checked that my material is de-identified
             </Button>
