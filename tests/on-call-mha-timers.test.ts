@@ -7,6 +7,7 @@ import {
   currentMhaTimerSwitchContent,
   isTimeframeSignedByNamedClinician,
   mhaTimerGate,
+  OWNER_CONFIRMED_TIMEFRAMES,
   mhaTimers,
   type MhaTimerSwitch,
 } from "@/lib/on-call/mha-timers";
@@ -83,6 +84,32 @@ describe("mhaTimers", () => {
       approvedSigners: SIGNERS,
     });
     expect(result.items.map((item) => item.kind)).toContain("countdown");
+  });
+
+  it("counts only the exact sign-offs the owner confirmed, not any entry labelled PsychSift", () => {
+    expect(isTimeframeSignedByNamedClinician(signedBy(entry("new-entry", 24), "PsychSift"))).toBe(false);
+    const shipped = (mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[])[0]!;
+    const resigned = signedBy({ ...shipped, anchor: "Changed anchor" }, "PsychSift");
+    expect(isTimeframeSignedByNamedClinician(resigned)).toBe(false);
+    expect(OWNER_CONFIRMED_TIMEFRAMES.map((row) => row.id)).toEqual(
+      (mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[]).map((candidate) => candidate.id),
+    );
+  });
+
+  it("turns the switch off when the owner-confirmed list changes", () => {
+    const shipped = mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[];
+    const timerSwitch = onSwitch(shipped);
+    expect(mhaTimerGate(timerSwitch, shipped, SIGNERS)).toEqual({ on: true });
+    const shorter = currentMhaTimerSwitchContent(
+      shipped,
+      timerSwitch.content.medicalDeviceRuling,
+      OWNER_CONFIRMED_TIMEFRAMES.slice(1),
+    );
+    const signedOverShorter: MhaTimerSwitch = {
+      content: shorter,
+      signOff: { ...timerSwitch.signOff, signedContentSha256: ruleContentSha256(shorter) },
+    };
+    expect(mhaTimerGate(signedOverShorter, shipped, SIGNERS)).toEqual({ on: false, reason: "stale-switch" });
   });
 
   it("does not accept an attribution the owner has not confirmed", () => {
