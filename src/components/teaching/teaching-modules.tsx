@@ -488,25 +488,30 @@ export function TeachingSwitch<T extends string>({
     };
   }, []);
 
+  // The `--teaching-segment-*` pair lives in the Teaching identity block, so a
+  // layout-free wrapper carries it; on the scroller itself the block's plum
+  // `--clinical-accent` would beat the overrides below.
   return (
-    <div
-      ref={scroller}
-      data-testid="teaching-switch"
-      data-fade={fade ? "true" : "false"}
-      className={cn(
-        "min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none]",
-        "[--clinical-accent:var(--text-heading)] [--clinical-accent-soft:var(--teaching-segment-on)] [--clinical-accent-border:var(--teaching-segment-line)]",
-        fade && "[mask-image:linear-gradient(90deg,black_80%,transparent)]",
-      )}
-    >
-      <SegmentedControl
-        value={value}
-        onChange={onChange}
-        options={options}
-        label={label}
-        layout="equal"
-        className="w-max min-w-full"
-      />
+    <div data-mode-identity="teaching" className="contents">
+      <div
+        ref={scroller}
+        data-testid="teaching-switch"
+        data-fade={fade ? "true" : "false"}
+        className={cn(
+          "min-w-0 overflow-x-auto overscroll-x-contain [scrollbar-width:none]",
+          "[--clinical-accent:var(--text-heading)] [--clinical-accent-soft:var(--teaching-segment-on)] [--clinical-accent-border:var(--teaching-segment-line)]",
+          fade && "[mask-image:linear-gradient(90deg,black_80%,transparent)]",
+        )}
+      >
+        <SegmentedControl
+          value={value}
+          onChange={onChange}
+          options={options}
+          label={label}
+          layout="equal"
+          className="w-max min-w-full"
+        />
+      </div>
     </div>
   );
 }
