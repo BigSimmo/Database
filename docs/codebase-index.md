@@ -406,7 +406,7 @@ progress, CPD routines and drafts, Teaching's needs-you counts) onto items, and
 `use-my-day-items.ts` merges them for the `/my-day` page and the home card. Read-only; nothing stored.
 
 **Psychiatry hub history.** `src/lib/psychiatry-hub/` (`visits.ts`) is the `/psychiatry` hub's
-on-device record of psychiatry records and tools the reader opened (path, page title, section,
+on-device record of psychiatry records the reader opened (not the query-driven tools) (path, page title, section,
 time; no patient detail), written by `src/components/psychiatry/psychiatry-visit-recorder.tsx` in
 the search-app layout only while "Save recent searches" is on. It feeds the hub's Continue list,
 monthly ring and most-opened forms, is cleared with recent searches and at account transitions,

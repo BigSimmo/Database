@@ -15,11 +15,10 @@ import {
 const now = Date.parse("2026-10-03T04:00:00Z"); // 12:00 Perth
 
 describe("psychiatryVisitKindForPath", () => {
-  it("records records and tools, never homes, searches or catalogue lists", () => {
+  it("records records only, never homes, searches, catalogue lists or the interactive tools", () => {
     expect(psychiatryVisitKindForPath("/dsm/diagnoses/major-depressive-disorder")).toBe("dsm");
-    expect(psychiatryVisitKindForPath("/dsm/compare")).toBe("dsm");
     expect(psychiatryVisitKindForPath("/differentials/presentations/agitation")).toBe("differentials");
-    expect(psychiatryVisitKindForPath("/specifiers/builder")).toBe("specifiers");
+    expect(psychiatryVisitKindForPath("/specifiers/melancholic-features")).toBe("specifiers");
     expect(psychiatryVisitKindForPath("/therapy-compass/cbt/brief")).toBe("therapy");
     expect(psychiatryVisitKindForPath("/forms/form-1a")).toBe("forms");
 
@@ -30,6 +29,18 @@ describe("psychiatryVisitKindForPath", () => {
     expect(psychiatryVisitKindForPath("/forms/search")).toBeNull();
     expect(psychiatryVisitKindForPath("/documents/abc")).toBeNull();
     expect(psychiatryVisitKindForPath("/psychiatry")).toBeNull();
+    // Tools keep their working state in the query, which a bare path cannot reopen.
+    for (const tool of [
+      "/dsm/compare",
+      "/specifiers/builder",
+      "/specifiers/map",
+      "/formulation/builder",
+      "/formulation/map",
+      "/therapy-compass/recommend",
+      "/therapy-compass/pathways",
+    ]) {
+      expect(psychiatryVisitKindForPath(tool)).toBeNull();
+    }
   });
 });
 
@@ -70,14 +81,12 @@ describe("normalisePsychiatryVisits", () => {
 });
 
 describe("figures", () => {
-  it("counts opens by Perth calendar month", () => {
-    const opens = [
-      { at: Date.parse("2026-10-01T00:00:00Z"), kind: "dsm" as const }, // 1 Oct 08:00 Perth
-      { at: Date.parse("2026-09-30T17:00:00Z"), kind: "dsm" as const }, // 1 Oct 01:00 Perth
-      { at: Date.parse("2026-09-30T15:00:00Z"), kind: "forms" as const }, // 30 Sep 23:00 Perth
-      { at: Date.parse("2026-08-15T00:00:00Z"), kind: "forms" as const },
-    ];
-    expect(psychiatryMonthFigures(opens, now)).toEqual({ thisMonth: 2, lastMonth: 1 });
+  it("reads this Perth month and last month from the monthly totals", () => {
+    expect(psychiatryMonthFigures({ "2026-10": 2, "2026-09": 1, "2026-08": 7 }, now)).toEqual({
+      thisMonth: 2,
+      lastMonth: 1,
+    });
+    expect(psychiatryMonthFigures({}, now)).toEqual({ thisMonth: 0, lastMonth: 0 });
   });
 
   it("ranks forms by opens, then by recency", () => {
@@ -87,11 +96,22 @@ describe("figures", () => {
       { href: "/forms/a", title: "A", kind: "forms", at: now - 3 },
       { href: "/forms/b", title: "B", kind: "forms", at: now - 4 },
     ];
-    expect(mostOpenedForms(visits, { "/forms/a": 3, "/forms/b": 1, "/forms/c": 1 }).map((v) => v.title)).toEqual([
-      "A",
-      "C",
-      "B",
-    ]);
+    const opens = [
+      { at: now - 30, kind: "forms" as const, href: "/forms/a" },
+      { at: now - 20, kind: "forms" as const, href: "/forms/a" },
+      { at: now - 10, kind: "forms" as const, href: "/forms/a" },
+      { at: now - 4, kind: "forms" as const, href: "/forms/b" },
+      { at: now - 1, kind: "forms" as const, href: "/forms/c" },
+    ];
+    expect(mostOpenedForms(visits, opens).map((v) => v.title)).toEqual(["A", "C", "B"]);
+  });
+
+  it("leaves the Act and Standards page out of the most-opened forms", () => {
+    const visits: PsychiatryVisit[] = [
+      { href: "/forms/act", title: "Mental Health Act 2014", kind: "forms", at: now - 1 },
+      { href: "/forms/a", title: "A", kind: "forms", at: now - 2 },
+    ];
+    expect(mostOpenedForms(visits, []).map((v) => v.href)).toEqual(["/forms/a"]);
   });
 
   it("sums the last seven days by section", () => {

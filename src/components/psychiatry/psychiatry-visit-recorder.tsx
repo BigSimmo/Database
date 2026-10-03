@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { mayRecordRecentSearches } from "@/components/clinical-dashboard/use-app-preferences";
+import { mayRecordRecentSearches, useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { psychiatryVisitKindForPath, psychiatryVisitTitle, recordPsychiatryVisit } from "@/lib/psychiatry-hub/visits";
 
 /** How long after a navigation the page title may still settle. */
@@ -17,14 +17,27 @@ const TITLE_WATCH_MS = 8_000;
  * can set a moment after the path changes, so the title is watched briefly and
  * the entry updated (not counted twice) if it changes. Nothing is written while
  * "Save recent searches" is off.
+ *
+ * Outside psychiatry records it renders nothing at all, so the preference
+ * bootstrap below only runs where something may be recorded.
  */
 export function PsychiatryVisitRecorder() {
   const pathname = usePathname();
+  if (!pathname || !psychiatryVisitKindForPath(pathname)) return null;
+  return <RecordVisits pathname={pathname} />;
+}
+
+/**
+ * Standalone record pages mount no other preferences reader, so this one runs
+ * the account bootstrap itself; until it settles, recording stays off, and the
+ * open is recorded once it does.
+ */
+function RecordVisits({ pathname }: { readonly pathname: string }) {
+  const { canRecordRecentSearches } = useAppPreferences();
 
   useEffect(() => {
-    if (!pathname) return undefined;
     const kind = psychiatryVisitKindForPath(pathname);
-    if (!kind) return undefined;
+    if (!kind || !canRecordRecentSearches) return undefined;
     const at = Date.now();
     let lastTitle: string | null = null;
     const record = () => {
@@ -43,7 +56,7 @@ export function PsychiatryVisitRecorder() {
       window.clearTimeout(stop);
       observer.disconnect();
     };
-  }, [pathname]);
+  }, [pathname, canRecordRecentSearches]);
 
   return null;
 }

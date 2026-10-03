@@ -41,6 +41,7 @@ import {
   psychiatryMonthFigures,
   psychiatryWeekBySection,
   subscribePsychiatryVisits,
+  type PsychiatryOpen,
   type PsychiatryVisit,
   type PsychiatryVisitKind,
 } from "@/lib/psychiatry-hub/visits";
@@ -288,12 +289,11 @@ function AskHero({
               What do you need to check?
             </p>
           </div>
-          <label
-            htmlFor="psychiatry-ask-input"
-            className="flex min-h-14 items-center gap-2 rounded-2xl bg-[color:var(--dash-raised)] py-1.5 pr-1.5 pl-3.5 text-[color:var(--dash-ink)] shadow-[var(--dash-shadow)] forced-colors:border"
-          >
+          <div className="flex min-h-14 items-center gap-2 rounded-2xl bg-[color:var(--dash-raised)] py-1.5 pr-1.5 pl-3.5 text-[color:var(--dash-ink)] shadow-[var(--dash-shadow)] forced-colors:border">
             <Search aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--dash-muted)]" />
-            <span className="sr-only">Your question</span>
+            <label htmlFor="psychiatry-ask-input" className="sr-only">
+              Your question
+            </label>
             <input
               id="psychiatry-ask-input"
               type="search"
@@ -314,7 +314,7 @@ function AskHero({
             >
               Ask
             </button>
-          </label>
+          </div>
           <div className="flex flex-wrap items-center gap-x-1.5 gap-y-0" data-testid="psychiatry-ask-try">
             <span className="text-xs opacity-85">Try</span>
             {sharedHomePresentation.psychiatry.suggestions.map((suggestion) => (
@@ -552,12 +552,12 @@ function ContinueCard({ visits, now }: { readonly visits: readonly PsychiatryVis
 
 function MentalHealthActCard({
   visits,
-  counts,
+  opens,
 }: {
   readonly visits: readonly PsychiatryVisit[];
-  readonly counts: Readonly<Record<string, number>>;
+  readonly opens: readonly PsychiatryOpen[];
 }) {
-  const forms = mostOpenedForms(visits, counts);
+  const forms = mostOpenedForms(visits, opens);
   const chip = (href: string, label: string, testId?: string) => (
     <Link
       key={href}
@@ -737,7 +737,7 @@ export function PsychiatryHome({
   const now = useNow(nowProp);
   const state = usePsychiatryVisits();
   const nowMs = now?.getTime() ?? null;
-  const month = nowMs === null ? { thisMonth: 0, lastMonth: 0 } : psychiatryMonthFigures(state.opens, nowMs);
+  const month = nowMs === null ? { thisMonth: 0, lastMonth: 0 } : psychiatryMonthFigures(state.months, nowMs);
   const week = nowMs === null ? [] : psychiatryWeekBySection(state.opens, nowMs);
 
   return (
@@ -766,7 +766,7 @@ export function PsychiatryHome({
               </DashCard>
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 <ContinueCard visits={state.visits} now={now} />
-                <MentalHealthActCard visits={state.visits} counts={state.counts} />
+                <MentalHealthActCard visits={state.visits} opens={state.opens} />
               </div>
             </>
           ) : null}

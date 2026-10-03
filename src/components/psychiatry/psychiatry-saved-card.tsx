@@ -19,6 +19,11 @@ import { appModeHomeHref } from "@/lib/app-modes";
 export function PsychiatrySavedCard() {
   const { items, status, refetch } = useSavedRegistryFavourites();
   const saved = items.filter((item) => item.type !== "services");
+  const retry = (
+    <button type="button" onClick={refetch} className={cn(focusRing, dashLink, "min-h-12 rounded-full px-1")}>
+      Try again
+    </button>
+  );
   return (
     <DashCard
       title="Saved"
@@ -32,6 +37,11 @@ export function PsychiatrySavedCard() {
         </Link>
       }
     >
+      {status === "partial" ? (
+        <p className={cn(dashMuted, "mb-2")} data-testid="psychiatry-saved-partial">
+          Some of your saved items couldn&apos;t load, so this list may be incomplete. {retry}
+        </p>
+      ) : null}
       {saved.length > 0 ? (
         <ul
           role="list"
@@ -67,17 +77,12 @@ export function PsychiatrySavedCard() {
           Loading your saved items…
         </p>
       ) : status === "error" ? (
-        <p className={dashMuted}>
-          Couldn&apos;t load your saved items.{" "}
-          <button type="button" onClick={refetch} className={cn(focusRing, dashLink, "min-h-12 rounded-full px-1")}>
-            Try again
-          </button>
-        </p>
+        <p className={dashMuted}>Couldn&apos;t load your saved items. {retry}</p>
       ) : status === "unauthorized" ? (
         <p className={dashMuted} data-testid="psychiatry-saved-signed-out">
           Sign in to see what you&apos;ve saved.
         </p>
-      ) : (
+      ) : status === "partial" ? null : (
         <p className={dashMuted} data-testid="psychiatry-saved-empty">
           Nothing saved yet. Save a form, therapy or differential and it will appear here.
         </p>

@@ -38,8 +38,23 @@ export const PSYCHIATRY_VISIT_KIND_LABEL: Readonly<Record<PsychiatryVisitKind, s
   forms: "Forms",
 };
 
-/** Listing and search pages are not "a thing you opened"; only records and tools are. */
-const NON_RECORD_SEGMENTS = new Set(["search", "presentations", "diagnoses"]);
+/**
+ * Listing and search pages are not "a thing you opened", and the interactive
+ * tools (builders, compare, maps, the recommender) keep their working state in
+ * the address's query, which a bare path cannot bring back. Only records are
+ * recorded, so "Pick up where you left off" always reopens what was left.
+ */
+const NON_RECORD_SEGMENTS = new Set([
+  "search",
+  "presentations",
+  "diagnoses",
+  "compare",
+  "builder",
+  "map",
+  "pathways",
+  "recommend",
+  "review",
+]);
 
 const PATH_RULES: ReadonlyArray<{ readonly prefix: string; readonly kind: PsychiatryVisitKind }> = [
   { prefix: "/dsm/", kind: "dsm" },
@@ -51,8 +66,8 @@ const PATH_RULES: ReadonlyArray<{ readonly prefix: string; readonly kind: Psychi
 ];
 
 /**
- * The section a path belongs to, or null when it is not a record or tool page:
- * section homes, search pages and catalogue lists return null. Documents are
+ * The section a path belongs to, or null when it is not a record page: section
+ * homes, search pages, catalogue lists and the interactive tools return null. Documents are
  * left out: the viewer's page title does not name the document, so there is
  * nothing honest to list.
  */
@@ -121,7 +136,12 @@ export function withPsychiatryVisit(visits: readonly PsychiatryVisit[], visit: P
 export interface PsychiatryOpen {
   readonly at: number;
   readonly kind: PsychiatryVisitKind;
+  /** The path opened, so per-record counts expire with the 90-day history. */
+  readonly href?: string;
 }
+
+/** The newest opens kept for the weekly chart and per-record counts. */
+export const PSYCHIATRY_OPEN_LIMIT = 500;
 
 function isOpen(value: unknown, now: number): value is PsychiatryOpen {
   if (!value || typeof value !== "object") return false;
@@ -131,37 +151,49 @@ function isOpen(value: unknown, now: number): value is PsychiatryOpen {
     Number.isFinite(record.at) &&
     now - record.at <= PSYCHIATRY_VISIT_TTL_MS &&
     typeof record.kind === "string" &&
-    record.kind in PSYCHIATRY_VISIT_KIND_LABEL
+    record.kind in PSYCHIATRY_VISIT_KIND_LABEL &&
+    (record.href === undefined || (typeof record.href === "string" && record.href.startsWith("/")))
   );
 }
 
-/**
- * Opens per path are counted separately from the de-duplicated list, so the
- * forms card can rank "most opened". Stored beside the list as `counts`.
- */
 interface StoredVisits {
   readonly visits: PsychiatryVisit[];
-  readonly counts: Record<string, number>;
-  /** Every open (time and section) inside the 90 days, for the monthly and weekly figures. */
+  /**
+   * The newest opens (time, section, path) inside the 90 days, for the weekly
+   * chart and the forms card's "most opened". Capped, so not used for totals.
+   */
   readonly opens: PsychiatryOpen[];
+  /**
+   * Exact opens per Perth calendar month ("2026-10"), this month and last
+   * only, so the ring's totals stay true however many records are opened.
+   */
+  readonly months: Record<string, number>;
 }
 
-const EMPTY: StoredVisits = { visits: [], counts: {}, opens: [] };
+const EMPTY: StoredVisits = { visits: [], opens: [], months: {} };
+
+/** Only this Perth month and the one before it are kept. */
+function currentMonths(months: Readonly<Record<string, number>>, now: number): Record<string, number> {
+  const month = perthMonth(now);
+  const keep = new Set([month, previousMonth(month)]);
+  const kept: Record<string, number> = {};
+  for (const [key, count] of Object.entries(months)) {
+    if (keep.has(key) && Number.isInteger(count) && count > 0) kept[key] = count;
+  }
+  return kept;
+}
 
 function parseStored(raw: string | null, now: number): StoredVisits {
   if (!raw) return EMPTY;
   try {
     const parsed = JSON.parse(raw) as Partial<StoredVisits> | null;
     const visits = normalisePsychiatryVisits(parsed?.visits, now);
-    const kept = new Set(visits.map((visit) => visit.href));
-    const counts: Record<string, number> = {};
-    if (parsed?.counts && typeof parsed.counts === "object") {
-      for (const [href, count] of Object.entries(parsed.counts)) {
-        if (kept.has(href) && typeof count === "number" && Number.isFinite(count) && count > 0) counts[href] = count;
-      }
-    }
     const opens = Array.isArray(parsed?.opens) ? parsed.opens.filter((open) => isOpen(open, now)) : [];
-    return { visits, counts, opens };
+    const months =
+      parsed?.months && typeof parsed.months === "object" && !Array.isArray(parsed.months)
+        ? currentMonths(parsed.months, now)
+        : {};
+    return { visits, opens, months };
   } catch {
     return EMPTY;
   }
@@ -200,10 +232,15 @@ export function recordPsychiatryVisit(visit: PsychiatryVisit): void {
   const previous = current.visits.find((existing) => existing.href === visit.href);
   // A title that arrives late (the page set it after the first read) updates the entry, not the counts.
   const sameOpen = previous !== undefined && visit.at - previous.at < 5_000;
+  const month = perthMonth(visit.at);
   const next: StoredVisits = {
     visits: withPsychiatryVisit(current.visits, sameOpen ? { ...visit, at: previous.at } : visit),
-    counts: sameOpen ? current.counts : { ...current.counts, [visit.href]: (current.counts[visit.href] ?? 0) + 1 },
-    opens: sameOpen ? current.opens : [...current.opens, { at: visit.at, kind: visit.kind }].slice(-500),
+    opens: sameOpen
+      ? current.opens
+      : [...current.opens, { at: visit.at, kind: visit.kind, href: visit.href }].slice(-PSYCHIATRY_OPEN_LIMIT),
+    months: sameOpen
+      ? current.months
+      : currentMonths({ ...current.months, [month]: (current.months[month] ?? 0) + 1 }, visit.at),
   };
   try {
     window.localStorage.setItem(PSYCHIATRY_VISITS_STORAGE_KEY, JSON.stringify(next));
@@ -259,30 +296,32 @@ function previousMonth(month: string): string {
 
 /** Records opened this Perth calendar month, and last month, for the hub's ring. Pure. */
 export function psychiatryMonthFigures(
-  opens: readonly PsychiatryOpen[],
+  months: Readonly<Record<string, number>>,
   now: number,
 ): { thisMonth: number; lastMonth: number } {
   const month = perthMonth(now);
-  const last = previousMonth(month);
-  let thisMonth = 0;
-  let lastMonth = 0;
-  for (const open of opens) {
-    const openMonth = perthMonth(open.at);
-    if (openMonth === month) thisMonth += 1;
-    else if (openMonth === last) lastMonth += 1;
-  }
-  return { thisMonth, lastMonth };
+  return { thisMonth: months[month] ?? 0, lastMonth: months[previousMonth(month)] ?? 0 };
 }
 
-/** The forms opened most, most first, ties to the most recent. Pure. */
+/** The Act and Standards page is a reference, not a form; the card links it separately. */
+const NOT_A_FORM = new Set(["/forms/act"]);
+
+/**
+ * The forms opened most in the 90 days, most first, ties to the most recent.
+ * Counted from the timestamped opens, so old opens expire with the history. Pure.
+ */
 export function mostOpenedForms(
   visits: readonly PsychiatryVisit[],
-  counts: Readonly<Record<string, number>>,
+  opens: readonly PsychiatryOpen[],
   limit = 4,
 ): PsychiatryVisit[] {
+  const counts = new Map<string, number>();
+  for (const open of opens) {
+    if (open.href) counts.set(open.href, (counts.get(open.href) ?? 0) + 1);
+  }
   return visits
-    .filter((visit) => visit.kind === "forms")
-    .map((visit, recency) => ({ visit, recency, count: counts[visit.href] ?? 1 }))
+    .filter((visit) => visit.kind === "forms" && !NOT_A_FORM.has(visit.href))
+    .map((visit, recency) => ({ visit, recency, count: counts.get(visit.href) ?? 1 }))
     .sort((a, b) => b.count - a.count || a.recency - b.recency)
     .slice(0, limit)
     .map(({ visit }) => visit);
