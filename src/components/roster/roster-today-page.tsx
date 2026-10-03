@@ -41,6 +41,7 @@ import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterNightDial } from "./roster-night-dial";
+import { RosterFatigueRestRing } from "./roster-fatigue-rest-ring";
 import { RosterIdentityTile, RosterPageHeader, RosterSection, RosterStat, RosterStats } from "./roster-ui";
 import { RosterWeekStrip } from "./roster-week-strip";
 import { hasFreshLink, refreshDueRosterLinks, useRosterLinks } from "./use-roster-links";
@@ -412,6 +413,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onImport={() => setImporting(true)}
                 onAddShift={() => setAddView("shift")}
               />
+              <RosterFatigueRestRing shifts={shifts.shifts} now={now} />
               <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
                 <>

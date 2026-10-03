@@ -8,7 +8,11 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
 import { perthDateKey, perthTime, shortDayLabel } from "@/components/teaching/teaching-dates";
+import { defaultCpdHours } from "@/components/teaching/log-to-cpd-sheet";
+import { TeachingCpdBridgeSheet } from "@/components/teaching/teaching-cpd-bridge-sheet";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
+import { useSessionDetail } from "@/components/teaching/use-session-detail";
+import { useTeachingNow } from "@/components/teaching/use-teaching-now";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { TextField } from "@/components/ui/text-field";
 import { cn, textMuted } from "@/components/ui-primitives";
@@ -69,7 +73,20 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
   const [email, setEmail] = useState("");
   const [emailError, setEmailError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [cpdBridgeOpen, setCpdBridgeOpen] = useState(false);
   const started = useRef(false);
+
+  const occurrenceId = state.kind === "done" ? state.mark.occurrenceId : null;
+  const now = useTeachingNow();
+  const sessionDetail = useSessionDetail(occurrenceId, false, now);
+
+  const sessionStartsAt = sessionDetail.data?.startsAt ?? state.opened?.startsAt;
+  const sessionEndsAt = sessionDetail.data?.endsAt;
+  const cpdHours =
+    sessionStartsAt && sessionEndsAt
+      ? Number(defaultCpdHours({ startsAt: sessionStartsAt, endsAt: sessionEndsAt }))
+      : 1.0;
+  const hasEnded = sessionEndsAt ? new Date(sessionEndsAt).getTime() <= (now?.getTime() ?? Date.now()) : true;
 
   const run = useCallback(
     async (step: Step, known: CheckinOpened | null) => {
@@ -160,6 +177,20 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
         {state.kind === "done" ? (
           <>
             <p className="text-sm text-[color:var(--text-heading)]">{attendanceLabels[state.mark.method]}</p>
+            {!hasEnded && sessionEndsAt ? (
+              <p className="text-xs text-[color:var(--text-muted)]">
+                You can log this session to CPD once it has ended at {perthTime(sessionEndsAt)}.
+              </p>
+            ) : null}
+            <Button
+              variant="primary"
+              block
+              disabled={!hasEnded}
+              onClick={() => setCpdBridgeOpen(true)}
+              data-testid="teaching-scan-cpd-bridge-open"
+            >
+              {hasEnded ? `Log ${cpdHours.toFixed(1)} h to CPD` : "Available once session ends"}
+            </Button>
             <Link
               href={`/teaching/session/${state.mark.occurrenceId}`}
               className={cn(buttonFaceClass({ variant: "secondary", block: true }), "no-underline")}
@@ -167,6 +198,13 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
               Open the session
             </Link>
             {todayLink}
+            <TeachingCpdBridgeSheet
+              open={cpdBridgeOpen}
+              onClose={() => setCpdBridgeOpen(false)}
+              occurrenceId={state.mark.occurrenceId}
+              title={opened?.title ?? sessionDetail.data?.title ?? "Teaching Session"}
+              hours={cpdHours}
+            />
           </>
         ) : null}
 

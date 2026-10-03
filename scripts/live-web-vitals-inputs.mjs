@@ -6,6 +6,7 @@
 import { appendFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 import { collidingRouteSlugs, WEB_VITALS_STRATEGIES, WEB_VITALS_MIN_SAMPLES } from "./summarise-web-vitals.mjs";
 
@@ -108,7 +109,7 @@ export function parseLiveWebVitalsInputs({ origin, routes, samples }) {
   return { origin: normalizedOrigin, routes: normalizedRoutes, samples: normalizedSamples, invocations };
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isDirectEntrypoint(import.meta.url)) {
   const result = parseLiveWebVitalsInputs({
     origin: process.argv[2],
     routes: process.argv[3],

@@ -12,6 +12,8 @@ import { lstatSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
+
 const ZERO_MUTATIONS = Object.freeze({ cleaned: 0, pruned: 0, removed: 0, deregistered: 0 });
 const READ_ONLY_GIT_ENV = Object.freeze({
   GIT_OPTIONAL_LOCKS: "0",
@@ -793,5 +795,5 @@ function main() {
   }
 }
 
-const isDirectRun = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+const isDirectRun = isDirectEntrypoint(import.meta.url);
 if (isDirectRun) main();
