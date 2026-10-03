@@ -18,6 +18,17 @@ vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => auth,
 }));
 
+// The dashboard's own reads (Roster shifts, today's Teaching, CPD hours) answer
+// "nothing" here, so only the My Day items drive what these tests see. The
+// dashboard cards themselves are covered in `my-day-dashboard.dom.test.tsx`.
+vi.mock("@/components/my-day/use-my-day-dashboard-sources", () => ({
+  useMyDayDashboardSources: () => ({
+    roster: { status: "unavailable", shifts: [], sample: false },
+    teaching: { status: "unavailable", sessions: [], sample: false },
+    cpd: { status: "unavailable", year: null, loggedHours: 0, targetHours: 0, sample: false },
+  }),
+}));
+
 vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
   AccountSetupDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="account-dialog" /> : null),
 }));
@@ -126,11 +137,14 @@ describe("MyDayPage", () => {
     expect(screen.getByTestId("my-day-signed-out")).toBeTruthy();
   });
 
+  // The grouped list is now the dashboard's "All N" view (the default view is
+  // the card dashboard), so these two open it first.
   it("groups items as Needs you now, Due soon, Later in that order and omits empty groups", () => {
     setState({
       items: [item("a", "overdue"), item("b", "soon"), item("c", "info", { mode: "cme", detail: "Extra line" })],
     });
     render(<MyDayPage now={NOW} />);
+    fireEvent.click(screen.getByRole("button", { name: "All 3" }));
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
     expect(headings).toEqual(["Needs you now", "Due soon", "Later"]);
     const later = screen.getByTestId("my-day-item-c");
@@ -141,6 +155,7 @@ describe("MyDayPage", () => {
     setState({ items: [item("b", "soon")] });
     cleanup();
     render(<MyDayPage now={NOW} />);
+    fireEvent.click(screen.getByRole("button", { name: "All 1" }));
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["Due soon"]);
   });
 
@@ -149,6 +164,7 @@ describe("MyDayPage", () => {
       items: [item("a", "overdue"), item("o", "overdue", { mode: "cme" }), item("b", "soon"), item("c", "info")],
     });
     render(<MyDayPage now={NOW} />);
+    fireEvent.click(screen.getByRole("button", { name: "All 4" }));
     expect(screen.getByTestId("my-day-item-a").textContent).toContain("Admin · Date passed · ");
     expect(screen.getByTestId("my-day-item-o").textContent).toContain("CPD · Overdue · ");
     expect(screen.getByTestId("my-day-item-b").textContent).toContain("Admin · Due soon · ");
@@ -188,12 +204,42 @@ describe("MyDayPage", () => {
     );
   });
 
-  it("says when the data is demo data", () => {
+  // Demo data is shown only in a local demo build with no sign-in ("unconfigured").
+  it("says when the data is demo data, in a local demo build", () => {
+    auth.status = "unconfigured";
     setState({ demoMode: true, items: [item("a", "soon")] });
     render(<MyDayPage now={NOW} />);
     expect(screen.getByTestId("my-day-demo-notice").textContent).toContain(
       "Demo data: these items are invented examples.",
     );
+    expect(screen.getByTestId("my-day-item-a")).toBeTruthy();
+  });
+
+  it("never shows a signed-in reader items from a source that answered with sample data", () => {
+    setState({
+      demoMode: true,
+      items: [item("a", "soon", { mode: "cme" }), item("b", "soon")],
+      sources: readySources.map((source) => (source.mode === "cme" ? { ...source, sample: true } : source)),
+    });
+    render(<MyDayPage now={NOW} />);
+    expect(screen.queryByTestId("my-day-item-a")).toBeNull();
+    expect(screen.getByTestId("my-day-item-b")).toBeTruthy();
+    expect(screen.queryByTestId("my-day-demo-notice")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "All 1" }));
+    expect(screen.queryByTestId("my-day-item-a")).toBeNull();
+  });
+
+  it("opens the full list from All N and comes back to the dashboard", () => {
+    setState({ items: [item("a", "overdue"), item("b", "soon"), item("c", "soon"), item("d", "info")] });
+    render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-dashboard")).toBeTruthy();
+    expect(screen.queryByTestId("my-day-item-d")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "All 4" }));
+    expect(screen.getByTestId("my-day-full-list")).toBeTruthy();
+    expect(screen.getByTestId("my-day-item-d")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to dashboard" }));
+    expect(screen.getByTestId("my-day-dashboard")).toBeTruthy();
   });
 
   it("does not claim 'nothing needs you' when no source could be checked", () => {

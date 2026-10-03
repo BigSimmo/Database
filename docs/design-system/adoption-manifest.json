@@ -327,6 +327,7 @@
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/developer-area/hub/roster-teams-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/my-day/my-day-dashboard.tsx",
         "src/components/my-day/my-day-page.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
@@ -457,6 +458,7 @@
         "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/my-day/my-day-dashboard.tsx",
         "src/components/my-day/my-day-page.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
@@ -2824,12 +2826,14 @@
       "directImportFiles": [
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/today/today-coming-up-module.tsx",
-        "src/components/calendar/calendar-view.tsx"
+        "src/components/calendar/calendar-view.tsx",
+        "src/components/my-day/my-day-dashboard.tsx"
       ],
       "productImportFiles": [
         "src/components/admin/renewals/item-detail-sheet.tsx",
         "src/components/admin/today/today-coming-up-module.tsx",
-        "src/components/calendar/calendar-view.tsx"
+        "src/components/calendar/calendar-view.tsx",
+        "src/components/my-day/my-day-dashboard.tsx"
       ],
       "designSync": {
         "listedInSourceMap": true,

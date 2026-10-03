@@ -1,116 +1,148 @@
 "use client";
 
-import { LogIn, Sunrise } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ChevronLeft, LogIn, Sunrise } from "lucide-react";
+import { useMemo, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
+import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { ModeStateLabel } from "@/components/mode-kit/state-label";
-import { modeSecondaryText } from "@/components/mode-kit/type";
+import { MyDayDashboard, type MyDayDashboardProps } from "@/components/my-day/my-day-dashboard";
+import { listNames, MyDayItemRow, myDayModeLabel, useMyDayNow } from "@/components/my-day/my-day-page-parts";
+import { useMyDayDashboardSources } from "@/components/my-day/use-my-day-dashboard-sources";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui-primitives";
 import { formatDateEcho } from "@/lib/admin/renewal-dates";
-import { appModeDefinition } from "@/lib/app-modes";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import { formatMyDayDue } from "@/lib/my-day/merge";
 import {
   myDayEnabledForAuth,
   myDayNeedsSignIn,
   myDaySourceModes,
   type MyDayItem,
-  type MyDaySourceMode,
+  type MyDayState,
 } from "@/lib/my-day/model";
 import { useAuthSession } from "@/lib/supabase/client";
 
-const PAGE_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6";
-const TICK_MS = 60_000;
+const PAGE_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6 lg:max-w-5xl";
 
-/** The reader's clock, re-read every minute so "Today · 14:30" stays honest and the day rolls over. */
-export function useMyDayNow(nowProp?: Date): Date {
-  const [tick, setTick] = useState(() => new Date());
-  useEffect(() => {
-    if (nowProp) return;
-    const timer = setInterval(() => setTick(new Date()), TICK_MS);
-    return () => clearInterval(timer);
-  }, [nowProp]);
-  return nowProp ?? tick;
+/**
+ * Invented sample data is shown only in a local demo build with no sign-in
+ * configured. For a signed-in reader, any source that answered with sample
+ * data contributes nothing, so no invented item is ever shown as theirs.
+ */
+function myDayShownItems(state: MyDayState, allowSample: boolean): readonly MyDayItem[] {
+  if (allowSample) return state.items;
+  const sampleModes = new Set(state.sources.filter((source) => source.sample === true).map((source) => source.mode));
+  return sampleModes.size ? state.items.filter((item) => !sampleModes.has(item.mode)) : state.items;
 }
 
-function modeLabel(mode: MyDaySourceMode): string {
-  return appModeDefinition(mode).label;
-}
-
-/** One My Day row, shared by the page and the home card. */
-export function MyDayItemRow({ item, now }: { readonly item: MyDayItem; readonly now: Date }) {
-  const due = formatMyDayDue(item.due, now);
-  // The state word is part of the link's own text, so it never relies on colour or a dot.
-  const stateWord =
-    item.severity === "overdue"
-      ? item.mode === "my-work"
-        ? "Date passed"
-        : "Overdue"
-      : item.severity === "soon"
-        ? "Due soon"
-        : "";
-  const subtitle = [modeLabel(item.mode), stateWord, due].filter(Boolean).join(" · ");
+/** The full list ("All N"): every item, grouped by urgency, as My Day first shipped it. */
+function MyDayFullList({
+  items,
+  now,
+  checked,
+  onBack,
+  onRetry,
+}: {
+  readonly items: readonly MyDayItem[];
+  readonly now: Date;
+  readonly checked: readonly string[];
+  readonly onBack: () => void;
+  readonly onRetry: () => void;
+}) {
+  const sections = [
+    { key: "overdue", eyebrow: "Needs you now", items: items.filter((item) => item.severity === "overdue") },
+    { key: "soon", eyebrow: "Due soon", items: items.filter((item) => item.severity === "soon") },
+    { key: "later", eyebrow: "Later", items: items.filter((item) => item.severity === "info") },
+  ].filter((section) => section.items.length > 0);
   return (
-    <ModeRow
-      title={item.title}
-      subtitle={subtitle}
-      meta={
-        item.detail ? <span className={cn(modeSecondaryText, "break-words leading-5")}>{item.detail}</span> : undefined
-      }
-      href={item.href}
-      testId={`my-day-item-${item.id}`}
-      trailing={
-        stateWord ? (
-          <span aria-hidden="true">
-            <ModeStateLabel tone={item.severity === "overdue" ? "warning" : "muted"}>{stateWord}</ModeStateLabel>
-          </span>
-        ) : undefined
-      }
-    />
+    <div className="grid gap-5" data-testid="my-day-full-list">
+      <div>
+        <Button variant="ghost" icon={ChevronLeft} onClick={onBack} data-testid="my-day-back">
+          Back to dashboard
+        </Button>
+      </div>
+      {sections.length === 0 ? (
+        <div data-testid="my-day-empty">
+          {checked.length > 0 ? (
+            <EmptyState icon={Sunrise} title="Nothing needs you right now" body={`Checked ${listNames(checked)}.`} />
+          ) : (
+            <EmptyState
+              icon={Sunrise}
+              title="Couldn't check your day"
+              body="No source could be checked just now."
+              actions={
+                <Button variant="secondary" onClick={onRetry}>
+                  Retry
+                </Button>
+              }
+            />
+          )}
+        </div>
+      ) : (
+        sections.map((section) => (
+          <ModeGroupedList key={section.key} eyebrow={section.eyebrow} testId={`my-day-section-${section.key}`}>
+            {section.items.map((item) => (
+              <MyDayItemRow key={item.id} item={item} now={now} />
+            ))}
+          </ModeGroupedList>
+        ))
+      )}
+    </div>
   );
 }
 
-export function listNames(names: readonly string[]): string {
-  if (names.length <= 1) return names.join("");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+/** The dashboard's own reads, mounted only for an enabled reader and remounted per sign-in. */
+function MyDayDashboardView({
+  allowSample,
+  ...props
+}: Omit<MyDayDashboardProps, "sources"> & { readonly allowSample: boolean }) {
+  const sources = useMyDayDashboardSources({ today: props.today, allowSample });
+  return <MyDayDashboard {...props} sources={sources} />;
 }
 
 export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
-  const { status: authStatus } = useAuthSession();
+  const { status: authStatus, authEpoch } = useAuthSession();
   const enabled = myDayEnabledForAuth(authStatus);
+  // Only a local demo build with no sign-in may show invented examples.
+  const allowSample = authStatus === "unconfigured";
   const now = useMyDayNow(nowProp);
+  const today = perthCalendarDate(now);
   const state = useMyDayItems({ enabled, now });
   const [signInOpen, setSignInOpen] = useState(false);
+  const [view, setView] = useState<"dashboard" | "all">("dashboard");
+  const [editing, setEditing] = useState(false);
 
-  const failed = state.sources.filter((source) => source.status === "failed").map((source) => modeLabel(source.mode));
+  const items = useMemo(() => myDayShownItems(state, allowSample), [state, allowSample]);
+  const failed = state.sources
+    .filter((source) => source.status === "failed")
+    .map((source) => myDayModeLabel(source.mode));
   const rosterUnavailable = state.sources.some((source) => source.mode === "roster" && source.status === "unavailable");
   const otherUnavailable = state.sources
     .filter((source) => source.status === "unavailable" && source.mode !== "roster")
-    .map((source) => modeLabel(source.mode));
+    .map((source) => myDayModeLabel(source.mode));
   const checked = myDaySourceModes
     .filter((mode) => state.sources.some((source) => source.mode === mode && source.status === "ready"))
-    .map(modeLabel);
-
-  const sections = [
-    { key: "overdue", eyebrow: "Needs you now", items: state.items.filter((item) => item.severity === "overdue") },
-    { key: "soon", eyebrow: "Due soon", items: state.items.filter((item) => item.severity === "soon") },
-    { key: "later", eyebrow: "Later", items: state.items.filter((item) => item.severity === "info") },
-  ].filter((section) => section.items.length > 0);
+    .map(myDayModeLabel);
+  const myWorkSample = state.sources.some((source) => source.mode === "my-work" && source.sample === true);
+  const nextRenewal = state.nextRenewal && (allowSample || !myWorkSample) ? state.nextRenewal : null;
+  const ready = enabled && state.status === "ready";
 
   return (
     <InformationPageShell testId="my-day-main">
       <div className={PAGE_WIDTH}>
-        <header className="grid gap-0.5" data-testid="my-day-header">
-          <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">My Day</h1>
-          <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(perthCalendarDate(now))}</p>
+        <header className="flex min-w-0 items-end justify-between gap-3" data-testid="my-day-header">
+          <div className="grid min-w-0 gap-0.5">
+            <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">My Day</h1>
+            <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(today)}</p>
+          </div>
+          {ready && view === "dashboard" ? (
+            <Button variant="ghost" onClick={() => setEditing((value) => !value)} data-testid="my-day-edit">
+              {editing ? "Done" : "Edit"}
+            </Button>
+          ) : null}
         </header>
 
         {authStatus === "loading" || (enabled && state.status === "loading") ? (
@@ -118,9 +150,15 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
             <span role="status" className="sr-only">
               Loading My Day
             </span>
-            <div className="grid gap-5" data-testid="my-day-loading" aria-hidden="true">
-              <ModeModuleSkeleton rows={3} twoLine eyebrow />
-              <ModeModuleSkeleton rows={2} twoLine eyebrow />
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-testid="my-day-loading" aria-hidden="true">
+              <div className="col-span-2">
+                <ModeModuleSkeleton rows={2} twoLine eyebrow />
+              </div>
+              <ModeModuleSkeleton rows={2} eyebrow />
+              <ModeModuleSkeleton rows={2} eyebrow />
+              <div className="col-span-2">
+                <ModeModuleSkeleton rows={3} twoLine eyebrow />
+              </div>
             </div>
           </>
         ) : null}
@@ -152,9 +190,9 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
           </div>
         ) : null}
 
-        {enabled && state.status === "ready" ? (
+        {ready ? (
           <div className="grid gap-5" data-testid="my-day-ready">
-            {state.demoMode ? (
+            {allowSample && state.demoMode ? (
               <ModeNotice testId="my-day-demo-notice">Demo data: these items are invented examples.</ModeNotice>
             ) : null}
             {failed.length > 0 ? (
@@ -180,39 +218,34 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
               </ModeNotice>
             ) : null}
 
-            {sections.length === 0 ? (
-              <div data-testid="my-day-empty">
-                {checked.length > 0 ? (
-                  <EmptyState
-                    icon={Sunrise}
-                    title="Nothing needs you right now"
-                    body={`Checked ${listNames(checked)}.`}
-                  />
-                ) : (
-                  <EmptyState
-                    icon={Sunrise}
-                    title="Couldn't check your day"
-                    body="No source could be checked just now."
-                    actions={
-                      <Button variant="secondary" onClick={state.retry}>
-                        Retry
-                      </Button>
-                    }
-                  />
-                )}
-              </div>
+            {view === "all" ? (
+              <MyDayFullList
+                items={items}
+                now={now}
+                checked={checked}
+                onBack={() => setView("dashboard")}
+                onRetry={state.retry}
+              />
             ) : (
-              sections.map((section) => (
-                <ModeGroupedList key={section.key} eyebrow={section.eyebrow} testId={`my-day-section-${section.key}`}>
-                  {section.items.map((item) => (
-                    <MyDayItemRow key={item.id} item={item} now={now} />
-                  ))}
-                </ModeGroupedList>
-              ))
+              <MyDayDashboardView
+                key={authEpoch}
+                allowSample={allowSample}
+                now={now}
+                today={today}
+                items={items}
+                nextRenewal={nextRenewal}
+                checked={checked}
+                editing={editing}
+                onShowAll={() => {
+                  setEditing(false);
+                  setView("all");
+                }}
+                onRetry={state.retry}
+              />
             )}
 
             <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-footer">
-              Read-only. Open an item to act on it in its own mode.
+              Read-only. Open an item to act on it in its own mode. Later and Edit are kept on this device only.
             </p>
           </div>
         ) : null}

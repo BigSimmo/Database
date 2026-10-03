@@ -59,6 +59,21 @@ export interface MyDaySourceResult {
   readonly sample?: boolean;
 }
 
+/**
+ * The reader's next recorded Admin date still ahead (today or later), for the
+ * dashboard's "Next renewal" card. Read from Admin's own "Coming up" selector.
+ */
+export interface MyDayNextRenewal {
+  readonly entryId: string;
+  /** The reader's own label for the requirement, as Admin shows it. */
+  readonly title: string;
+  /** `YYYY-MM-DD`, the recorded date. */
+  readonly date: string;
+  readonly href: string;
+  /** True when it comes from invented demo entries. */
+  readonly sample: boolean;
+}
+
 /** The whole view, as the page and the home card read it. */
 export interface MyDayState {
   /** `loading` until every enabled source has settled at least once. */
@@ -69,4 +84,6 @@ export interface MyDayState {
   /** True when any source is showing demo/sample data. */
   readonly demoMode: boolean;
   readonly retry: () => void;
+  /** Admin's next recorded date ahead; absent until Admin's read is ready, null when there is none. */
+  readonly nextRenewal?: MyDayNextRenewal | null;
 }
