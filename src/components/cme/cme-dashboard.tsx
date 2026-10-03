@@ -25,6 +25,7 @@ import { CmeTodayShortcuts } from "@/components/cme/cme-dashboard-shortcuts";
 import { CmeWhatsLeft } from "@/components/cme/cme-dashboard-whats-left";
 import { CmeHeroSummary } from "@/components/cme/cme-hero-summary";
 import { CmePaceChart } from "@/components/cme/cme-progress-visuals";
+import { CmeYearInWeeks } from "@/components/cme/cme-year-in-weeks";
 import { Button } from "@/components/ui/button";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
@@ -403,6 +404,10 @@ export function CmeDashboard({
           showWeekly={weeklyPace !== null && weeklyPace.weeksLeft >= 1}
           onOpenDetail={() => setDetail("gap")}
         />
+      </div>
+
+      <div className="mt-3">
+        <CmeYearInWeeks entries={entries} year={set.year} now={now} />
       </div>
 
       {!nextStepInList ? (

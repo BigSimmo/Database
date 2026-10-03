@@ -51,6 +51,8 @@ export const PLAN_DRAFT_STORAGE_KEY = "caring-contacts:plan-draft";
 export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
 /** localStorage — the chosen hospital on the First Nations mode home. Describes no patient. */
 export const FIRST_NATIONS_HOSPITAL_STORAGE_KEY = "first-nations:hospital-v1";
+/** localStorage — personal doctor credentials (Ahpra, prescriber, provider numbers) saved on-device. */
+export const DOCTOR_CREDENTIALS_STORAGE_KEY = "psychsift:admin:doctor-credentials";
 
 function removeQuietly(storage: () => Storage, key: string): void {
   try {
@@ -91,6 +93,7 @@ export function clearAccountScopedBrowserStorage(): void {
   }
 
   removeQuietly(() => window.localStorage, FIRST_NATIONS_HOSPITAL_STORAGE_KEY);
+  removeQuietly(() => window.localStorage, DOCTOR_CREDENTIALS_STORAGE_KEY);
   window.dispatchEvent(new Event(ACCOUNT_TRANSITION_EVENT));
 }
 

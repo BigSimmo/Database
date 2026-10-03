@@ -601,6 +601,12 @@ entries or patient data), and `/api/calendar/feed` (signed in) reports, makes or
 Every bad or turned-off link gets the same 404. The panel is `calendar-subscribe.tsx`, on both
 calendar pages.
 
+**Today items.** `src/lib/today/today-item.ts` is the one shape every "what needs you" line takes
+(`TodayItem`: id, owning mode, title, optional detail, Perth `due`, severity `overdue` / `soon` /
+`info`, and the in-app href that resolves it). My Day, each mode's Today page and any feature that
+feeds them produce it from their own selectors; it carries no patient identifiers and is never
+stored on a server.
+
 **Reminder controls.** `src/lib/reminders/settings.ts` is a settings layer over the reminders that
 already exist; it never decides when anything is due. Five types (compliance dates, On Call checks,
 CPD year-end, CPD routines, teaching — in that priority order) each have "Show in the app", a snooze
