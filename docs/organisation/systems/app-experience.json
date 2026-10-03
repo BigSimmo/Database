@@ -316,6 +316,7 @@
     "tests/specifiers-search-filters.dom.test.tsx",
     "tests/therapy-*",
     "tests/therapy-pr-unblocking-contract.test.ts",
+    "tests/today-order.test.ts",
     "tests/tools-*",
     "tests/ui-*",
     "tests/universal-*",
