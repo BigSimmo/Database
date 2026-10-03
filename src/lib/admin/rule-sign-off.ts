@@ -39,7 +39,7 @@ export type RuleGateOffReason =
   | "not-a-named-person"
   | "bad-sign-off-time"
   | "signed-in-future"
-  | "review-expired"
+  | "review-date-passed"
   | "standard-not-in-force"
   | "content-changed-since-sign-off"
   | "switched-off";
@@ -53,7 +53,7 @@ export const RULE_GATE_REASON_WORDS: Readonly<Record<RuleGateOffReason, string>>
   "not-a-named-person": "Signed by a system or role name, not a named clinician",
   "bad-sign-off-time": "The sign-off has no proper UTC date and time",
   "signed-in-future": "The sign-off is dated in the future",
-  "review-expired": "The source's review date has passed, so the rules need re-checking and signing again",
+  "review-date-passed": "The source's review date has passed, so the rules need re-checking and signing again",
   "standard-not-in-force": "The standard these rules come from was not in force for the period asked about",
   "content-changed-since-sign-off": "The rules changed after they were signed, so they need signing again",
   "switched-off": "Signed, but switched off",

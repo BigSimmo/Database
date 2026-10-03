@@ -67,7 +67,7 @@ describe("fatigueWarnings review date", () => {
     const after = Date.parse("2027-09-03T00:00:00+08:00");
     expect(fatigueWarnings(shifts, signOff, signers, before).gate).toEqual({ on: true });
     expect(fatigueWarnings(shifts, signOff, signers, after)).toEqual({
-      gate: { on: false, reason: "review-expired" },
+      gate: { on: false, reason: "review-date-passed" },
       warnings: [],
     });
   });
