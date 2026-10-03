@@ -3,7 +3,8 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { ReviewStamp } from "@/components/first-nations/review-stamp";
 import { stableHash } from "@/lib/first-nations/approval";
-import { buildReviewStamp, reviewStampText } from "@/lib/first-nations/review-stamp";
+import { buildReviewStamp } from "@/lib/first-nations/review-stamp";
+import { reviewStampText } from "@/lib/first-nations/review-stamp-text";
 
 const block = { id: "b1", kind: "tip", do: "x" };
 const approval = {

@@ -21,7 +21,8 @@ import {
   type Source,
   type WaMap,
 } from "@/lib/first-nations/content-schema";
-import { buildReviewStamp, type ReviewStamp } from "@/lib/first-nations/review-stamp";
+import { buildReviewStamp } from "@/lib/first-nations/review-stamp";
+import type { ReviewStamp } from "@/lib/first-nations/review-stamp-text";
 import type { SearchEntry } from "@/lib/first-nations/search";
 
 export type ModelInputs = {

@@ -1,4 +1,4 @@
-import { reviewStampText, type ReviewStamp as ReviewStampData } from "@/lib/first-nations/review-stamp";
+import { reviewStampText, type ReviewStamp as ReviewStampData } from "@/lib/first-nations/review-stamp-text";
 
 /** One muted line of provenance under a card, drawn only from the content files' own source and approval data. */
 export function ReviewStamp({ stamp }: { stamp?: ReviewStampData | undefined }) {

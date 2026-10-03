@@ -1,14 +1,6 @@
 import { stableHash } from "@/lib/first-nations/approval";
-import { formatDayMonthYear } from "@/lib/first-nations/contact-format";
 import type { Approval } from "@/lib/first-nations/content-schema";
-
-/**
- * The review facts a card can show, read from the content files only: the source's
- * title, and the approval record (body, role, date) when one matches the card's
- * current content. Nothing here is ever written by hand; a missing record is
- * shown as "Not yet reviewed".
- */
-export type ReviewStamp = { source: string; reviewer: string | null; reviewedOn: string | null };
+import type { ReviewStamp } from "@/lib/first-nations/review-stamp-text";
 
 /** The first subject whose approval record still matches its content's hash wins (block, then its section). */
 export function buildReviewStamp(
@@ -23,12 +15,4 @@ export function buildReviewStamp(
     }
   }
   return { source: sourceTitle, reviewer: null, reviewedOn: null };
-}
-
-export function reviewStampText(stamp: ReviewStamp): string {
-  const reviewed =
-    stamp.reviewer && stamp.reviewedOn
-      ? `Reviewed by ${stamp.reviewer} · ${formatDayMonthYear(stamp.reviewedOn)}`
-      : "Not yet reviewed";
-  return `Source: ${stamp.source} · ${reviewed}`;
 }
