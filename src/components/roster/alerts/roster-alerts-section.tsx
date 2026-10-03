@@ -1,5 +1,6 @@
 "use client";
 
+import { managerWaiting, RosterWaitingBadge } from "@/components/roster/manage/roster-manage-waiting";
 import { useEffect, useState } from "react";
 
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
@@ -141,13 +142,17 @@ export function RosterAlertsSwitch() {
   );
 }
 
-function TeamRow({ team }: { team: RosterTeam }) {
+function TeamRow({ team, actorId }: { team: RosterTeam; actorId: string | null }) {
   const overview = useRosterRead(team.enabled ? team.serviceId : null, "overview");
   const manager = overview.data?.managers
     ?.map((person) => person.name)
     .filter(Boolean)
     .join(", ");
   const ends = overview.data?.me.rotationEndsOn;
+  const isManager = team.role === "manager" && team.enabled;
+  const manage = useRosterRead(isManager ? team.serviceId : null, "manage");
+  // Counted as Manage shows them: the manager's own swaps are left out, because the server refuses them.
+  const waiting = manage.data ? managerWaiting(manage.data, { decisionsInStrip: true, actorId }).count : 0;
   const subtitle = [manager ? `manager ${manager}` : null, ends ? `to ${formatPerthDay(ends)}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -158,7 +163,18 @@ function TeamRow({ team }: { team: RosterTeam }) {
         subtitle={subtitle || (team.enabled ? "Confirmed team" : "Not confirmed yet")}
         href={team.enabled ? "/roster/team" : undefined}
       />
-      {team.role === "manager" && team.enabled ? <ModeRow title="Manage" href="/roster/manage" /> : null}
+      {isManager ? (
+        <ModeRow
+          title={
+            <>
+              Manage
+              <RosterWaitingBadge count={waiting} />
+            </>
+          }
+          href="/roster/manage"
+          testId="roster-settings-manage"
+        />
+      ) : null}
     </>
   );
 }
@@ -222,7 +238,9 @@ export function RosterAlertsSection() {
       ) : null}
       <ModeGroupedList eyebrow="Your team">
         {teams.data?.teams?.length ? (
-          teams.data.teams.map((team) => <TeamRow key={team.serviceId} team={team} />)
+          teams.data.teams.map((team) => (
+            <TeamRow key={team.serviceId} team={team} actorId={teams.data?.actorId ?? null} />
+          ))
         ) : (
           <ModeRow title={teams.status === "loading" ? "Checking your teams…" : "No team yet"} />
         )}

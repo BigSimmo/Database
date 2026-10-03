@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   from: vi.fn(),
   upsert: vi.fn(),
+  select: vi.fn(),
   auth: vi.fn(),
   demo: vi.fn(),
   rate: vi.fn(),
@@ -25,7 +26,7 @@ vi.mock("@/lib/api-rate-limit", () => ({
   allowRateLimitInMemoryFallbackOnUnavailable: () => false,
 }));
 
-import { POST } from "@/app/api/roster/extra-time/route";
+import { GET, POST } from "@/app/api/roster/extra-time/route";
 import { AuthenticationError } from "@/lib/supabase/auth";
 
 const ownerId = "owner-1";
@@ -126,5 +127,47 @@ describe("POST /api/roster/extra-time", () => {
     );
     expect(response.status).toBe(429);
     expect(mocks.rate.mock.calls[0]![0]).toMatchObject({ bucket: "roster" });
+  });
+});
+
+describe("GET /api/roster/extra-time", () => {
+  function readChain(rows: unknown[] | null, error: unknown = null) {
+    const chain: Record<string, ReturnType<typeof vi.fn>> = {};
+    for (const method of ["select", "eq", "gte", "lt", "not"]) chain[method] = vi.fn(() => chain);
+    chain.order = vi.fn(async () => ({ data: rows, error }));
+    mocks.from.mockReturnValue(chain);
+    return chain;
+  }
+  const read = (query: string) => GET(new Request(`https://psychiatry.tools/api/roster/extra-time${query}`));
+
+  it("reads only the signed-in doctor's finished records, times and kind only", async () => {
+    const chain = readChain([
+      { kind: "stayed_late", started_at: "2026-10-05T08:30:00+00:00", ended_at: "2026-10-05T09:45:00+00:00" },
+    ]);
+    const response = await read("?from=2026-09-28&to=2026-10-11");
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({
+      records: [{ kind: "stayed_late", startedAt: "2026-10-05T08:30:00+00:00", endedAt: "2026-10-05T09:45:00+00:00" }],
+    });
+    expect(mocks.from).toHaveBeenCalledWith("extra_time_records");
+    expect(chain.select).toHaveBeenCalledWith("kind, started_at, ended_at");
+    expect(chain.eq).toHaveBeenCalledWith("owner_id", ownerId);
+    expect(chain.not).toHaveBeenCalledWith("ended_at", "is", null);
+  });
+
+  it("refuses a missing, backwards or over-long range before touching the database", async () => {
+    for (const query of ["", "?from=2026-10-11&to=2026-09-28", "?from=2026-01-01&to=2026-12-31", "?from=x&to=y"]) {
+      expect((await read(query)).status).toBe(400);
+    }
+    expect(mocks.from).not.toHaveBeenCalled();
+  });
+
+  it("returns nothing in demo mode and asks a signed-out reader to sign in", async () => {
+    mocks.demo.mockReturnValue(true);
+    expect(await (await read("?from=2026-09-28&to=2026-10-11")).json()).toEqual({ records: [] });
+    expect(mocks.auth).not.toHaveBeenCalled();
+    mocks.demo.mockReturnValue(false);
+    mocks.auth.mockRejectedValue(new AuthenticationError("Sign in"));
+    expect((await read("?from=2026-09-28&to=2026-10-11")).status).toBe(401);
   });
 });

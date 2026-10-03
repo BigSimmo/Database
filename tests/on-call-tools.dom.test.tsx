@@ -212,6 +212,13 @@ describe("On Call calendar", () => {
     expect(day).toHaveTextContent("Every week");
   });
 
+  it("is titled for what it holds and points to where the shifts are", () => {
+    state.entries = [];
+    render(<OnCallCalendarPage now={new Date(2026, 8, 30, 9, 0)} />);
+    expect(screen.getByRole("heading", { level: 1, name: "Teaching and expiry dates" })).toBeInTheDocument();
+    expect(screen.getByTestId("on-call-calendar-shifts-link")).toHaveAttribute("href", "/roster/shifts");
+  });
+
   it("moves today at midnight on a page nobody is touching", () => {
     vi.useFakeTimers();
     try {
