@@ -4,7 +4,7 @@ import { PhoneOff } from "lucide-react";
 import { useState } from "react";
 
 import { clearOnCallDidntConnect, markOnCallDidntConnect } from "@/components/on-call/call/call-device-stores";
-import { OnCallActionButton } from "@/components/on-call/kit/action-button";
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
 import type { HandbookReportResult, HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
@@ -82,7 +82,7 @@ export function OnCallDidntConnect({
 
   return (
     <>
-      <OnCallActionButton
+      <ModeActionButton
         icon={PhoneOff}
         label={`Didn't connect: ${title}`}
         onClick={openSheet}

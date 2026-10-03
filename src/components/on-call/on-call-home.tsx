@@ -6,6 +6,7 @@ import { ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
+import { TodayShell } from "@/components/mode-kit/today/today-shell";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { focusRing } from "@/components/card-recipes";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -249,54 +250,78 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
         {isOffline && cachedAt ? <OnCallOfflineBanner savedAt={cachedAt} reason={loadError} /> : null}
         {loadFailed ? <OnCallLoadFailed reason={loadError} onRetry={retry} /> : null}
 
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3">
-          <OnCallHospitalLine handbook={handbook} testId="on-call-now-hospital" />
-          {!ready && !handbookLoading ? <OnCallHandbookState handbook={handbook} page="now" /> : null}
-          <NowEmergencyPin handbook={handbook} pins={pins} now={now} />
-          {numbersOnScreen ? null : <NowCrisisLines now={now} />}
-          {ready || handbookLoading ? (
-            <NowRightNow
-              status={ready ? "ready" : "loading"}
-              answer={answer}
-              hours={handbook.hours ?? null}
-              hospitalPeriod={hospitalPeriod}
-              hospitalName={hospitalName}
-              now={now}
-            />
-          ) : null}
-          <HospitalShiftUpdates handbook={handbook} shifts={rosterShifts} now={now} />
-          <NowNeedsYou
-            needs={needs}
-            ladderHref={
-              ladderEntry
-                ? onCallEntryHref(ladderEntry)
-                : needs
-                  ? `/on-call/playbook#hospital-ladder-${needs.ladderId}`
-                  : null
-            }
-            now={now}
-            live={!pinnedNow}
-          />
-          <NowYourUsual
-            tiles={tiles}
-            outlineCount={usualOutlines}
-            canClear={usual.length > 0}
-            hospitalName={hospitalName}
-            now={now}
-          />
-          {ready || handbookLoading ? (
-            <NowYourTeam
-              status={ready ? "ready" : "loading"}
-              rows={teamRows}
-              teams={teams}
-              myTeam={myTeam}
-              hospitalName={hospitalName}
-              now={now}
-            />
-          ) : null}
-        </div>
-
-        <NowFooter context={context} shifts={shifts} items={handbookItems} now={now} />
+        <TodayShell
+          mode="on-call"
+          modeName="On Call"
+          testId="on-call-home-shell"
+          status={
+            <>
+              <OnCallHospitalLine handbook={handbook} testId="on-call-now-hospital" />
+              {!ready && !handbookLoading ? <OnCallHandbookState handbook={handbook} page="now" /> : null}
+            </>
+          }
+          safety={
+            <>
+              <NowEmergencyPin handbook={handbook} pins={pins} now={now} />
+              {numbersOnScreen ? null : <NowCrisisLines now={now} />}
+            </>
+          }
+          nowSurface="own"
+          now={
+            ready || handbookLoading ? (
+              <NowRightNow
+                status={ready ? "ready" : "loading"}
+                answer={answer}
+                hours={handbook.hours ?? null}
+                hospitalPeriod={hospitalPeriod}
+                hospitalName={hospitalName}
+                now={now}
+              />
+            ) : null
+          }
+          needsYouNode={
+            <>
+              {/* Kept directly under Right now, where it sat before the shell:
+                  "Check the hospital before calling" must not sink below the
+                  reader's usual numbers. */}
+              <HospitalShiftUpdates handbook={handbook} shifts={rosterShifts} now={now} />
+              <NowNeedsYou
+                needs={needs}
+                ladderHref={
+                  ladderEntry
+                    ? onCallEntryHref(ladderEntry)
+                    : needs
+                      ? `/on-call/playbook#hospital-ladder-${needs.ladderId}`
+                      : null
+                }
+                now={now}
+                live={!pinnedNow}
+              />
+            </>
+          }
+          comingUp={
+            <>
+              <NowYourUsual
+                tiles={tiles}
+                outlineCount={usualOutlines}
+                canClear={usual.length > 0}
+                hospitalName={hospitalName}
+                now={now}
+              />
+              {ready || handbookLoading ? (
+                <NowYourTeam
+                  status={ready ? "ready" : "loading"}
+                  rows={teamRows}
+                  teams={teams}
+                  myTeam={myTeam}
+                  hospitalName={hospitalName}
+                  now={now}
+                />
+              ) : null}
+            </>
+          }
+          shortcuts={<NowFooter context={context} shifts={shifts} items={handbookItems} now={now} />}
+        />
 
         {exampleContent ? (
           <StateModule id="on-call-home-example-content" label="Example content">
