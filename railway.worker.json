@@ -32,6 +32,8 @@
     ]
   },
   "deploy": {
+    "healthcheckPath": "/health",
+    "healthcheckTimeout": 300,
     "restartPolicyType": "ALWAYS",
     "preDeployCommand": ["node /app/scripts/deploy/await-migrations.mjs"],
     "multiRegionConfig": {

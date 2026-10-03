@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, type ComponentProps } from "react";
+import { rosterField } from "@/components/roster/roster-ui";
 
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -231,7 +232,7 @@ function LeaveSession({
             value={kind}
             disabled={!!existing}
             onChange={(event) => setKind(event.target.value as LeaveBody["kind"])}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            className={rosterField}
           >
             <option value="annual">Annual leave</option>
             <option value="pd_leave">Professional development leave</option>
@@ -244,7 +245,7 @@ function LeaveSession({
             value={startsOn}
             min={perthDateOf(new Date())}
             onChange={(event) => setStartsOn(event.target.value)}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            className={rosterField}
           />
         </label>
         <label className="grid gap-1 text-sm">
@@ -254,7 +255,7 @@ function LeaveSession({
             value={endsOn}
             min={startsOn || perthDateOf(new Date())}
             onChange={(event) => setEndsOn(event.target.value)}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            className={rosterField}
           />
         </label>
         <label className="grid gap-1 text-sm">
@@ -262,7 +263,7 @@ function LeaveSession({
           <select
             value={status}
             onChange={(event) => setStatus(event.target.value as LeaveBody["status"])}
-            className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+            className={rosterField}
           >
             <option value="planned">Planned · also lodge in HR</option>
             <option value="applied">Applied in HR</option>
@@ -276,7 +277,7 @@ function LeaveSession({
               value={serviceId ?? ""}
               disabled={!!existing}
               onChange={(event) => setServiceId(event.target.value || null)}
-              className="rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] p-3"
+              className={rosterField}
             >
               <option value="">Choose a team</option>
               {teams.map((team) => (

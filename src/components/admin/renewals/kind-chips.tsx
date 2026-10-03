@@ -24,7 +24,9 @@ export function checklistKindLabel(kind: ChecklistKindFilter): string {
  * radio group — the list underneath is always fully present; a chip narrows
  * it rather than replacing it, the same choice On Call's now-withdrawn filter
  * row made (see `on-call-filter-chips.tsx`), but this row IS mounted, on the
- * owner's approval for Renewals specifically.
+ * owner's approval for Renewals specifically. The chips wrap onto a second
+ * line on a phone rather than scrolling sideways, so none is ever hidden off
+ * the edge.
  */
 export function ChecklistKindChips({
   active,
@@ -40,7 +42,7 @@ export function ChecklistKindChips({
       role="group"
       aria-label="Filter the checklist by kind"
       data-testid={testId}
-      className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1"
+      className="flex min-w-0 flex-wrap gap-2"
     >
       {CHECKLIST_KIND_FILTERS.map((kind) => {
         const selected = kind === active;

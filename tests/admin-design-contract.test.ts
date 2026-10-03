@@ -78,8 +78,14 @@ describe("Admin's design contract (shared standard, spec Admin design rules and 
     expect(offendingLines(LOUD_MOTION)).toEqual([]);
   });
 
-  it("keeps nothing on the device", () => {
-    expect(offendingLines(DEVICE_STORAGE)).toEqual([]);
+  it("keeps nothing on the device except pinned row ids and the credentials wallet, each in its one module", () => {
+    // Owner decision, 2026-10-01: pinned numbers live on this device, as row ids
+    // only (`src/lib/admin/pins.ts`, pinned by tests/admin-pins.test.ts).
+    // Owner decision, 2026-10-03: the doctor's own registration numbers (the credentials
+    // wallet) may also live on this device, in `src/lib/admin/credentials-storage.ts` only,
+    // cleared on sign-out via `src/lib/account-scoped-browser-state.ts`.
+    const ALLOWED_MODULE = /^src\/lib\/admin\/(?:pins|pin-storage-keys|credentials-storage)\.ts:/;
+    expect(offendingLines(DEVICE_STORAGE).filter((line) => !ALLOWED_MODULE.test(line))).toEqual([]);
   });
 
   it("never mounts the shared composer or a microphone", () => {

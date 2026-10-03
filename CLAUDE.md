@@ -55,17 +55,17 @@ Do not restate any of them here. A second copy is how these two files drift.
 
 ## Stack and runtime
 
-| Layer     | Choice                                                                                     |
-| --------- | ------------------------------------------------------------------------------------------ |
-| Runtime   | Node **24.x** / npm **11.x**, `engine-strict` (dev server exits on any other major)        |
-| Framework | Next.js 16 (App Router), React 19                                                          |
-| Language  | TypeScript 6, strict; Zod 4 for env and request validation                                 |
-| Styling   | Tailwind 4 (`@theme` tokens in `src/app/globals.css`), unlayered component CSS by design   |
-| Data      | Supabase — Postgres + pgvector (HNSW), Storage, Auth; Edge Functions on Deno 2             |
-| AI        | OpenAI (embeddings, image captions, grounded generation)                                   |
-| Ingestion | Node worker + Python OCR (PyMuPDF / Tesseract)                                             |
-| Tests     | Vitest (unit, `tests/**/*.test.ts`), Playwright (E2E, `tests/ui-*.spec.ts`)                |
-| Deploy    | Railway project `Database` — `Database` (app) + `worker` services, auto-deploy from `main` |
+| Layer     | Choice                                                                                       |
+| --------- | -------------------------------------------------------------------------------------------- |
+| Runtime   | Node **24.x** / npm **11.x**, `engine-strict` (dev server exits on any other major)          |
+| Framework | Next.js 16 (App Router), React 19                                                            |
+| Language  | TypeScript 6, strict; Zod 4 for env and request validation                                   |
+| Styling   | Tailwind 4 (`@theme` tokens in `src/app/globals.css`), unlayered component CSS by design     |
+| Data      | Supabase — Postgres + pgvector (HNSW), Storage, Auth; Edge Functions on Deno 2               |
+| AI        | OpenAI (embeddings, image captions, grounded generation)                                     |
+| Ingestion | Node worker + Python OCR (PyMuPDF / Tesseract)                                               |
+| Tests     | Vitest (unit, `tests/**/*.test.ts`), Playwright (E2E, `tests/ui-*.spec.ts`)                  |
+| Deploy    | Railway project `PsychSift` — `PsychSift` (app) + `worker` services, auto-deploy from `main` |
 
 Install with `npm ci --include=dev`. Use `npm install` only when deliberately changing
 dependencies. `npm install` also installs the repo's git hooks.
@@ -91,20 +91,20 @@ npm run worker     # local ingestion worker (second terminal)
 npm run dev        # direct dev server on the project-stable port
 ```
 
-Verification pyramid — run the **smallest gate that covers the change**, then widen. CI runs the heavy
-jobs on every push regardless, so a local repeat of one buys a verdict GitHub is about to reach; the
-default for an ordinary PR push is the narrow gate plus `npm run format`, with the heavy jobs named in
-the PR body as left to CI (`docs/agents/verification-gates.md`).
+Verification pyramid - run the **smallest gate that covers the change**, then widen. CI selects checks
+for the triggering event, draft state and classified change scope. The ordinary PR push guidance in
+`docs/agents/verification-gates.md` distinguishes expected CI checks, authorised local deferrals and
+completed passing evidence; skipped or pending checks are not passes.
 
-| Gate                                      | What it is                                                                                                                                                                                                                                                                                            |
-| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                                                                                                                              |
-| `npm run verify:cheap`                    | **Ordinary offline gate:** `check:installed-lock-parity` then `lint` + `typecheck` + full offline unit suite. Nothing else. Prefer `test:focused` while iterating; run cheap before an ordinary PR push when the diff needs those four checks. CI still runs the heavy static set on every push.      |
-| `npm run verify:full`                     | **Broad offline gate:** the 41 static/consistency gates (docs index, ledgers, knip, design tokens, owner-scope…; `npm run check:gate-manifest` lists them), then `lint` + `typecheck` + `test`. Does not invoke the `verify:cheap` script. For cross-module risk or before a release — not routinely. |
-| `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection.                                                                                                          |
-| `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                                                                                                                             |
-| `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                                                                                                                               |
-| `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                                                                                                                                          |
+| Gate                                      | What it is                                                                                                                                                                                                                                                                                                        |
+| ----------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run test:focused -- --files <paths>` | Source-only iteration. Fails closed for deleted files and test infrastructure — then run `npm run test`.                                                                                                                                                                                                          |
+| `npm run verify:cheap`                    | **Ordinary offline gate:** `check:installed-lock-parity` then `lint` + `typecheck` + full offline unit suite. Nothing else. Prefer `test:focused` while iterating; run cheap before an ordinary PR push when the diff needs those four checks. CI selects the heavy static set when classified scope requires it. |
+| `npm run verify:full`                     | **Broad offline gate:** the 41 static/consistency gates (docs index, ledgers, knip, design tokens, owner-scope…; `npm run check:gate-manifest` lists them), then `lint` + `typecheck` + `test`. Does not invoke the `verify:cheap` script. For cross-module risk or before a release — not routinely.             |
+| `npm run verify:pr-local`                 | Risk-routed PR mirror: focused docs/workflow contracts for recognised light scope, fail-closed heavy checks for executable or unknown scope. `-- --dry-run --files <paths>` shows selection.                                                                                                                      |
+| `npm run verify:ui`                       | Chromium production journeys. Run `npm run ensure` first.                                                                                                                                                                                                                                                         |
+| `npm run verify:phone-chrome`             | Phone-chrome changes; selects affected owners/journeys before escalating to `verify:ui`                                                                                                                                                                                                                           |
+| `npm run verify:release`                  | Full build + all browsers + readiness. **Provider-backed — needs approval.**                                                                                                                                                                                                                                      |
 
 Neither `verify:cheap` nor `verify:full` runs formatting, which is why changed-file CI and the
 installed pre-push hook (`.githooks/pre-push` → `scripts/guard-push.mjs`) block on unformatted files.

@@ -184,3 +184,62 @@ describe("AdminNewJobPage", () => {
     expect(link.getAttribute("href")).toBe("/admin/new-job/records");
   });
 });
+
+describe("AdminNewJobPage layout (Admin polish, lane C)", () => {
+  it("shows the same compact visible page title as Renewals", () => {
+    render(<AdminNewJobPage now={NOW} />);
+    const heading = screen.getByRole("heading", { level: 1, name: "New job" });
+    expect(heading.className).not.toContain("sr-only");
+    expect(heading.className).toContain("text-2xl");
+  });
+
+  it("lays a row with no tick flush, with no empty 48px gutter", () => {
+    render(<AdminNewJobPage now={NOW} />);
+    const sharedRow = screen.getByTestId(`admin-new-job-step-${loginShared.slug}`);
+    expect(sharedRow.querySelector(".w-12")).toBeNull();
+    expect(within(sharedRow).queryByTestId(`admin-new-job-step-${loginShared.slug}-done`)).toBeNull();
+  });
+
+  it("marks a done row it cannot tick with a quiet read-only Done, never a checkbox", () => {
+    const sharedDone = { ...loginShared, details: { category: "Systems", done: true } } as OnCallEntry;
+    Object.assign(entryState, { entries: [loginOwn, sharedDone, jobContact] });
+    render(<AdminNewJobPage now={NOW} />);
+    const row = screen.getByTestId(`admin-new-job-step-${sharedDone.slug}`);
+    expect(within(row).queryByRole("checkbox")).toBeNull();
+    expect(within(row).getByTestId(`admin-new-job-step-${sharedDone.slug}-done`)).toHaveTextContent("Done");
+  });
+
+  it("explains a start date that cannot be set: sign in when signed out", () => {
+    Object.assign(entryState, { signedOut: true, entries: [] });
+    render(<AdminNewJobPage now={NOW} />);
+    expect(screen.getByTestId("admin-new-job-start-line")).toHaveTextContent("No start date set");
+    expect(screen.getByRole("button", { name: "Sign in to set your start date" })).toBeTruthy();
+    expect(screen.queryByTestId("admin-new-job-start-input")).toBeNull();
+  });
+
+  it("explains a start date that cannot be set: example records are read-only", () => {
+    Object.assign(entryState, { demoMode: true });
+    render(<AdminNewJobPage now={NOW} />);
+    expect(screen.getByTestId("admin-new-job-start-demo")).toHaveTextContent("Example records are read-only");
+    expect(screen.queryByRole("button", { name: "Sign in to set your start date" })).toBeNull();
+    expect(screen.queryByTestId("admin-new-job-start-input")).toBeNull();
+  });
+
+  it("says nothing about why while loading", () => {
+    Object.assign(entryState, { loading: true, entries: [] });
+    render(<AdminNewJobPage now={NOW} />);
+    expect(screen.queryByTestId("admin-new-job-start-demo")).toBeNull();
+    expect(screen.queryByTestId("admin-new-job-start-signed-out")).toBeNull();
+  });
+
+  it("merges the Leaving explanation and the records link into one tappable card", () => {
+    render(<AdminNewJobPage now={NOW} />);
+    const link = screen.getByTestId("admin-new-job-records-link");
+    expect(link).toContainElement(screen.getByTestId("admin-new-job-leaving-notice"));
+    expect(link).toHaveTextContent(
+      "When you leave, your records go with you. Open Your Admin records to copy or print them.",
+    );
+    expect(link).toHaveTextContent("Your Admin records");
+    expect(link).toHaveTextContent("Renewals, history and New job ticks");
+  });
+});

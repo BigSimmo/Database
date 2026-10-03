@@ -88,6 +88,8 @@ describe("joining a Roster team", () => {
         "This invite was sent to a different email. Sign in with that email, or ask your manager for a new invite.",
       ),
     ).toBeInTheDocument();
+    // A failed redemption keeps the typed code, so it can be checked or tried again.
+    expect(screen.getByRole("textbox", { name: /Invite link or code/ })).toHaveValue(CODE);
   });
 
   it("asks signed-out users to reopen the link after signing in", async () => {
@@ -95,6 +97,7 @@ describe("joining a Roster team", () => {
     fetchMock.mockResolvedValueOnce(Response.json({}, { status: 401 }));
     render(<RosterJoinPage />);
     expect(await screen.findByText("Sign in, then open the invite link again.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeInTheDocument();
     await waitFor(() => expect(window.location.hash).toBe(""));
   });
 

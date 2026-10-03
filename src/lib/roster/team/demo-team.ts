@@ -241,6 +241,9 @@ export function demoRosterRead<W extends RosterReadWhat>(
         rotationEndsOn: null,
       })),
     }),
+    members: () => ({
+      members: PEOPLE.map((person) => ({ userId: person.userId, name: person.name, grade: person.grade })),
+    }),
     publications: () => ({
       publications: [
         {

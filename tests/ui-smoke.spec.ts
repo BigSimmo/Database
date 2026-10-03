@@ -96,8 +96,9 @@ async function revealPhoneHeaderControl(page: Page, control: Locator) {
   // Programmatic scrollTop=0 can briefly report zero in WebKit, then snap back
   // after the closing sheet restores focus without revealing the header.
   if (scrollTop > 0) {
-    await page.mouse.move(8, Math.floor((page.viewportSize()?.height ?? 844) / 2));
-    await page.mouse.wheel(0, -2000);
+    // Use the shared programmatic scroll helper because mobile WebKit does not
+    // support Playwright's mouse.wheel API.
+    await scrollPrimarySurface(page, 0);
     await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBeLessThanOrEqual(1);
   }
   await expect(control).toBeInViewport();

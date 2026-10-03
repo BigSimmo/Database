@@ -216,6 +216,13 @@ function declareDirectBindings(statements: unknown[], scope: Scope, includeImpor
             (specifier.type === "ImportSpecifier" && importedName(asNode(specifier.imported)) === "default"))
         ) {
           kind = "next-link";
+        } else if (
+          // TextLink renders next/link with the same href (src/components/ui/link.tsx).
+          source.value === "@/components/ui/link" &&
+          specifier.type === "ImportSpecifier" &&
+          importedName(asNode(specifier.imported)) === "TextLink"
+        ) {
+          kind = "next-link";
         } else if (source.value === "next/navigation" && specifier.type === "ImportSpecifier") {
           const name = importedName(asNode(specifier.imported));
           if (name === "redirect" || name === "permanentRedirect") kind = "next-redirect";

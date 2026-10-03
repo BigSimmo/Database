@@ -89,6 +89,9 @@ it("rechecks a waiting swap before approving and sends no actor", async () => {
   fireEvent.click(screen.getByRole("button", { name: /Swap · Alex and Sam/ }));
   await screen.findByText(/Rechecked/);
   fireEvent.click(screen.getByRole("button", { name: "Approve" }));
+  const review = await screen.findByRole("dialog", { name: "Review fresh roster checks" });
+  expect(posts).toEqual([]);
+  fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
   await waitFor(() => expect(posts).toEqual([{ action: "swap.approve", swapId: "swap" }]));
   expect(fetcher.mock.calls.some(([input]) => String(input).includes("what=assignments"))).toBe(true);
 });
@@ -196,10 +199,127 @@ it("a decision in the calendar strip also refreshes the Approve tab, from one sh
   );
   render(<RosterManagePage />);
   const strip = await screen.findByRole("region", { name: "Needs you" });
-  await screen.findByRole("region", { name: "Approve" });
+  await screen.findByRole("region", { name: "Inbox" });
   const manageReads = () => reads.filter((what) => what === "manage").length;
   const before = manageReads();
   fireEvent.click(within(strip).getByRole("button", { name: "Approve" }));
+  const review = await screen.findByRole("dialog", { name: "Review fresh roster checks" });
+  fireEvent.click(within(review).getByRole("button", { name: "Approve after review" }));
   // The calendar reads again for itself, and the Approve tab reads again with it.
   await waitFor(() => expect(manageReads()).toBeGreaterThanOrEqual(before + 2));
+});
+
+it("points to the Needs you strip instead of listing its decisions twice, and keeps the shifts only it decides", async () => {
+  const waiting = {
+    id: "swap",
+    status: "accepted",
+    requesterId: "sam",
+    counterpartyId: "noor",
+    needsManagerBecause: "within_7_days",
+    autoApproved: false,
+    give: null,
+    take: null,
+  };
+  const reported = {
+    id: "open",
+    status: "reported",
+    postedBy: "noor",
+    claimedBy: null,
+    startsAt: "2026-10-06T00:00:00Z",
+    endsAt: "2026-10-06T09:00:00Z",
+    kind: "day",
+    shiftCode: "D",
+  };
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const what = new URL(String(input), "http://localhost").searchParams.get("what");
+      return Response.json(
+        what === "manage"
+          ? { swaps: [waiting], openShifts: [reported], seen: null }
+          : what === "people"
+            ? {
+                people: [
+                  { userId: "sam", displayName: "Sam" },
+                  { userId: "noor", displayName: "Noor" },
+                ],
+              }
+            : { leave: [] },
+      );
+    }),
+  );
+  render(<RosterApproveTab serviceId="team" decisionsInStrip actorId="alex" />);
+  expect(await screen.findByRole("button", { name: "Go to Needs you" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Swap · Sam and Noor/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /Noor can't make/ })).toBeTruthy();
+  const summary = screen.getByRole("list", { name: "Summary" });
+  expect(within(summary).getByTestId("roster-stat-waiting").textContent).toContain("2");
+});
+
+it("lists everything waiting in one Inbox: swaps, taken shifts, shifts someone can't make, then short days", async () => {
+  const swap = {
+    id: "swap",
+    status: "accepted",
+    requesterId: "sam",
+    counterpartyId: "noor",
+    needsManagerBecause: "within_7_days",
+    autoApproved: false,
+    give: null,
+    take: null,
+  };
+  const open = (id: string, status: string, claimedBy: string | null) => ({
+    id,
+    status,
+    postedBy: "noor",
+    claimedBy,
+    startsAt: "2026-10-06T00:00:00Z",
+    endsAt: "2026-10-06T09:00:00Z",
+    kind: "day",
+    shiftCode: "D",
+  });
+  // A day target on every weekday with nobody rostered: every day in the next two weeks is short.
+  const needs = [1, 2, 3, 4, 5, 6, 7].map((weekday) => ({
+    id: `c1000000-0000-4000-8000-00000000000${weekday}`,
+    weekday,
+    date: null,
+    kind: "day",
+    grade: null,
+    siteId: null,
+    needed: 1,
+  }));
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (input: RequestInfo | URL) => {
+      const what = new URL(String(input), "http://localhost").searchParams.get("what");
+      if (what === "manage")
+        return Response.json({
+          swaps: [swap],
+          openShifts: [open("reported", "reported", null), open("claimed", "claimed", "sam")],
+          seen: null,
+        });
+      if (what === "people")
+        return Response.json({
+          people: [
+            { userId: "sam", displayName: "Sam" },
+            { userId: "noor", displayName: "Noor" },
+          ],
+        });
+      if (what === "assignments") return Response.json({ assignments: [] });
+      if (what === "maker") return Response.json({ codes: [], needs, drafts: [] });
+      return Response.json({ leave: [] });
+    }),
+  );
+  render(<RosterApproveTab serviceId="team" overview={overview} />);
+  const inbox = await screen.findByRole("region", { name: "Inbox" });
+  const list = await within(inbox).findByTestId("roster-inbox-list");
+  await waitFor(() => expect(list.querySelectorAll('[data-inbox-kind="short"]').length).toBe(14));
+  const kinds = [...list.querySelectorAll("[data-inbox-kind]")].map((item) => item.getAttribute("data-inbox-kind"));
+  expect(kinds.slice(0, 3)).toEqual(["swap", "claimed", "reported"]);
+  expect(new Set(kinds.slice(3))).toEqual(new Set(["short"]));
+  expect(
+    within(screen.getByRole("list", { name: "Summary" })).getByTestId("roster-stat-waiting").textContent,
+  ).toContain("3");
+  // A request opens the live-rechecked Review sheet.
+  fireEvent.click(within(list).getByRole("button", { name: /Swap · Sam and Noor/ }));
+  expect(await screen.findByRole("dialog", { name: "Review swap" })).toBeTruthy();
 });

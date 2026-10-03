@@ -1,11 +1,13 @@
 "use client";
 
-import { Check, NotebookPen, Plus, Trash2 } from "lucide-react";
+import { Check, NotebookPen, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 import { cardSurface } from "@/components/card-recipes";
+import { cmePageTitle, cmePageWidth } from "@/components/cme/cme-page-frame";
+import { Button } from "@/components/ui/button";
 import { useDirtyStateGuard } from "@/components/ui/use-dirty-state-guard";
 import {
   cn,
@@ -27,6 +29,7 @@ import {
 } from "@/lib/cme/plan-goals";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { canCarryCmeGoals, carryableCmeGoals } from "@/lib/cme/year-close-actions";
+import { CmeFractionBar } from "@/components/cme/cme-progress-visuals";
 
 /**
  * DEVELOPMENT PLAN — the year's goals, written once near the start of the
@@ -83,8 +86,12 @@ export function CmePlanPage({
   const [savedGoals, setSavedGoals] = useState(() => goals.map((goal) => ({ id: goal.id, goal: goal.goal })));
   const [saveConflict, setSaveConflict] = useState(false);
   const readOnly = Boolean(set.closedAt) || demoMode;
+  // Goals read as text until Edit. A plan with no goals yet has nothing to
+  // read, so an editable year opens straight into the editor.
+  const [editing, setEditing] = useState(() => !readOnly && goals.length === 0);
   const planRequirement = set.requirements.find((requirement) => requirement.id === "plan");
   const tally = hoursByGoal(goals, entries);
+  const tallyMax = Math.max(0, ...tally.map((row) => row.hours));
   const filled = drafts.filter((draft) => draft.goal.trim().length > 0);
   const tooShort = filled.some((draft) => draft.goal.trim().length < CME_PLAN_GOAL_MIN_LENGTH);
   const offerCarry = canCarryCmeGoals(set, now) && goals.length > 0;
@@ -158,6 +165,7 @@ export function CmePlanPage({
       setSavedGoals((payload?.goals ?? []).map((goal) => ({ id: goal.id, goal: goal.goal })));
       setDrafts((payload?.goals ?? []).map((goal) => ({ key: nextKey(), id: goal.id, goal: goal.goal })));
       setMessage("Plan saved.");
+      setEditing(false);
       router.refresh();
     } catch (error) {
       setMessage(cmeSaveErrorText(error, "Could not save your plan."));
@@ -167,9 +175,9 @@ export function CmePlanPage({
   }
 
   return (
-    <main data-testid="cme-plan" className="mx-auto w-full max-w-2xl px-4 pb-24 pt-6 sm:px-6">
+    <main data-testid="cme-plan" className={cn(cmePageWidth, "px-4 pb-24 pt-6 sm:px-6")}>
       <p className={eyebrowText}>{set.year}</p>
-      <h1 className="mt-1 text-xl font-semibold text-[color:var(--text)]">Development plan</h1>
+      <h1 className={cn(cmePageTitle, "mt-1")}>Development plan</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         Three to five goals for the year, in your own words. Link each activity to the goal it served from the
         activity&rsquo;s page, and the hours add up below.
@@ -187,43 +195,68 @@ export function CmePlanPage({
       ) : null}
 
       <section className={cn(cardSurface, "mt-5 p-4")} aria-labelledby="cme-plan-goals">
-        <h2 id="cme-plan-goals" className="text-base font-semibold text-[color:var(--text)]">
-          Goals
-        </h2>
-        <ol className="mt-3 flex flex-col gap-3" data-testid="cme-plan-goals">
-          {drafts.map((draft, index) => (
-            <li key={draft.key} className="flex items-start gap-2">
-              <span className={cn(textMuted, "nums mt-3 w-5 shrink-0 text-sm")}>{index + 1}.</span>
-              <label className="min-w-0 flex-1">
-                <span className="sr-only">Goal {index + 1}</span>
-                <textarea
-                  value={draft.goal}
-                  readOnly={readOnly}
-                  maxLength={CME_PLAN_GOAL_MAX_LENGTH}
-                  rows={2}
-                  placeholder="For example: improve how I document capacity assessments"
-                  onChange={(event) =>
-                    setDrafts((current) =>
-                      current.map((item) => (item.key === draft.key ? { ...item, goal: event.target.value } : item)),
-                    )
-                  }
-                  className="block min-h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)]"
-                />
-              </label>
-              {!readOnly ? (
-                <button
-                  type="button"
-                  aria-label={`Remove goal ${index + 1}`}
-                  onClick={() => setDrafts((current) => current.filter((item) => item.key !== draft.key))}
-                  className="grid size-12 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
-                >
-                  <Trash2 aria-hidden="true" className="size-icon-sm" />
-                </button>
-              ) : null}
-            </li>
-          ))}
-        </ol>
-        {!readOnly ? (
+        <div className="flex items-center justify-between gap-2">
+          <h2 id="cme-plan-goals" className="text-base font-semibold text-[color:var(--text)]">
+            Goals
+          </h2>
+          {!readOnly && !editing ? (
+            <Button variant="secondary" size="sm" icon={Pencil} onClick={() => setEditing(true)} testId="cme-plan-edit">
+              Edit goals
+            </Button>
+          ) : null}
+        </div>
+        {!editing ? (
+          savedGoals.length > 0 ? (
+            <ol className="mt-3 flex flex-col gap-2" data-testid="cme-plan-goals-read">
+              {savedGoals.map((goal, index) => (
+                <li key={goal.id} className="flex items-start gap-2 text-sm text-[color:var(--text)]">
+                  <span className={cn(textMuted, "nums w-5 shrink-0 font-normal")}>{index + 1}.</span>
+                  <span className="min-w-0 flex-1 whitespace-pre-wrap break-words">{goal.goal}</span>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className={cn(textMuted, "mt-3 text-sm")} data-testid="cme-plan-goals-read">
+              No goals written for {set.year}.
+            </p>
+          )
+        ) : null}
+        {editing ? (
+          <ol className="mt-3 flex flex-col gap-3" data-testid="cme-plan-goals">
+            {drafts.map((draft, index) => (
+              <li key={draft.key} className="flex items-start gap-2">
+                <span className={cn(textMuted, "nums mt-3 w-5 shrink-0 text-sm")}>{index + 1}.</span>
+                <label className="min-w-0 flex-1">
+                  <span className="sr-only">Goal {index + 1}</span>
+                  <textarea
+                    value={draft.goal}
+                    readOnly={readOnly}
+                    maxLength={CME_PLAN_GOAL_MAX_LENGTH}
+                    rows={2}
+                    placeholder="For example: improve how I document capacity assessments"
+                    onChange={(event) =>
+                      setDrafts((current) =>
+                        current.map((item) => (item.key === draft.key ? { ...item, goal: event.target.value } : item)),
+                      )
+                    }
+                    className="block min-h-tap w-full rounded-lg border border-[color:var(--border)] bg-[color:var(--surface)] px-3 py-2 text-sm text-[color:var(--text)]"
+                  />
+                </label>
+                {!readOnly ? (
+                  <button
+                    type="button"
+                    aria-label={`Remove goal ${index + 1}`}
+                    onClick={() => setDrafts((current) => current.filter((item) => item.key !== draft.key))}
+                    className="grid size-12 shrink-0 place-items-center rounded-lg text-[color:var(--text-muted)] hover:bg-[color:var(--surface-subtle)]"
+                  >
+                    <Trash2 aria-hidden="true" className="size-icon-sm" />
+                  </button>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        ) : null}
+        {!readOnly && editing ? (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
@@ -243,6 +276,19 @@ export function CmePlanPage({
             >
               {saving ? "Saving…" : "Save plan"}
             </button>
+            {savedGoals.length > 0 ? (
+              <button
+                type="button"
+                className={floatingControl}
+                disabled={saving}
+                onClick={() => {
+                  setDrafts(savedGoals.map((goal) => ({ key: nextKey(), id: goal.id, goal: goal.goal })));
+                  setEditing(false);
+                }}
+              >
+                Cancel
+              </button>
+            ) : null}
           </div>
         ) : null}
         {tooShort ? (
@@ -355,17 +401,23 @@ export function CmePlanPage({
           </h2>
           <ul className="flex flex-col gap-2" data-testid="cme-plan-tally">
             {tally.map((row) => (
-              <li
-                key={row.goal?.id ?? "none"}
-                className={cn(cardSurface, "flex items-center justify-between gap-3 p-3")}
-              >
-                <span className={cn("min-w-0 text-sm", row.goal ? "text-[color:var(--text)]" : textMuted)}>
-                  {row.goal ? row.goal.goal : "Not linked to a goal"}
-                </span>
-                <span className="nums shrink-0 text-sm font-normal text-[color:var(--text)]">
-                  {`${row.hours} h`} · {row.entryCount}
-                  <span className="sr-only"> {row.entryCount === 1 ? "activity" : "activities"}</span>
-                </span>
+              <li key={row.goal?.id ?? "none"} className={cn(cardSurface, "flex flex-col gap-2 p-3")}>
+                <div className="flex items-start justify-between gap-3">
+                  <span className={cn("min-w-0 text-sm", row.goal ? "text-[color:var(--text)]" : textMuted)}>
+                    {row.goal ? row.goal.goal : "Not linked to a goal"}
+                  </span>
+                  <span className="nums shrink-0 text-sm font-normal text-[color:var(--text)]">
+                    {`${row.hours} h from ${row.entryCount} ${row.entryCount === 1 ? "activity" : "activities"}`}
+                  </span>
+                </div>
+                {/* A thin share-of-the-year bar: each goal's hours against the
+                    largest goal's, so the rows compare at a glance. Decorative —
+                    the sentence above carries the figure. */}
+                <CmeFractionBar
+                  testId="cme-plan-tally-bar"
+                  fraction={tallyMax > 0 ? row.hours / tallyMax : 0}
+                  className="h-1"
+                />
               </li>
             ))}
           </ul>

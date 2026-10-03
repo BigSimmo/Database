@@ -1,9 +1,10 @@
 "use client";
 
-import { CalendarDays } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { RosterSentBar, type SentReceipt } from "@/components/roster/requests/roster-sent-bar";
 import type { SharedManageReload } from "@/components/roster/manage/roster-approve-tab";
@@ -129,12 +130,19 @@ export function TeamCalendar({
   actorId,
   now,
   shared,
+  onManagerLayer,
 }: {
   team: RosterTeam;
   actorId: string | null;
   now: Date;
   /** On the Manage page: the manage reload shared with the Approve tab. */
   shared?: SharedManageReload;
+  /**
+   * On the Manage page: told whether the manager layer (and so the Needs you
+   * strip) is showing, so the Approve tab lists decisions only when the strip
+   * cannot.
+   */
+  onManagerLayer?: (shown: boolean) => void;
 }) {
   const router = useRouter();
   const pathname = usePathname();
@@ -172,6 +180,10 @@ export function TeamCalendar({
   const manager = useManagerCalendar(team, calendarWindow(state), all, actorId);
   // Counts are for planning ahead: a day that has passed shows none, short or not.
   const cover = new Map([...manager.cover].filter(([date]) => date >= today));
+  const managerShown = manager.enabled;
+  useEffect(() => {
+    onManagerLayer?.(managerShown);
+  }, [onManagerLayer, managerShown]);
   const managerReload = manager.reload;
   const requestsReload = requests.reload;
   const sharedChanged = shared?.onChanged;
@@ -226,17 +238,11 @@ export function TeamCalendar({
         options={VIEWS}
       />
       <div className="flex items-center justify-between gap-1">
-        <Button
-          variant="ghost"
-          className="min-h-12"
-          aria-label={`Previous ${unit}`}
-          onClick={() => go(stepCalendar(state, -1))}
-        >
-          ‹
-        </Button>
+        <ModeActionButton icon={ChevronLeft} label={`Previous ${unit}`} onClick={() => go(stepCalendar(state, -1))} />
         {/* Tapping the title opens the date picker: the date input lies over it, unseen. */}
         <div className="relative flex min-h-12 min-w-0 items-center gap-1 rounded px-1 has-[input:focus-visible]:outline has-[input:focus-visible]:outline-2 has-[input:focus-visible]:outline-[color:var(--focus)]">
-          <h1 className="truncate text-base font-normal">{heading(state)}</h1>
+          {/* The page title is the page's one h1; the date is the calendar's heading. */}
+          <h2 className="truncate text-base-minus font-semibold text-[color:var(--text-heading)]">{heading(state)}</h2>
           <CalendarDays
             aria-hidden="true"
             className="size-icon-sm shrink-0 text-[color:var(--text-muted)] print:hidden"
@@ -258,14 +264,7 @@ export function TeamCalendar({
             }}
           />
         </div>
-        <Button
-          variant="ghost"
-          className="min-h-12"
-          aria-label={`Next ${unit}`}
-          onClick={() => go(stepCalendar(state, 1))}
-        >
-          ›
-        </Button>
+        <ModeActionButton icon={ChevronRight} label={`Next ${unit}`} onClick={() => go(stepCalendar(state, 1))} />
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <CalendarFilterButton

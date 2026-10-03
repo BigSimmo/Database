@@ -1,6 +1,6 @@
 interface:
   display_name: "Operations Alias"
-  short_description: "Compatibility alias for Database operator work"
+  short_description: "Compatibility alias for PsychSift operator work"
   default_prompt: "Use $operator-closeout only as a compatibility alias for $operations."
 policy:
   allow_implicit_invocation: false

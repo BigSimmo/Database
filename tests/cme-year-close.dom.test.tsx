@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -10,7 +10,7 @@ import { createAustralianRanzcpPreset } from "@/lib/cme/presets";
 import type { CmeEntry, CmeYearClose } from "@/lib/cme/types";
 
 const nav = vi.hoisted(() => ({ push: vi.fn(), refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => nav }));
+vi.mock("next/navigation", () => ({ useRouter: () => nav, usePathname: () => "/cme/log/entry" }));
 vi.mock("@/components/cme/cme-evidence-panel", () => ({
   CmeEvidencePanel: ({ readOnly }: { readOnly: boolean }) => (
     <section aria-label="Evidence">{readOnly ? "Evidence view only" : "Evidence uploads enabled"}</section>
@@ -179,14 +179,18 @@ describe("closing a year from the annual summary", () => {
 describe("amending an activity in a closed year", () => {
   const closedSet = { ...set, closedAt: close.closedAt };
 
-  it("offers Amend entry, not Edit entry, and keeps evidence view-only", () => {
+  it("offers Amend entry, not Edit entry, and keeps evidence view-only", async () => {
+    const user = userEvent.setup();
     render(<CmeEntryRouteClient entry={entry} set={closedSet} edit={false} demoMode={false} />);
-    expect(screen.getByRole("link", { name: "Amend entry" })).toHaveAttribute("href", `/cme/log/${entry.id}?edit=1`);
-    expect(screen.queryByRole("link", { name: "Edit entry" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Open activity actions" }));
+    const actions = within(await screen.findByTestId("cme-entry-actions-sheet"));
+    expect(actions.getByRole("link", { name: "Amend entry" })).toHaveAttribute("href", `/cme/log/${entry.id}?edit=1`);
+    expect(actions.queryByRole("link", { name: "Edit entry" })).toBeNull();
     expect(screen.getByText("Evidence view only")).toBeInTheDocument();
   });
 
-  it("does not offer an amendment for an archived activity", () => {
+  it("does not offer an amendment for an archived activity", async () => {
+    const user = userEvent.setup();
     render(
       <CmeEntryRouteClient
         entry={{ ...entry, archivedAt: "2026-10-01" }}
@@ -195,6 +199,8 @@ describe("amending an activity in a closed year", () => {
         demoMode={false}
       />,
     );
+    await user.click(screen.getByRole("button", { name: "Open activity actions" }));
+    await screen.findByTestId("cme-entry-actions-sheet");
     expect(screen.queryByRole("link", { name: "Amend entry" })).toBeNull();
   });
 

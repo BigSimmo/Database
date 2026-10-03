@@ -57,6 +57,47 @@ const rows: RosterAssignment[] = [
   shift("kai", "registrar", "2026-10-20", "21:30", "2026-10-21", "08:00", "night"),
 ];
 
+describe("swapOptions with the team's current members", () => {
+  const members = [
+    { userId: "mei", name: "Dr mei Example", grade: "registrar" as const },
+    { userId: "sam", name: "Dr sam Example", grade: "registrar" as const },
+    { userId: "dana", name: "Dr dana Example", grade: "consultant" as const },
+    { userId: "noor", name: "Dr noor Example", grade: "resident" as const },
+    { userId: "lee", name: "Dr lee Example", grade: null },
+    { userId: "kai", name: "Dr kai Example", grade: "registrar" as const },
+    // On the team but with no shift in the rows read.
+    { userId: "ari", name: "Dr Ari Example", grade: "registrar" as const },
+    { userId: "rowan", name: "Dr Rowan Example", grade: "intern" as const },
+  ];
+
+  it("lists a member with no shift in the weeks read, placed by grade", () => {
+    const { can, cannot } = swapOptions({ rows, give, me, settings, now: NOW, members });
+    expect(can.map((c) => c.userId)).toEqual(expect.arrayContaining(["sam", "dana", "ari"]));
+    expect(can.find((c) => c.userId === "ari")).toMatchObject({
+      name: "Dr Ari Example",
+      sameGrade: true,
+      takeBack: [],
+    });
+    expect(cannot.find((c) => c.userId === "rowan")).toMatchObject({ reason: "lower_grade" });
+  });
+
+  it("never lists someone who has left the team, even with shifts still on the roster", () => {
+    const stillOnRoster = members.filter((member) => member.userId !== "sam");
+    const { can, cannot } = swapOptions({ rows, give, me, settings, now: NOW, members: stillOnRoster });
+    expect([...can, ...cannot].some((person) => person.userId === "sam")).toBe(false);
+  });
+
+  it("never lists the reader", () => {
+    const { can, cannot } = swapOptions({ rows, give, me, settings, now: NOW, members });
+    expect([...can, ...cannot].some((person) => person.userId === "mei")).toBe(false);
+  });
+
+  it("still weighs clashes from the rows: a member already working the night can't take it", () => {
+    const { cannot } = swapOptions({ rows, give, me, settings, now: NOW, members });
+    expect(cannot.find((c) => c.userId === "kai")).toMatchObject({ reason: "already_working" });
+  });
+});
+
 describe("swapOptions", () => {
   it("lists who can take the shift in the same order as swapCandidates", () => {
     const { can } = swapOptions({ rows, give, me, settings, now: NOW });

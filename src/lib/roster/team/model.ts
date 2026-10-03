@@ -28,6 +28,7 @@ export const ROSTER_READS = [
   "people",
   "publications",
   "maker",
+  "members",
 ] as const;
 
 /**
@@ -255,6 +256,15 @@ export const rosterPersonSchema = z.object({
 export type RosterPerson = z.infer<typeof rosterPersonSchema>;
 export const rosterPeopleSchema = z.object({ people: z.array(rosterPersonSchema) });
 
+/**
+ * The `members` read: the team's current members as any member may see them,
+ * names and grades only (`roster_team_members`). The manager-only `people`
+ * read stays the one that carries roles, join dates and rotations.
+ */
+export const rosterTeamMemberSchema = z.object({ userId: uuid, name: z.string().nullable(), grade: grade.nullable() });
+export type RosterTeamMember = z.infer<typeof rosterTeamMemberSchema>;
+export const rosterTeamMembersSchema = z.object({ members: z.array(rosterTeamMemberSchema) });
+
 export const rosterPublicationSchema = z.object({
   id: uuid,
   version: z.number().int(),
@@ -350,6 +360,7 @@ export const ROSTER_READ_SCHEMAS = {
   people: rosterPeopleSchema,
   publications: rosterPublicationsSchema,
   maker: rosterMakerSchema,
+  members: rosterTeamMembersSchema,
   changes: rosterChangesSchema,
   team_leave: rosterTeamLeaveSchema,
   my_changes: rosterMyChangesSchema,

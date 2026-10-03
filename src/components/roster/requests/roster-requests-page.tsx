@@ -1,10 +1,12 @@
 "use client";
 
-import { Inbox, Plane, Plus } from "lucide-react";
+import { ArrowLeftRight, CalendarOff, CalendarX2, HandHelping, Inbox, Plane } from "lucide-react";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
+import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
+import { ModeNotice } from "@/components/mode-kit/notice";
 import { modeIconTile, modeModuleSurface } from "@/components/mode-kit/recipes";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { SwapFlowSheet } from "@/components/roster/swaps/swap-flow-sheet";
@@ -12,7 +14,6 @@ import { RosterSampleNotice } from "@/components/roster/team/roster-sample-notic
 import { useRosterNow } from "@/components/roster/roster-format";
 import { useRosterRead, useRosterTeams } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
-import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { formatDateSpan } from "@/components/roster/roster-format";
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
@@ -22,12 +23,17 @@ import { RosterDatesSheet } from "./roster-dates-sheet";
 import { RosterGiveAwaySheet } from "./roster-give-away-sheet";
 import { RosterLeaveSheet } from "./roster-leave-sheet";
 import { RosterSentBar, type SentReceipt } from "./roster-sent-bar";
+import { RosterSignInNotice } from "@/components/roster/invite/roster-sign-in-notice";
 import { RosterEmpty, RosterPageHeader, rosterField } from "@/components/roster/roster-ui";
+import { RosterNewButton } from "@/components/roster/roster-new-button";
+import { usePhoneFooterLayerScrollHidden } from "@/components/clinical-dashboard/phone-footer-layer-portal";
 
 type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
 type ActiveSheet = {
   kind: Start;
   assignment?: string;
+  /** A colleague to preselect in the swap sheet; only a starting point, re-weighed there. */
+  person?: string;
   leaveId?: string;
   date?: string;
   to?: string;
@@ -76,6 +82,7 @@ function requestRow(letter: string, title: string, detail: string, status: strin
 /** Dates I can't work, leave and shifts I can't make. Swaps and open shifts live on the Swaps page. */
 export function RosterRequestsPage() {
   const now = useRosterNow();
+  const phoneFooterHidden = usePhoneFooterLayerScrollHidden() === true;
   const search = useSyncExternalStore(subscribeSearch, searchSnapshot, serverSearchSnapshot);
   const [consumedSearch, setConsumedSearch] = useState<string | null>(null);
   const teams = useRosterTeams();
@@ -93,7 +100,6 @@ export function RosterRequestsPage() {
   const [leave, setLeave] = useState<RosterLeave[]>([]);
   const [leaveState, setLeaveState] = useState<"loading" | "ready" | "error">("loading");
   const [sheet, setSheet] = useState<ActiveSheet>(null);
-  const [newOpen, setNewOpen] = useState(false);
   const [sent, setSent] = useState<SentReceipt | null>(null);
   const clearSent = useCallback(() => setSent(null), []);
   const leaveReadSequence = useRef(0);
@@ -136,6 +142,8 @@ export function RosterRequestsPage() {
     const date = params.get("date");
     const to = params.get("to");
     const dateKind = params.get("kind");
+    // A person who is not a UUID is dropped rather than refusing the whole hand-off.
+    const person = params.get("person");
     // Query parameters may prefill a sheet; they can never identify the actor.
     if ((assignment && !UUID.test(assignment)) || (date && !DATE.test(date)) || (to && !DATE.test(to))) return null;
     if (start === "dates" && dateKind && dateKind !== "cant" && dateKind !== "prefer_off") return null;
@@ -150,6 +158,7 @@ export function RosterRequestsPage() {
       sheet: {
         kind: start as Start,
         assignment: assignment ?? undefined,
+        person: start === "swap" && person && UUID.test(person) ? person : undefined,
         date: date ?? undefined,
         to: to ?? undefined,
         dateKind: dateKind === "prefer_off" ? "prefer_off" : undefined,
@@ -207,16 +216,38 @@ export function RosterRequestsPage() {
 
   const canTeamAct = !!serviceId && !!actorId && overview.status === "ready";
   return (
-    <InformationPageShell testId="roster-requests-page">
+    <InformationPageShell testId="roster-requests-page" className={phoneFooterHidden ? "max-sm:pb-4" : "max-sm:pb-20"}>
       <RosterPageHeader
         icon={Inbox}
         eyebrow="Roster"
         title="Requests"
         subtitle="Dates you can't work, leave, and shifts you can't make."
         actions={
-          <Button icon={Plus} variant="primary" disabled={teams.status !== "ready"} onClick={() => setNewOpen(true)}>
-            New
-          </Button>
+          <RosterNewButton
+            entries={[
+              ...(
+                [
+                  ["give_away", "Give a shift away", HandHelping],
+                  ["cant_make", "I can't make my shift", CalendarX2],
+                  ["dates", "Dates I can't work", CalendarOff],
+                ] as const
+              ).map(([kind, label, icon]) => ({
+                id: kind,
+                label,
+                icon,
+                onSelect: () => setSheet({ kind }),
+                disabled: canTeamAct ? undefined : { reason: "Needs a confirmed team" },
+              })),
+              { id: "leave", label: "Plan leave", icon: Plane, onSelect: () => setSheet({ kind: "leave" }) },
+              {
+                id: "swap",
+                label: "Swap a shift",
+                description: "Pick the shift on the Team calendar",
+                icon: ArrowLeftRight,
+                href: "/roster/team?view=week",
+              },
+            ]}
+          />
         }
       />
       <RosterSampleNotice sample={teams.data?.sample} />
@@ -239,15 +270,36 @@ export function RosterRequestsPage() {
       ) : null}
       {enabled.length > 1 && !selectedServiceId ? <p>Choose the team for a request before continuing.</p> : null}
       {teams.status === "loading" ? <p role="status">Loading your teams…</p> : null}
-      {teams.status === "signed-out" ? <p>Sign in to see your leave and requests.</p> : null}
-      {teams.status === "error" ? <p role="alert">{teams.message}</p> : null}
+      {teams.status === "signed-out" ? (
+        <RosterSignInNotice testId="roster-requests-signed-out">
+          Sign in to see your leave and requests.
+        </RosterSignInNotice>
+      ) : null}
+      {teams.status === "not-confirmed" || teams.status === "unavailable" ? (
+        <ModeNotice testId="roster-requests-team-pending">
+          {teams.status === "not-confirmed" && teams.message
+            ? teams.message
+            : "Team requests aren\u2019t available yet. Try again later."}
+        </ModeNotice>
+      ) : null}
+      {teams.status === "error" ? (
+        <div role="alert" className="grid gap-2">
+          <p>{teams.message}</p>
+          <Button className="justify-self-start" onClick={teams.reload}>
+            Try again
+          </Button>
+        </div>
+      ) : null}
       {teams.status === "ready" && !enabled.length ? (
         <p>No confirmed team yet. You can still plan your own leave.</p>
       ) : null}
       {serviceId && (assignments.status === "error" || overview.status === "error") ? (
-        <p role="alert">
-          The team roster couldn&apos;t be checked. <Button onClick={reload}>Try again</Button>
-        </p>
+        <div role="alert" className="grid gap-2">
+          <p>The team roster couldn&apos;t be checked.</p>
+          <Button className="justify-self-start" onClick={reload}>
+            Try again
+          </Button>
+        </div>
       ) : null}
       <RosterSentBar receipt={sent} clear={clearSent} />
       <ModeGroupedList>
@@ -266,9 +318,16 @@ export function RosterRequestsPage() {
         </h2>
         {currentLeave.length ? (
           <ul className={modeModuleSurface}>{currentLeave.map(leaveRow)}</ul>
-        ) : (
+        ) : teams.status === "loading" || (teams.status === "ready" && leaveState === "loading") ? (
+          <>
+            <p role="status" className="sr-only">
+              Loading your leave…
+            </p>
+            <ModeModuleSkeleton rows={2} twoLine testId="roster-requests-leave-loading" />
+          </>
+        ) : teams.status === "ready" && leaveState === "ready" ? (
           <RosterEmpty icon={Plane}>Nothing yet. Tap New to plan leave or mark dates you can&apos;t work.</RosterEmpty>
-        )}
+        ) : null}
       </section>
       {earlierLeave.length ? (
         <section>
@@ -282,33 +341,13 @@ export function RosterRequestsPage() {
         </p>
       ) : null}
       {leaveState === "error" ? (
-        <p role="alert">
-          Your leave couldn&apos;t be loaded. <Button onClick={() => void loadLeave()}>Try again</Button>
-        </p>
-      ) : null}
-      <Sheet open={newOpen} onClose={() => setNewOpen(false)} title="New request">
-        <div className="grid gap-2">
-          {(
-            [
-              ["give_away", "Give a shift away"],
-              ["cant_make", "I can't make my shift"],
-              ["dates", "Dates I can't work"],
-              ["leave", "Plan leave"],
-            ] as const
-          ).map(([kind, label]) => (
-            <Button
-              key={kind}
-              disabled={kind !== "leave" && !canTeamAct}
-              onClick={() => {
-                setNewOpen(false);
-                setSheet({ kind });
-              }}
-            >
-              {label}
-            </Button>
-          ))}
+        <div role="alert" className="grid gap-2">
+          <p>Your leave couldn&apos;t be loaded.</p>
+          <Button className="justify-self-start" onClick={() => void loadLeave()}>
+            Try again
+          </Button>
         </div>
-      </Sheet>
+      ) : null}
       {serviceId && actorId ? (
         <>
           {swapGive ? (
@@ -320,6 +359,7 @@ export function RosterRequestsPage() {
               give={swapGive}
               mode="swap"
               onSent={onSent}
+              initialColleagueId={sheet?.person}
             />
           ) : null}
           <RosterGiveAwaySheet

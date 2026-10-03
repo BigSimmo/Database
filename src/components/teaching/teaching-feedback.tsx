@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { TeachingAccountPage, TeachingDepthPage } from "@/components/teaching/teaching-depth-page";
-import { perthDateKey } from "@/components/teaching/teaching-dates";
+import { perthDateKey, perthTime, shortDayLabel } from "@/components/teaching/teaching-dates";
 import { useTeachingNow } from "@/components/teaching/use-teaching-now";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
 import { Button } from "@/components/ui/button";
+import { SegmentedControl } from "@/components/ui/segmented-control";
+import { cn, textMuted } from "@/components/ui-primitives";
 import { teachingErrorMessage, teachingPost } from "@/lib/teaching/client";
 import { demoFeedbackOpen } from "@/lib/teaching/depth-demo";
 import {
@@ -18,12 +20,15 @@ import {
   type SessionRef,
 } from "@/lib/teaching/depth-model";
 
+const USEFUL = ["1", "2", "3", "4", "5"] as const;
+
 function FeedbackForm({ session, demoMode }: { session: SessionRef; demoMode: boolean }) {
   const [useful, setUseful] = useState<number | null>(null);
   const [pace, setPace] = useState<FeedbackPace | null>(null);
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const ids = useId();
   return (
     <form
       className="grid gap-3 border-b border-[color:var(--border)] py-3"
@@ -48,41 +53,42 @@ function FeedbackForm({ session, demoMode }: { session: SessionRef; demoMode: bo
         }
       }}
     >
-      <h2 className="font-medium">{session.title}</h2>
+      <div className="grid gap-0.5">
+        <h2 className="text-base-minus font-medium text-[color:var(--text-heading)]">{session.title}</h2>
+        <p className={cn("text-sm", textMuted)}>
+          {shortDayLabel(perthDateKey(session.startsAt))} · {perthTime(session.startsAt)}
+        </p>
+      </div>
       {sent ? (
         <p role="status">{demoMode ? "Demo answer recorded on this page." : "Thanks. Your answer was sent."}</p>
       ) : (
         <>
-          <fieldset disabled={busy}>
-            <legend>How useful was it? 1 (least) to 5 (most)</legend>
-            <div className="flex flex-wrap gap-3">
-              {[1, 2, 3, 4, 5].map((value) => (
-                <label key={value} className="flex min-h-12 items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`useful-${session.occurrenceId}`}
-                    checked={useful === value}
-                    onChange={() => setUseful(value)}
-                  />
-                  {value}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          <fieldset disabled={busy}>
-            <legend>Pace</legend>
-            {feedbackPaces.map((value) => (
-              <label key={value} className="flex min-h-12 items-center gap-2">
-                <input
-                  type="radio"
-                  name={`pace-${session.occurrenceId}`}
-                  checked={pace === value}
-                  onChange={() => setPace(value)}
-                />
-                {feedbackPaceLabels[value]}
-              </label>
-            ))}
-          </fieldset>
+          <div className="grid gap-1.5">
+            <p id={`${ids}-useful`} className="text-sm font-medium text-[color:var(--text-heading)]">
+              How useful was it? 1 (least) to 5 (most)
+            </p>
+            <SegmentedControl
+              ariaLabelledBy={`${ids}-useful`}
+              layout="equal"
+              value={useful === null ? "" : String(useful)}
+              onChange={(value) => setUseful(Number(value))}
+              options={USEFUL.map((value) => ({ value, label: value, disabled: busy }))}
+            />
+          </div>
+          <div className="grid gap-1.5">
+            <p id={`${ids}-pace`} className="text-sm font-medium text-[color:var(--text-heading)]">
+              Pace
+            </p>
+            <SegmentedControl<FeedbackPace | "">
+              ariaLabelledBy={`${ids}-pace`}
+              layout="equal"
+              value={pace ?? ""}
+              onChange={(value) => {
+                if (value) setPace(value);
+              }}
+              options={feedbackPaces.map((value) => ({ value, label: feedbackPaceLabels[value], disabled: busy }))}
+            />
+          </div>
           <Button type="submit" variant="primary" disabled={busy || useful === null || pace === null}>
             {busy ? "Sending…" : "Send feedback"}
           </Button>

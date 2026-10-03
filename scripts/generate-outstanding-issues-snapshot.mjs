@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 const LEDGER_PATH = "docs/outstanding-issues.md";
 const INBOX_DIR = "docs/outstanding-issues-inbox";
@@ -317,12 +317,7 @@ export function generate({
 }
 
 // Windows-safe main-module check, matching the convention used elsewhere in
-// scripts/ (e.g. build-worker.mjs): a manual `file://${argv[1]}` string
-// reconstruction never matches `import.meta.url` on Windows, because a
-// relative argv[1] stays relative and an absolute one is missing the
-// drive-letter leading slash — the guard would silently never fire and the
-// file would never be written.
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectEntrypoint(import.meta.url)) {
   // Only `prebuild` passes this. See `generate()` for why the committed file
   // deliberately carries an empty `pending`.
   const includePending = process.argv.slice(2).includes("--with-pending");

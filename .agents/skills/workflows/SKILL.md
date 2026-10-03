@@ -1,6 +1,6 @@
 ---
 name: workflows
-description: Compatibility alias for the skills skill. Use only when the user explicitly invokes the older workflows name; otherwise use skills for the complete unique Database skill catalog.
+description: Compatibility alias for the skills skill. Use only when the user explicitly invokes the older workflows name; otherwise use skills for the complete unique PsychSift skill catalog.
 ---
 
 # Workflows Alias

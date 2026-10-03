@@ -1,6 +1,6 @@
 ---
 name: migrate
-description: Review and prepare Database schema migrations for safety, reversibility, privileges, RLS, locking, data preservation, and schema consistency. Use for new or changed Supabase migrations, functions, grants, policies, or schema changes.
+description: Review and prepare PsychSift schema migrations for safety, reversibility, privileges, RLS, locking, data preservation, and schema consistency. Use for new or changed Supabase migrations, functions, grants, policies, or schema changes.
 ---
 
 # Migrate

@@ -108,6 +108,12 @@ const reads = {
   assignments: { assignments: [give, take] },
   requests: { swaps: [swap], openShifts: [] as (typeof open)[] },
   unavailability: { unavailability: [] },
+  members: {
+    members: [
+      { userId: ME, name: "You", grade: "resident" },
+      { userId: MEI, name: "Mei", grade: "resident" },
+    ],
+  },
 };
 
 beforeEach(() => {
@@ -141,6 +147,22 @@ it("opens the calendar swap flow from a handoff, using a valid team ID and never
   expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
   expect(mocks.fetchRead).toHaveBeenCalledWith(second, "overview");
   expect(mocks.post).not.toHaveBeenCalled();
+});
+
+it("opens a swap handoff with the colleague from Who can cover? already chosen", async () => {
+  window.history.replaceState({}, "", `/roster/requests?start=swap&assignment=${TAKE}&person=${MEI}`);
+  render(<RosterRequestsPage />);
+  expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
+  expect(await screen.findByText("What would you take from Mei?")).toBeTruthy();
+  expect(mocks.post).not.toHaveBeenCalled();
+});
+
+it("drops a person that is not an ID and opens the swap at Who", async () => {
+  window.history.replaceState({}, "", `/roster/requests?start=swap&assignment=${TAKE}&person=not-an-id`);
+  render(<RosterRequestsPage />);
+  expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
+  expect(await screen.findByText("Can swap")).toBeTruthy();
+  expect(screen.queryByText(/What would you take from/)).toBeNull();
 });
 
 it("opens an Ask dates handoff with Prefer off already selected", async () => {
@@ -179,4 +201,22 @@ it("shows an anonymous leave overlap count", async () => {
   await user.type(screen.getByLabelText("To"), "2027-01-02");
   expect(await screen.findByText("2 of the team are already off these dates")).toBeTruthy();
   expect(mocks.fetchRead).toHaveBeenCalledWith(SERVICE, "leave_overlap", { from: "2026-12-22", to: "2027-01-02" });
+});
+
+it("shows leave as loading, not as empty, until the leave read answers", async () => {
+  let answer: (response: Response) => void = () => undefined;
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(
+      () =>
+        new Promise<Response>((resolve) => {
+          answer = resolve;
+        }),
+    ),
+  );
+  render(<RosterRequestsPage />);
+  expect(await screen.findByText("Loading your leave…")).toBeTruthy();
+  expect(screen.queryByText(/Nothing yet/)).toBeNull();
+  answer(Response.json({ leave: [] }));
+  expect(await screen.findByText(/Nothing yet/)).toBeTruthy();
 });

@@ -4785,6 +4785,7 @@ export type Database = {
         Args: { p_actor_id: string; p_service_id: string; p_action: string; p_payload?: Json };
         Returns: Json;
       };
+      roster_team_members: { Args: { p_actor_id: string; p_service_id: string }; Returns: Json };
       roster_set_cutoff: {
         Args: { p_actor_id: string; p_service_id: string; p_cutoff: string | null };
         Returns: Json;

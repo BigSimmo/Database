@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ModeFactTile, ModeFactTiles } from "@/components/mode-kit/fact-tile";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
@@ -22,13 +22,26 @@ import { formatDateSpan, formatHours, kindOf } from "./roster-format";
  * doctor on their own, so there is no score and no colour for "too many".
  *
  * "Stayed late" records the time from the end of the shift that just finished
- * until now, in the extra-time record Admin uses for claims.
+ * until now, in the extra-time record Admin uses for claims. The fortnight's
+ * saved records (Roster's and Admin's) are read back from that same record, so
+ * extra time survives a reload. If they cannot be read, the panel says so and
+ * counts only what was recorded on this visit.
  */
 
 /** A late finish is offered for this long after a shift ends. */
 const STAYED_LATE_WINDOW_MS = 8 * 60 * 60 * 1000;
 
 export type RosterExtraTime = HoursExtra;
+
+/**
+ * One extra-time record's identity: its kind and its start as an instant. The
+ * server returns database timestamps (`+00:00`) and this visit's records use
+ * `toISOString()` (`Z`), so the same start compares by instant, not spelling;
+ * a call-in and a late finish may share a start and are different records.
+ */
+function extraKey(extra: RosterExtraTime): string {
+  return `${extra.kind ?? "stayed_late"}|${Date.parse(extra.startedAt)}`;
+}
 
 /** The worked shift that finished most recently, if it ended in the last eight hours. */
 export function justFinished(shifts: readonly OnCallShift[], now: Date): OnCallShift | null {
@@ -40,6 +53,35 @@ export function justFinished(shifts: readonly OnCallShift[], now: Date): OnCallS
     if (!best || end > Date.parse(best.endsAt)) best = shift;
   }
   return best;
+}
+
+type SavedExtras = { readonly status: "loading" | "ready" | "error"; readonly records: readonly RosterExtraTime[] };
+
+/** The doctor's own saved extra time in the fortnight, from `GET /api/roster/extra-time`. */
+function useSavedExtras(from: string, to: string, attempt: number): SavedExtras {
+  const key = `${from}/${to}/${attempt}`;
+  const [loaded, setLoaded] = useState<{ key: string; result: SavedExtras } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const settle = (result: SavedExtras) => {
+      if (alive) setLoaded({ key, result });
+    };
+    void fetch(`/api/roster/extra-time?from=${from}&to=${to}`, { cache: "no-store" })
+      .then(async (response) => {
+        const body = response.ok ? ((await response.json()) as { records?: RosterExtraTime[] }) : null;
+        settle(
+          body && Array.isArray(body.records)
+            ? { status: "ready", records: body.records }
+            : { status: "error", records: [] },
+        );
+      })
+      .catch(() => settle({ status: "error", records: [] }));
+    return () => {
+      alive = false;
+    };
+  }, [from, to, key]);
+  // While a new range or a retry loads, keep the last records so the figures do not flash to zero.
+  return loaded?.key === key ? loaded.result : { status: "loading", records: loaded?.result.records ?? [] };
 }
 
 export function RosterHoursPanel({
@@ -57,30 +99,43 @@ export function RosterHoursPanel({
   readonly payFortnightAnchor?: string | null;
 }) {
   const today = perthDateOf(now);
+  const fortnight = fortnightFor(today, payFortnightAnchor);
+  const [attempt, setAttempt] = useState(0);
+  const saved = useSavedExtras(fortnight.start, fortnight.end, attempt);
+  // This visit's records and the saved ones, once each: a record saved now is also read back later.
+  const allExtras = useMemo(() => {
+    const byStart = new Map<string, RosterExtraTime>();
+    for (const extra of [...saved.records, ...extras]) byStart.set(extraKey(extra), extra);
+    return [...byStart.values()];
+  }, [saved.records, extras]);
   const summary = useMemo(
     () =>
       summariseHours(
         shifts.map((shift) => ({ startsAt: shift.startsAt, endsAt: shift.endsAt, kind: kindOf(shift) })),
-        extras,
+        allExtras,
         fortnightFor(today, payFortnightAnchor),
       ),
-    [shifts, extras, today, payFortnightAnchor],
+    [shifts, allExtras, today, payFortnightAnchor],
   );
   const scale = Math.max(12, ...summary.days.map((day) => day.hours + day.extraHours));
   const finished = justFinished(shifts, now);
-  const alreadyLogged = finished ? extras.some((extra) => extra.startedAt === finished.endsAt) : false;
+  const alreadyLogged = finished
+    ? allExtras.some(
+        (extra) => extraKey(extra) === extraKey({ kind: "stayed_late", startedAt: finished.endsAt, endedAt: null }),
+      )
+    : false;
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: "neutral" | "warning"; text: string } | null>(null);
 
   async function stayedLate() {
     if (!finished) return;
-    const extra = { startedAt: finished.endsAt, endedAt: now.toISOString() };
+    const extra = { kind: "stayed_late" as const, startedAt: finished.endsAt, endedAt: now.toISOString() };
     setSaving(true);
     try {
       const response = await fetch("/api/roster/extra-time", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "stayed_late", ...extra }),
+        body: JSON.stringify(extra),
       });
       if (!response.ok) setMessage({ tone: "warning", text: "Extra time could not be saved. Try again." });
       else {
@@ -147,7 +202,10 @@ export function RosterHoursPanel({
         />
         <ModeFactTile label="Most in any 7 days" value={formatHours(summary.maxHoursIn7Days)} />
         <ModeFactTile label="Most days in a row" value={summary.maxDaysInRow} />
-        <ModeFactTile label="Extra time" value={formatHours(summary.extraHours)} />
+        <ModeFactTile
+          label={saved.status === "error" ? "Extra time recorded this visit" : "Extra time"}
+          value={saved.status === "loading" ? "…" : formatHours(summary.extraHours)}
+        />
       </ModeFactTiles>
 
       <section className="grid gap-2" aria-label="Extra time">
@@ -161,6 +219,20 @@ export function RosterHoursPanel({
         >
           Stayed late
         </Button>
+        {saved.status === "error" ? (
+          <div className="grid gap-2" role="alert" data-testid="roster-hours-extras-error">
+            <ModeNotice tone="warning">
+              Saved extra time could not be loaded, so only extra time recorded on this visit is counted here.
+            </ModeNotice>
+            <Button className="justify-self-start" variant="secondary" onClick={() => setAttempt((n) => n + 1)}>
+              Try again
+            </Button>
+          </div>
+        ) : (
+          <p className={cn(modeSecondaryText, "px-3")}>
+            Counts your saved extra time for this fortnight. You claim it in Admin.
+          </p>
+        )}
         {message ? <ModeNotice tone={message.tone}>{message.text}</ModeNotice> : null}
       </section>
 

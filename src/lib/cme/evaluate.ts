@@ -95,7 +95,22 @@ export function evaluateRequirement(requirement: CmeRequirement, entries: readon
         : combinedShort >= (floorShort[0]?.short ?? 0)
           ? hoursToGo(combinedShort)
           : `${hoursToGo(floorShort[0]!.short)} in ${cmeCategoryLabels[floorShort[0]!.category].toLowerCase()}`;
-      return { requirementId: requirement.id, met, progress: { value, target: spec.minimumHours }, summary };
+      // Hours added to a short category also count towards the combined
+      // total, so the least that still has to be logged is the larger of the
+      // combined gap and the sum of the per-category gaps.
+      const hoursShort = round2(
+        Math.max(
+          combinedShort,
+          floorShort.reduce((sum, item) => sum + item.short, 0),
+        ),
+      );
+      return {
+        requirementId: requirement.id,
+        met,
+        progress: { value, target: spec.minimumHours },
+        ...(hoursShort > combinedShort ? { hoursShort } : {}),
+        summary,
+      };
     }
     case "activity-count": {
       const filled = spec.buckets.filter(

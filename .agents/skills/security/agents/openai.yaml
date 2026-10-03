@@ -1,4 +1,4 @@
 interface:
   display_name: "Security"
-  short_description: "Find concrete Database security risks"
-  default_prompt: "Use $security to inspect this Database surface for reproducible security risks and minimal safe fixes."
+  short_description: "Find concrete PsychSift security risks"
+  default_prompt: "Use $security to inspect this PsychSift surface for reproducible security risks and minimal safe fixes."

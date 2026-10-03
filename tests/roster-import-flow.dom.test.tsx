@@ -52,7 +52,7 @@ function fetchCalls(url: string, method: string) {
   return fetchMock.mock.calls.filter(([input, init]) => String(input) === url && (init?.method ?? "GET") === method);
 }
 async function importFile(name: string, content = "roster") {
-  fireEvent.click(await screen.findByRole("button", { name: "Add" }));
+  fireEvent.click(await screen.findByRole("button", { name: "New" }));
   fireEvent.click(await screen.findByRole("button", { name: /Import a file/ }));
   const input = await screen.findByTestId("roster-import-file");
   fireEvent.change(input, { target: { files: [new File([content], name)] } });
