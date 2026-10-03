@@ -26,7 +26,7 @@ import type { DashQuickAction } from "@/components/dashboard-kit/quick-actions";
 import { dashFigure, dashLink, dashMuted, dashSurface } from "@/components/dashboard-kit/recipes";
 import { ProgressRing } from "@/components/dashboard-kit/rings";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { readAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
+import { readAppPreferences, subscribeAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
 import { appModeDefinition, appModeHomeHref, type AppModeId } from "@/lib/app-modes";
@@ -183,14 +183,10 @@ function useNow(nowProp?: Date): Date | null {
   return minute === null ? null : new Date(minute);
 }
 
-function subscribeNothing(): () => void {
-  return () => undefined;
-}
-
-/** Whether "Save recent searches" is off, read in the browser only. */
+/** Whether "Save recent searches" is off, read in the browser only and kept live. */
 function useRecordingOff(): boolean {
   return useSyncExternalStore(
-    subscribeNothing,
+    subscribeAppPreferences,
     () => !readAppPreferences().saveRecentSearches,
     () => false,
   );

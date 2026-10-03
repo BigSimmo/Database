@@ -6,7 +6,7 @@
 // Psychiatry group lists. The Ask page's question box runs the cited answer
 // search, and the on-device history only shows what this device recorded.
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const push = vi.fn();
@@ -69,6 +69,16 @@ describe("PsychiatryHome", () => {
     expect(screen.queryByTestId("psychiatry-resume")).toBeNull();
     expect(screen.getByTestId("psychiatry-continue-empty")).toBeTruthy();
     expect(screen.getByTestId("psychiatry-mha-search")).toHaveAttribute("href", "/forms/search");
+  });
+
+  it("updates the empty Continue line as soon as Save recent searches is switched off", () => {
+    render(<PsychiatryHome counts={counts} now={now} />);
+    expect(screen.getByTestId("psychiatry-continue-empty")).toHaveTextContent(/will appear here/);
+    act(() => {
+      window.localStorage.setItem("clinical-kb-preferences", JSON.stringify({ saveRecentSearches: false }));
+      window.dispatchEvent(new Event("clinical-kb-preferences-change"));
+    });
+    expect(screen.getByTestId("psychiatry-continue-empty")).toHaveTextContent(/Turn on Save recent searches/);
   });
 
   it("offers the last record, the month's count and the most-opened forms from this device", () => {
