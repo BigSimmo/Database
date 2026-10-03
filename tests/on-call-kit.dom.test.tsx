@@ -6,16 +6,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => ({ status: "signed_out", authEpoch: 1 }) }));
 
-import { OnCallActionButton } from "@/components/on-call/kit/action-button";
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { OnCallDialRow, toHandbookDial } from "@/components/on-call/kit/dial-row";
 import { OnCallDialSheet } from "@/components/on-call/kit/dial-sheet";
-import { OnCallFactTile } from "@/components/on-call/kit/fact-tile";
+import { ModeFactTile } from "@/components/mode-kit/fact-tile";
 import { OnCallGroupedList, OnCallRow } from "@/components/on-call/kit/grouped-list";
 import { OnCallHandbookState, OnCallHospitalChooser } from "@/components/on-call/kit/handbook-state";
 import { OnCallHeroLink } from "@/components/on-call/kit/hero-link";
 import { OnCallHospitalLine } from "@/components/on-call/kit/hospital-line";
 import { OnCallModuleSkeleton } from "@/components/on-call/kit/module-skeleton";
-import { OnCallNotice } from "@/components/on-call/kit/notice";
+import { ModeNotice } from "@/components/mode-kit/notice";
 import { OnCallStateLabel } from "@/components/on-call/kit/state-label";
 import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import type { HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
@@ -386,7 +386,7 @@ describe("modules", () => {
   });
 
   it("draws a compact action shape inside a 48px tap area", () => {
-    render(<OnCallActionButton icon={Siren} label="Share" onClick={() => {}} testId="action" />);
+    render(<ModeActionButton icon={Siren} label="Share" onClick={() => {}} testId="action" />);
     const button = screen.getByRole("button", { name: "Share" });
     expect(button.className).toMatch(/min-h-12/);
     expect(button.className).toMatch(/min-w-12/);
@@ -395,14 +395,14 @@ describe("modules", () => {
   });
 
   it("writes a fact tile's value at 400 and lets it wrap", () => {
-    render(<OnCallFactTile label="Switchboard" value="9000 0000" testId="tile" />);
+    render(<ModeFactTile label="Switchboard" value="9000 0000" testId="tile" />);
     const value = within(screen.getByTestId("tile")).getByText("9000 0000");
     expect(value.className).toMatch(/font-normal/);
     expect(value.className).not.toMatch(/truncate/);
   });
 
   it("keeps a notice to one calm line", () => {
-    render(<OnCallNotice testId="notice">Switchboard number changed.</OnCallNotice>);
+    render(<ModeNotice testId="notice">Switchboard number changed.</ModeNotice>);
     expect(screen.getByTestId("notice")).toHaveTextContent("Switchboard number changed.");
     expect(screen.getByTestId("notice")).toHaveAttribute("role", "status");
   });

@@ -5,8 +5,8 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { focusRing } from "@/components/card-recipes";
 import { OnCallGroupedList, OnCallRow } from "@/components/on-call/kit/grouped-list";
-import { onCallCallDiscShape, onCallTapArea } from "@/components/on-call/kit/recipes";
-import { onCallNumberText } from "@/components/on-call/kit/type";
+import { modeCallDiscShape, modeTapArea } from "@/components/mode-kit/recipes";
+import { modeNumberText } from "@/components/mode-kit/type";
 import { cn } from "@/components/ui-primitives";
 import { readOnCallYouCalled, rememberOnCallYouCalled, type OnCallYouCalled } from "@/lib/on-call/call-marks";
 import {
@@ -97,7 +97,7 @@ export function NowNeedsYou({
       <OnCallRow
         title={`Waiting on ${needs.waitingOn}`}
         subtitle={
-          <span className={onCallNumberText}>
+          <span className={modeNumberText}>
             {`Called ${formatOnCallTime(needs.calledAt)} · ${elapsed(needs.calledAt, now)}${needs.waitMinutes ? ` · Hospital-set wait: ${needs.waitMinutes} min` : ""} · next: ${next.whoToCall}, ${next.dial.display}`}
           </span>
         }
@@ -109,9 +109,9 @@ export function NowNeedsYou({
               onClick={() => rememberOnCallYouCalled(onCallLadderStepMarkId(needs.ladderId, next.order))}
               aria-label={`Call ${next.whoToCall}, the next rung, ${spokenOnCallNumber(next.dial.display)}`}
               data-testid="on-call-now-needs-you-call"
-              className={cn(onCallTapArea, focusRing, "rounded-full")}
+              className={cn(modeTapArea, focusRing, "rounded-full")}
             >
-              <span aria-hidden="true" className={onCallCallDiscShape.neutral}>
+              <span aria-hidden="true" className={modeCallDiscShape.neutral}>
                 <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
               </span>
             </a>

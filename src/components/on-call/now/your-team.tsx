@@ -8,14 +8,14 @@ import { focusRing } from "@/components/card-recipes";
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
 import { OnCallModuleSkeleton } from "@/components/on-call/kit/module-skeleton";
 import {
-  onCallInsetHairline,
-  onCallModeIcon,
-  onCallModeIconTile,
-  onCallModuleSurface,
-  onCallPressable,
-  onCallRowHeight,
-} from "@/components/on-call/kit/recipes";
-import { onCallNameText } from "@/components/on-call/kit/type";
+  modeInsetHairline,
+  modeIdentityIcon,
+  modeIconTile,
+  modeModuleSurface,
+  modePressable,
+  modeRowHeight,
+} from "@/components/mode-kit/recipes";
+import { modeNameText } from "@/components/mode-kit/type";
 import { Sheet } from "@/components/ui/sheet";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { ON_CALL_WHOS_ON_ENABLED } from "@/lib/on-call/feature-flags";
@@ -44,11 +44,11 @@ function TeamChooser({
     { team: null, label: "No team" },
   ];
   return (
-    <ul role="list" className={onCallModuleSurface}>
+    <ul role="list" className={modeModuleSurface}>
       {options.map((option) => {
         const current = option.team === myTeam;
         return (
-          <li key={option.label} className={onCallInsetHairline}>
+          <li key={option.label} className={modeInsetHairline}>
             <button
               type="button"
               aria-pressed={current}
@@ -57,15 +57,15 @@ function TeamChooser({
                 onChosen();
               }}
               className={cn(
-                onCallRowHeight.double,
-                onCallPressable,
+                modeRowHeight.double,
+                modePressable,
                 focusRing,
                 "flex w-full min-w-0 items-center gap-3 px-3 text-left",
               )}
             >
               <span
                 className={cn(
-                  onCallNameText,
+                  modeNameText,
                   "min-w-0 flex-1 break-words text-base-minus text-[color:var(--text-heading)]",
                 )}
               >
@@ -125,8 +125,8 @@ export function NowYourTeam({
   return (
     <section aria-labelledby={headingId} className="grid min-w-0 gap-2" data-testid="on-call-now-team">
       <div className="flex min-w-0 items-center gap-2 px-3">
-        <span aria-hidden="true" data-mode-identity="on-call" className={onCallModeIconTile}>
-          <Users aria-hidden="true" strokeWidth={1.5} className={onCallModeIcon} />
+        <span aria-hidden="true" data-mode-identity="on-call" className={modeIconTile}>
+          <Users aria-hidden="true" strokeWidth={1.5} className={modeIdentityIcon} />
         </span>
         <h2 id={headingId} className={cn(eyebrowText, "min-w-0 flex-1 break-words")}>
           {myTeam ? `Your team · ${myTeam}` : "Your team"}
@@ -148,7 +148,7 @@ export function NowYourTeam({
           </button>
         ) : null}
       </div>
-      <ul role="list" className={onCallModuleSurface}>
+      <ul role="list" className={modeModuleSurface}>
         {rows.length > 0 ? (
           rows.map((item) => (
             <OnCallDialRow
@@ -168,22 +168,22 @@ export function NowYourTeam({
             />
           ))
         ) : (
-          <li className={onCallInsetHairline}>
+          <li className={modeInsetHairline}>
             <button
               type="button"
               aria-haspopup="dialog"
               onClick={() => setOpen(true)}
               data-testid="on-call-now-team-choose"
               className={cn(
-                onCallRowHeight.single,
-                onCallPressable,
+                modeRowHeight.single,
+                modePressable,
                 focusRing,
                 "flex w-full min-w-0 items-center gap-3 px-3 text-left",
               )}
             >
               <span
                 className={cn(
-                  onCallNameText,
+                  modeNameText,
                   "min-w-0 flex-1 break-words text-base-minus text-[color:var(--text-heading)]",
                 )}
               >
