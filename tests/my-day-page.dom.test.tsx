@@ -18,6 +18,10 @@ vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => auth,
 }));
 
+vi.mock("@/components/my-day/modules/my-day-modules", () => ({
+  MyDayModules: () => <div data-testid="my-day-modules" />,
+}));
+
 vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
   AccountSetupDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="account-dialog" /> : null),
 }));

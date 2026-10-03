@@ -10,6 +10,7 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { modeSecondaryText } from "@/components/mode-kit/type";
+import { MyDayModules } from "@/components/my-day/modules/my-day-modules";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
@@ -179,6 +180,8 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
                 {`${listNames(otherUnavailable)} isn't available yet, so it isn't shown.`}
               </ModeNotice>
             ) : null}
+
+            <MyDayModules now={now} />
 
             {sections.length === 0 ? (
               <div data-testid="my-day-empty">
