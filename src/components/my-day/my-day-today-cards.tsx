@@ -632,7 +632,7 @@ export function ThisWeekCard({
               role="list"
               aria-label="Today"
               data-testid="my-day-agenda"
-              className="-mx-3 flex snap-x gap-1.5 overflow-x-auto px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              className="-mx-3 flex snap-x scroll-px-3 gap-1.5 overflow-x-auto px-3 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             >
               {agenda.map((line, index) => (
                 <li
@@ -938,7 +938,11 @@ export function RenewalsRunwayCard({
         </Link>
       }
     >
-      <svg viewBox={`0 0 ${width} 50`} className="mx-auto block w-full max-w-md overflow-visible" data-testid="my-day-runway">
+      <svg
+        viewBox={`0 0 ${width} 50`}
+        className="mx-auto block w-full max-w-md overflow-visible"
+        data-testid="my-day-runway"
+      >
         <line
           x1={inset}
           x2={width - inset}

@@ -147,6 +147,8 @@ const ALL_HIDDEN = "Every card is hidden. Choose Edit to bring them back.";
 const WORK_EMPTY =
   "Nothing for Work yet. Tonight's calls, pinned numbers, your team and your next talk show here once they exist.";
 
+const PINNED_NUMBERS_SHOWN = 4;
+
 export function MyDayDashboard({
   now,
   today,
@@ -323,18 +325,26 @@ export function MyDayDashboard({
   const pins = useAdminPins();
   const pinnedNumbers = useMemo<PinnedNumber[]>(
     () =>
-      pinnedHelpItems(pins, helpItems).map((help) => ({
-        key: help.key,
-        title: help.title,
-        display: help.phone ? displayPhoneNumber(help.phone, "own-list") : (help.detail ?? ""),
-        tel: onCallTelHref(help.phone ?? undefined) ?? null,
-        href: `${ADMIN_PAGE_HREFS.help}#${onCallEntryAnchorId(help.entry?.id ?? help.key)}`,
-      })),
+      // Pins with a phone number lead (it is a numbers card); four fit, the rest are on Help.
+      [...pinnedHelpItems(pins, helpItems)]
+        .sort((a, b) => Number(Boolean(b.phone)) - Number(Boolean(a.phone)))
+        .slice(0, PINNED_NUMBERS_SHOWN)
+        .map((help) => ({
+          key: help.key,
+          title: help.title,
+          display: help.phone ? displayPhoneNumber(help.phone, "own-list") : (help.detail ?? ""),
+          tel: onCallTelHref(help.phone ?? undefined) ?? null,
+          href: `${ADMIN_PAGE_HREFS.help}#${onCallEntryAnchorId(help.entry?.id ?? help.key)}`,
+        })),
     [pins, helpItems],
   );
   const whosOn = sources.whosOn;
   const nextTalk = sources.teaching.nextTalk ?? null;
-  const handoverAt = leadShift && shiftRunning && kindOf(leadShift) === "on_call" ? leadShift.endsAt : null;
+  // Handover is the end of tonight's on-call shift: the one running now, or one that starts today.
+  const handoverAt =
+    leadShift && kindOf(leadShift) === "on_call" && (shiftRunning || perthDateOf(leadShift.startsAt) === today)
+      ? leadShift.endsAt
+      : null;
 
   // ---------------------------------------------------------------- me
   const hoursShifts = useMemo(
@@ -482,7 +492,10 @@ export function MyDayDashboard({
           {`Couldn't load ${listNames(partial)}, so these cards may be missing some of it.`}
         </p>
       ) : null}
-      <div className="grid gap-2.5 lg:block lg:columns-2 lg:gap-2.5 lg:*:mb-2.5 lg:*:break-inside-avoid" data-editing={editing ? "" : undefined}>
+      <div
+        className="grid gap-2.5 lg:block lg:columns-2 lg:gap-2.5 lg:*:mb-2.5 lg:*:break-inside-avoid"
+        data-editing={editing ? "" : undefined}
+      >
         {shownIds.map((id) => (
           <Fragment key={id}>{cards[id]()}</Fragment>
         ))}
