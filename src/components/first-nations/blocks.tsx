@@ -3,6 +3,8 @@ import { ArrowUpRight, Ban, Check } from "lucide-react";
 import type { ReactNode } from "react";
 import { CopyNoteWording } from "@/components/first-nations/copy-note-wording";
 import { ContactReviewLine } from "@/components/first-nations/review-line";
+import { ReviewStamp } from "@/components/first-nations/review-stamp";
+import type { ReviewStamp as ReviewStampData } from "@/lib/first-nations/review-stamp-text";
 import { ModeDialRow, ModeFactTile, ModeFactTiles, ModeUpdatedLine } from "@/components/first-nations/kit";
 import { FnModule } from "@/components/first-nations/module-header";
 import { ContactActions, NumberTile } from "@/components/first-nations/number-button";
@@ -30,11 +32,22 @@ const row =
 /** A contact the phone can ring. "See website" and other words are never handed to the dialler. */
 export const isDialable = (contact: ContactView): boolean => Boolean(telHref(contact.number));
 
-function Source({ source, checkedAt, days = 365 }: { source: SourceView; checkedAt: string; days?: number }) {
+function Source({
+  source,
+  checkedAt,
+  days = 365,
+  review,
+}: {
+  source: SourceView;
+  checkedAt: string;
+  days?: number;
+  review?: ReviewStampData | undefined;
+}) {
   return (
     <>
       <ModeUpdatedLine updatedAt={checkedAt} verb="Checked" sources={[{ label: source.title, url: source.url }]} />
       <ContactReviewLine checkedAt={checkedAt} days={days} />
+      <ReviewStamp stamp={review} />
     </>
   );
 }
@@ -79,7 +92,7 @@ function BlockItem({ view }: { view: BlockView }) {
           <p className={title}>{block.do}</p>
           <p className={body}>{block.why}</p>
           {block.say ? <SpokenWords size="md">{block.say}</SpokenWords> : null}
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </Item>
       );
     case "avoid":
@@ -99,7 +112,7 @@ function BlockItem({ view }: { view: BlockView }) {
               {block.instead}
             </span>
           </p>
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </Item>
       );
     case "contact":
@@ -111,7 +124,7 @@ function BlockItem({ view }: { view: BlockView }) {
             <QuotedLaw>{block.text}</QuotedLaw>
             <figcaption className="text-2xs text-[color:var(--text-muted)]">{block.heading}</figcaption>
           </figure>
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </li>
       );
     case "steps":
@@ -129,7 +142,7 @@ function BlockItem({ view }: { view: BlockView }) {
               </li>
             ))}
           </ol>
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </Item>
       );
     case "linkList":
@@ -154,7 +167,7 @@ function BlockItem({ view }: { view: BlockView }) {
               </li>
             ))}
           </ul>
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </Item>
       );
     case "note":
@@ -162,7 +175,7 @@ function BlockItem({ view }: { view: BlockView }) {
         <Item>
           <p className={title}>{block.heading}</p>
           <p className={body}>{block.text}</p>
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </Item>
       );
     case "noteWording":
@@ -171,7 +184,7 @@ function BlockItem({ view }: { view: BlockView }) {
         <Item>
           <p className={title}>{block.heading}</p>
           <CopyNoteWording template={block.template} />
-          <Source source={source} checkedAt={block.checkedAt} />
+          <Source source={source} checkedAt={block.checkedAt} review={view.review} />
         </Item>
       );
   }
