@@ -96,7 +96,40 @@ function Fairness({ serviceId, overview }: { serviceId: string; overview: Roster
 }
 
 type Need = RosterMaker["needs"][number];
-function Gap({
+
+/** The span of roster the cover reads load: a week back for context, three weeks ahead. */
+export function coverReadWindow(today: string) {
+  return { from: addDaysToDate(today, -7), to: addDaysToDate(today, 20) };
+}
+
+/**
+ * The gaps in the next two weeks: each team target with fewer people rostered
+ * than it needs. The Cover tab lists these, and the Inbox lists the same ones.
+ */
+export function coverGaps(
+  today: string,
+  shifts: readonly RosterAssignment[],
+  needs: RosterMaker["needs"],
+): { date: string; need: Need }[] {
+  const days = Array.from({ length: 14 }, (_, index) => addDaysToDate(today, index));
+  return days.flatMap((date) =>
+    needsOn(date, needs)
+      .filter(
+        (need) =>
+          shifts.filter(
+            (row) =>
+              perthDateOf(row.startsAt) === date &&
+              row.kind === need.kind &&
+              (!need.grade || row.grade === need.grade) &&
+              (!need.siteId || row.siteId === need.siteId),
+          ).length < need.needed,
+      )
+      .map((need) => ({ date, need })),
+  );
+}
+
+/** One gap as a row that opens the "Post gap" sheet. Shared by the Cover tab and the Inbox. */
+export function RosterCoverGap({
   date,
   need,
   assignments,
@@ -188,10 +221,7 @@ function Gap({
 
 export function RosterCoverTab({ serviceId, overview }: { serviceId: string; overview: RosterOverview }) {
   const today = perthDateOf(new Date());
-  const assignments = useRosterRead(serviceId, "assignments", {
-    from: addDaysToDate(today, -7),
-    to: addDaysToDate(today, 20),
-  });
+  const assignments = useRosterRead(serviceId, "assignments", coverReadWindow(today));
   const maker = useRosterRead(serviceId, "maker");
   const manage = useRosterRead(serviceId, "manage");
   const [reminded, setReminded] = useState(false);
@@ -219,20 +249,7 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
   }
   const shifts = assignments.data.assignments;
   const days = Array.from({ length: 14 }, (_, index) => addDaysToDate(today, index));
-  const gaps = days.flatMap((date) =>
-    needsOn(date, maker.data!.needs)
-      .filter(
-        (need) =>
-          shifts.filter(
-            (row) =>
-              perthDateOf(row.startsAt) === date &&
-              row.kind === need.kind &&
-              (!need.grade || row.grade === need.grade) &&
-              (!need.siteId || row.siteId === need.siteId),
-          ).length < need.needed,
-      )
-      .map((need) => ({ date, need })),
-  );
+  const gaps = coverGaps(today, shifts, maker.data.needs);
   async function remind() {
     setBusy(true);
     try {
@@ -297,7 +314,7 @@ export function RosterCoverTab({ serviceId, overview }: { serviceId: string; ove
       {gaps.length ? (
         <div className="grid gap-2" data-testid="roster-cover-gaps">
           {gaps.map(({ date, need }) => (
-            <Gap
+            <RosterCoverGap
               key={`${date}-${need.id}`}
               date={date}
               need={need}

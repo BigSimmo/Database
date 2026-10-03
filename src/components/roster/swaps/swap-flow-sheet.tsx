@@ -6,14 +6,14 @@ import { GIVE_AWAY_WORDS, isUrgentGiveAway } from "@/components/roster/requests/
 import { RosterSwapTicket } from "@/components/roster/requests/roster-swap-ticket";
 import { formatShiftRange, useRosterNow } from "@/components/roster/roster-format";
 import { useDelayedRosterAction } from "@/components/roster/swaps/use-delayed-roster-action";
-import { fetchRosterRead, postRosterAction } from "@/components/roster/use-roster-team";
+import { loadSwapOptionsRead, type SwapOptionsRead } from "@/components/roster/swaps/swap-options-loader";
+import { postRosterAction } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
-import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
-import { isoWeekday } from "@/lib/roster/team/cover";
+import { formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { openShiftCandidates, placementProblem, swapNeedsManager } from "@/lib/roster/team/eligibility";
-import type { RosterAssignment, RosterOverview, RosterSwap } from "@/lib/roster/team/model";
+import type { RosterAssignment, RosterSwap } from "@/lib/roster/team/model";
 import { swapProgress } from "@/lib/roster/team/swap-progress";
 import { approvalWords, reasonWords, swapOptions, swapPreview } from "@/lib/roster/team/swap-options";
 
@@ -25,7 +25,7 @@ import { approvalWords, reasonWords, swapOptions, swapPreview } from "@/lib/rost
  * refusal is shown in plain words and the roster is read again.
  */
 
-type Fresh = { assignments: RosterAssignment[]; overview: RosterOverview; readAt: Date };
+type Fresh = SwapOptionsRead;
 type Step = "who" | "take" | "check";
 
 const UNNAMED = "Name not available";
@@ -41,33 +41,20 @@ function checkedTime(value: Date): string {
   }).format(value);
 }
 
-/** The Monday-to-Sunday weeks around a shift, about eight of them, inside the server's read limit. */
-function readWindow(shiftStart: string, now: Date): { from: string; to: string } {
-  const today = perthDateOf(now);
-  const shiftDate = perthDateOf(shiftStart);
-  let anchor = shiftDate < today ? shiftDate : today;
-  if (shiftDate > addDaysToDate(today, 48)) anchor = addDaysToDate(shiftDate, -7);
-  const from = addDaysToDate(anchor, 1 - isoWeekday(anchor));
-  return { from, to: addDaysToDate(from, 55) };
-}
-
 function useFreshRead(serviceId: string, shiftStart: string) {
   const [fresh, setFresh] = useState<Fresh | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [generation, setGeneration] = useState(0);
   useEffect(() => {
     let current = true;
-    void Promise.all([
-      fetchRosterRead(serviceId, "assignments", readWindow(shiftStart, new Date())),
-      fetchRosterRead(serviceId, "overview"),
-    ]).then(([assignments, overview]) => {
+    void loadSwapOptionsRead(serviceId, shiftStart, new Date()).then((result) => {
       if (!current) return;
-      if (!assignments.ok || !overview.ok) {
+      if (!result.ok) {
         setLoadError("The team roster couldn't be checked. Close this and try again.");
         return;
       }
       setLoadError(null);
-      setFresh({ assignments: assignments.data.assignments, overview: overview.data, readAt: assignments.readAt });
+      setFresh(result.fresh);
     });
     return () => {
       current = false;

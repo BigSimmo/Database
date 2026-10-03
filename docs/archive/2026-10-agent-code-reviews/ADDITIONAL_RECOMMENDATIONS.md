@@ -454,7 +454,7 @@ import { signProxyAuthPayload, verifyProxyAuthHeader } from "@/lib/supabase/prox
 
 describe("Proxy auth crypto", () => {
   it("should sign and verify payload with base64url encoding", () => {
-    process.env.SUPABASE_SERVICE_ROLE_KEY = "test-secret-key-at-least-32-chars-long-xxxx";
+    process.env.SUPABASE_SERVICE_ROLE_KEY = "fixture-placeholder";
 
     const payload = { id: "user-123", appMetadata: { role: "admin" } };
     const payloadBase64 = Buffer.from(JSON.stringify(payload), "utf8").toString("base64");
