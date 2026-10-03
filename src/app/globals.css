@@ -1452,7 +1452,12 @@ body {
    a utility on the element still wins. */
 @layer components {
   .dash-hero {
-    background: radial-gradient(120% 140% at 0% 0%, var(--dash-hero-1) 0%, var(--dash-hero-2) 45%, var(--dash-hero-3) 100%);
+    background: radial-gradient(
+      120% 140% at 0% 0%,
+      var(--dash-hero-1) 0%,
+      var(--dash-hero-2) 45%,
+      var(--dash-hero-3) 100%
+    );
     color: var(--dash-hero-ink);
   }
   .dash-bar-blue {
