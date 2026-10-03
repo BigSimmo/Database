@@ -318,7 +318,7 @@ export function FlagCard({ items, onHide }: { readonly items: readonly MyDayItem
                   className={cn(
                     "block h-1.5 rounded-full forced-colors:border",
                     selected
-                      ? "w-4.5 bg-[color:var(--dash-green)]"
+                      ? "w-5 bg-[color:var(--dash-green)]"
                       : "w-1.5 bg-[color:color-mix(in_srgb,var(--dash-green)_35%,transparent)]",
                   )}
                 />
@@ -441,9 +441,13 @@ function MonthView({
         >
           <ChevronLeft aria-hidden="true" className="size-icon-md" />
         </button>
-        <h3 id={titleId} className="font-dash-title text-base-minus text-[color:var(--dash-ink)]" aria-live="polite">
+        <h3 id={titleId} className="font-dash-title text-base-minus text-[color:var(--dash-ink)]">
           {monthTitle(month)}
         </h3>
+        {/* The month change is announced from a hidden line, not the visible heading (SPEC §9.2). */}
+        <p className="sr-only" aria-live="polite">
+          {monthTitle(month)}
+        </p>
         <button
           type="button"
           onClick={() => setMonth((value) => addMonths(value, 1))}

@@ -49,7 +49,8 @@ export function DashWeekTiles({ days, testId }: { readonly days: readonly DashWe
               className={cn(
                 "grid size-8 place-items-center rounded-lg text-xs font-dash-title forced-colors:border",
                 TILE[day.kind],
-                day.today && "ring-2 ring-[color:var(--dash-ink)] ring-offset-2 ring-offset-[color:var(--dash-card)]",
+                // An outline, not a ring: the tile already owns its border edge.
+                day.today && "outline-2 outline-offset-2 outline-[color:var(--dash-ink)] outline-solid",
               )}
             >
               {day.code}
