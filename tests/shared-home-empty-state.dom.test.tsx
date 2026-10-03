@@ -150,6 +150,12 @@ const expectedPresentations = [
     subtitle: "Culturally safe care for Aboriginal and Torres Strait Islander patients.",
     iconClass: "lucide-users",
   },
+  {
+    modeId: "my-day",
+    title: "My Day",
+    subtitle: "What needs you today, across On Call, Roster, CPD, Teaching and Admin.",
+    iconClass: "lucide-sunrise",
+  },
 ] as const satisfies ReadonlyArray<{
   modeId: AppModeId;
   title: string;

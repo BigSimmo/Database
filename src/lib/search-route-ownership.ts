@@ -25,6 +25,7 @@ const routeOwnedSubmittedSearchModes = new Set<AppModeId>([
   "my-work",
   "roster",
   "first-nations",
+  "my-day",
 ]);
 
 /**
@@ -69,6 +70,8 @@ export const standaloneModeHomePaths = [
   "/first-nations",
   // Teaching's dashboard, for the same reason again.
   "/teaching",
+  // My Day's merged list, for the same reason again: no results surface.
+  "/my-day",
 ] as const;
 
 /**
@@ -140,6 +143,9 @@ export function standaloneModeHomeHref(mode: AppModeId): string | null {
     // The Teaching dashboard at `/teaching`, likewise with no results surface.
     case "teaching":
       return "/teaching";
+    // My Day's merged list at `/my-day`, likewise with no results surface.
+    case "my-day":
+      return "/my-day";
     default:
       return null;
   }
@@ -209,6 +215,7 @@ const alwaysStandaloneShellPathPrefixes = [
   "/roster",
   "/first-nations",
   "/teaching",
+  "/my-day",
 ] as const;
 
 /**
