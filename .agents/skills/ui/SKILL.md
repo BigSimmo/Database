@@ -1,6 +1,6 @@
 ---
 name: ui
-description: Inspect and verify the live Database interface across routes, breakpoints, interactions, accessibility modes, reduced motion, and forced colors. Use for UI, frontend, routing, styling, responsive, browser, or accessibility work.
+description: Inspect and verify the live PsychSift interface across routes, breakpoints, interactions, accessibility modes, reduced motion, and forced colors. Use for UI, frontend, routing, styling, responsive, browser, or accessibility work.
 ---
 
 # UI

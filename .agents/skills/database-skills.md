@@ -1,4 +1,4 @@
-# Database skills catalog
+# PsychSift skills catalog
 
 Run `npm run skills` to render the current categories from `catalog.json` and explanations from each canonical skill's frontmatter.
 Run `npm run check:skills` to prove that every canonical skill and compatibility alias has valid local metadata and that all Claude, Cursor, and PsychSift plugin skills satisfy shared safety policies.

@@ -1,6 +1,6 @@
 ---
 name: handover
-description: Prepare a concise evidence-backed Database handover without automatically committing, pushing, opening a PR, or calling providers. Use when work is ready for another person, task, review, or explicit upload workflow.
+description: Prepare a concise evidence-backed PsychSift handover without automatically committing, pushing, opening a PR, or calling providers. Use when work is ready for another person, task, review, or explicit upload workflow.
 ---
 
 # Handover

@@ -1,6 +1,6 @@
 ---
 name: fix
-description: Diagnose and repair a local Database verification failure using the smallest reproducer and safest scoped change. Use when lint, typecheck, tests, builds, browser checks, or offline evaluations fail or hang.
+description: Diagnose and repair a local PsychSift verification failure using the smallest reproducer and safest scoped change. Use when lint, typecheck, tests, builds, browser checks, or offline evaluations fail or hang.
 ---
 
 # Fix

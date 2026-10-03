@@ -149,6 +149,7 @@ Every remaining tracked document in this category (architecture and design, plus
 - [operator-apply-performance-latency-remediation.md](operator-apply-performance-latency-remediation.md) — operator apply steps for the performance/latency migration batch
 - [reconciliation-playbook.md](reconciliation-playbook.md) — broad chat/worktree reconciliation and archive-safe cleanup (not for ordinary feature work)
 - [staging-tenancy-release-evidence.md](staging-tenancy-release-evidence.md) — cross-tenant staging harness as executable owner-boundary proof
+- [docker-optimization-guide.md](docker-optimization-guide.md) — Docker optimization and health check implementation: multi-arch, layer caching, and slim runtime targets
 
 ### Also catalogued (2026-09-02)
 
@@ -223,6 +224,7 @@ Every remaining tracked document in this category, one line each; the descriptio
 - [branch-review-ledger.md](branch-review-ledger.md) — reviewed branch/SHA ledger; read with `npm run ledger:lookup` (historical tables + immutable records), write with `npm run ledger:append`, and convert a pre-system active-branch row with `npm run ledger:migrate-legacy`
 - [branch-review-archival-policy.md](branch-review-archival-policy.md) — what may and may not be done to the immutable records under `docs/branch-review-records/`; which operations are blocked by code, which are forbidden by policy but caught by nothing, and why foldering or deleting a record is silent history loss
 - [branch-review-index.md](branch-review-index.md) — **Generated** browsable index of every immutable review record; regenerate with `npm run ledger:index`, refresh with `npm run docs:update`, check currency with `npm run ledger:index:check`. It may lag the corpus, so `npm run ledger:lookup` stays authoritative
+- [task-receipts.md](task-receipts.md) — task lifecycle and sanitized receipt handoff protocol between agents and ledger
 
 ### Also catalogued (2026-09-02)
 
@@ -247,6 +249,12 @@ Every remaining tracked document in this category (process, plus the `agents/` r
 - [agents/upload-shortcut.md](agents/upload-shortcut.md) — Upload Shortcut — When the user types exactly:
 - [agents/verification-gates.md](agents/verification-gates.md) — Verification Gates — the verification pyramid, gate receipts, and the browser-gate planner
 - [agents/wiring-and-bundle-budget.md](agents/wiring-and-bundle-budget.md) — Page Wiring and Bundle Budget — Interactive controls and routes follow conventions the codebase already holds to.
+- [agents/native-startup/commit-as-you-go.md](agents/native-startup/commit-as-you-go.md) — Commit as you go: committing coherent units before switching context
+- [agents/native-startup/contextual-working-defaults.md](agents/native-startup/contextual-working-defaults.md) — Context-aware working defaults for workflows and boundaries
+- [agents/native-startup/external-skill-precedence.md](agents/native-startup/external-skill-precedence.md) — External skill precedence and evidence calibration rules
+- [agents/native-startup/process-hardening.md](agents/native-startup/process-hardening.md) — Process hardening phases and verification gates
+- [agents/native-startup/publication-workflows.md](agents/native-startup/publication-workflows.md) — Safe Git publication workflows, PR shortcuts, and anti-churn sync
+- [agents/native-startup/search-chrome-behaviour.md](agents/native-startup/search-chrome-behaviour.md) — Search chrome behaviour, composer ownership, and phone edge-to-edge contracts
 - [prompts/codex-architecture-maintainability-ultra-review.md](prompts/codex-architecture-maintainability-ultra-review.md) — Codex Local Ultra — Architecture & Maintainability Review Orchestrator — Perform a rigorous, evidence-based Architecture and Maintainability review of this repository using multi-agent coordination.
 - [prompts/codex-cloud-design-status-semantics.md](prompts/codex-cloud-design-status-semantics.md) — Codex Cloud prompt — design-system clinical status semantics — Copy the complete prompt below into a new Codex Cloud task for the Database repository KB repository.
 - [prompts/codex-cloud-detailed-task.md](prompts/codex-cloud-detailed-task.md) — Codex Cloud detailed-task prompt — Use this prompt when assigning a substantial implementation, refactor, defect fix, or other detailed task to Codex Cloud in this repository.

@@ -23,9 +23,24 @@
  *  - every active calculator has a golden-vector registry entry.
  *  - every active calculator has a separately pinned wordingSetId.
  */
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, realpathSync } from "node:fs";
 import { dirname, resolve } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+function isDirectEntrypoint(metaUrl) {
+  if (!process.argv[1]) return false;
+  try {
+    const entry = realpathSync(process.argv[1]);
+    const target = realpathSync(fileURLToPath(metaUrl));
+    if (entry === target) return true;
+    if (process.platform === "win32") {
+      return entry.toLowerCase() === target.toLowerCase();
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const evidencePath = resolve(root, "data/calculators/evidence.json");
@@ -255,4 +270,4 @@ function main() {
   console.log(`CALCULATOR_CONTENT_PASS sources=ok golden-vectors=ok rights=ok`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (isDirectEntrypoint(import.meta.url)) main();

@@ -1,6 +1,6 @@
 ---
 name: recovery
-description: Plan Database restore, rollback, queue recovery, reconciliation, backup validation, and disaster-recovery proof without modifying live systems automatically. Use for failed jobs, corrupted state, rollback planning, or continuity exercises.
+description: Plan PsychSift restore, rollback, queue recovery, reconciliation, backup validation, and disaster-recovery proof without modifying live systems automatically. Use for failed jobs, corrupted state, rollback planning, or continuity exercises.
 ---
 
 # Recovery

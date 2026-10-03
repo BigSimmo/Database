@@ -1,6 +1,6 @@
 ---
 name: ingest
-description: Triage and verify Database document ingestion, extraction, queueing, retries, workers, batches, and failure recovery. Use for uploads, ingestion jobs, extraction defects, worker reliability, or queue behavior.
+description: Triage and verify PsychSift document ingestion, extraction, queueing, retries, workers, batches, and failure recovery. Use for uploads, ingestion jobs, extraction defects, worker reliability, or queue behavior.
 ---
 
 # Ingest

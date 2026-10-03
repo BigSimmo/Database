@@ -1,6 +1,6 @@
 ---
 name: clinical
-description: Assemble clinical safety, privacy, source-governance, rollback, and production-readiness evidence for Database changes. Use for answer generation, retrieval, ingestion, clinical content, source rendering, or other patient-safety-sensitive behavior.
+description: Assemble clinical safety, privacy, source-governance, rollback, and production-readiness evidence for PsychSift changes. Use for answer generation, retrieval, ingestion, clinical content, source rendering, or other patient-safety-sensitive behavior.
 ---
 
 # Clinical

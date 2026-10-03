@@ -18,6 +18,13 @@
  *
  * The stamped value only ever appends: the hand-edited date stays legible in the cache name,
  * so an operator reading CacheStorage still sees which release line a cache belongs to.
+ *
+ * REPRODUCIBILITY: This process is intentionally non-deterministic — the stamped suffix
+ * includes the commit SHA, which uniquely identifies a release. For supply-chain verification
+ * or reproducible builds, note that two images built from the same commit will have identical
+ * sw.js bytes, but different commits will always produce different cache versions. This is
+ * by design: service worker updates are keyed on byte differences, so the non-determinism
+ * *enables* update detection for end users, which is required for security.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
