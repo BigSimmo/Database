@@ -292,7 +292,7 @@ function ShiftCard({
   const today = perthDateOf(now);
   const startLine = running
     ? `${name} until ${perthTimeOf(shift.endsAt)}`
-    : `until ${startDay === today ? "" : `${formatPerthDay(startDay)} `}${perthTimeOf(shift.startsAt)}`;
+    : `${name} starts ${startDay === today ? "" : `${formatPerthDay(startDay)} `}${perthTimeOf(shift.startsAt)}`;
   const endLine = `Ends ${perthTimeOf(shift.endsAt)}${endDay === startDay ? "" : ` ${formatPerthDay(endDay)}`}`;
   const spoken = running
     ? `${name} on now, ${countdown.spoken} left. ${endLine}.`
@@ -559,7 +559,7 @@ function NeedsYouCard({
       onHide={onHide}
       aside={
         <>
-          {waiting > 0 ? (
+          {waiting > 0 && waiting !== total ? (
             <span className="nums text-sm text-[color:var(--text-muted)]" data-testid="my-day-needs-you-count">
               <span className="sr-only">Waiting: </span>
               {waiting}

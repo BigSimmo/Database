@@ -192,9 +192,6 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
 
         {ready ? (
           <div className="grid gap-5" data-testid="my-day-ready">
-            {allowSample && state.demoMode ? (
-              <ModeNotice testId="my-day-demo-notice">Demo data: these items are invented examples.</ModeNotice>
-            ) : null}
             {failed.length > 0 ? (
               <div className="grid gap-2" data-testid="my-day-failed-notice">
                 <ModeNotice tone="warning">{`Couldn't load: ${failed.join(", ")}.${checked.length > 0 ? " Showing the rest." : ""}`}</ModeNotice>
@@ -207,17 +204,6 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
                 ) : null}
               </div>
             ) : null}
-            {rosterUnavailable ? (
-              <ModeNotice testId="my-day-unavailable-notice">
-                Roster team data isn&apos;t available yet, so swaps aren&apos;t shown.
-              </ModeNotice>
-            ) : null}
-            {otherUnavailable.length > 0 ? (
-              <ModeNotice testId="my-day-unavailable-other-notice">
-                {`${listNames(otherUnavailable)} isn't available yet, so it isn't shown.`}
-              </ModeNotice>
-            ) : null}
-
             {view === "all" ? (
               <MyDayFullList
                 items={items}
@@ -244,6 +230,22 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
               />
             )}
 
+            {/* One notice at the top at most; quieter context sits in small print here. */}
+            {allowSample && state.demoMode ? (
+              <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-demo-notice">
+                Demo data: these items are invented examples.
+              </p>
+            ) : null}
+            {rosterUnavailable ? (
+              <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-unavailable-notice">
+                Roster team data isn&apos;t available yet, so swaps aren&apos;t shown.
+              </p>
+            ) : null}
+            {otherUnavailable.length > 0 ? (
+              <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-unavailable-other-notice">
+                {`${listNames(otherUnavailable)} isn't available yet, so it isn't shown.`}
+              </p>
+            ) : null}
             <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-footer">
               Read-only. Open an item to act on it in its own mode. Later and Edit are kept on this device only.
             </p>
