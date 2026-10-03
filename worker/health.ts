@@ -167,11 +167,12 @@ export function createHealthCheckServer() {
 }
 
 /**
- * Start health check server if WORKER_HEALTH_PORT is configured.
+ * Start health check server on WORKER_HEALTH_PORT, falling back to the PORT
+ * Railway injects (its readiness probe requests /health on that port).
  * Returns the running HTTP server instance, or null if unconfigured.
  */
 export function startWorkerHealthServerIfConfigured() {
-  const portStr = process.env.WORKER_HEALTH_PORT;
+  const portStr = process.env.WORKER_HEALTH_PORT ?? process.env.PORT;
   if (!portStr) return null;
   const port = parseInt(portStr, 10);
   if (isNaN(port) || port <= 0) return null;
