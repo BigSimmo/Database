@@ -57,5 +57,8 @@ export function useMyDayItems({ enabled, now }: { readonly enabled: boolean; rea
     // Only a source that actually loaded sample data makes the view "demo".
     demoMode: sources.some((source) => source.status === "ready" && source.sample === true),
     retry,
+    nextRenewal: signedOut ? null : entries.nextRenewal,
+    renewals: signedOut ? [] : entries.renewals,
+    helpItems: signedOut ? [] : entries.helpItems,
   };
 }

@@ -822,6 +822,8 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .getByRole("link")
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
+    // Design review 2026-10-03, item 4: My Day leads the default shortcuts.
+    { name: "My Day", href: "/my-day" },
     { name: "Answer", href: "/?mode=answer" },
     // Owner decision 2026-08-27: Documents joins the other consolidated modes and
     // links at the shared home. `/documents` still exists and still paints its
@@ -2006,9 +2008,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     // this one, which renders `phoneModeGroups` and drops any mode no group names.
     // `tests/phone-mode-groups.test.ts` guards the constant; this is the rendered proof.
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeAttached();
+    // My Day leads the list (design review 2026-10-03, item 4), so the first
+    // option is My Day and the active Answer option is checked under Find.
     await expect(modeOptions.first()).toBeInViewport();
-    await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
-    await expect(modeOptions.first()).toContainText("Source-backed clinical answer");
+    await expect(modeOptions.first()).toContainText("My Day");
+    const answerOption = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
+    await expect(answerOption).toHaveAttribute("aria-checked", "true");
+    await expect(answerOption).toContainText("Source-backed clinical answer");
 
     // Icon tiles and glyphs use one optical scale even though the canonical
     // Lucide drawings have different silhouettes.

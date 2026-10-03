@@ -14,6 +14,15 @@ import type { AppModeId } from "@/lib/app-modes";
  * check that now fails instead: every mode id must appear in exactly one group.
  */
 export const phoneModeGroups = [
+  // My Day leads the whole list (design review 2026-10-03, item 4): one list
+  // of what needs you across On Call, Roster, CPD, Teaching and Admin, one tap
+  // from "Choose mode" without scrolling past the clinical modes.
+  {
+    id: "my-day",
+    label: "My Day",
+    hint: "What needs you today",
+    modeIds: ["my-day"],
+  },
   {
     id: "find",
     label: "Find",
@@ -40,14 +49,6 @@ export const phoneModeGroups = [
   // CPD are areas of their own rather than the tail of "Care", so the urgent
   // screen is not buried at the bottom of the clinical list, and the paperwork
   // that used to crowd it has a home of its own.
-  // My Day leads the operational areas: one list of what needs you across
-  // On Call, Roster, CPD, Teaching and Admin.
-  {
-    id: "my-day",
-    label: "My Day",
-    hint: "What needs you today",
-    modeIds: ["my-day"],
-  },
   {
     id: "on-call",
     label: "On Call",

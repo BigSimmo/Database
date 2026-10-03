@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 
+import { ModeHomeRouteLoading } from "@/components/mode-home-page-skeleton";
 import { MyDayPage } from "@/components/my-day/my-day-page";
 
 export const metadata: Metadata = {
@@ -10,5 +12,12 @@ export const metadata: Metadata = {
 
 /** My Day (mode id `my-day`): a read-only merged list with no search surface. */
 export default function MyDayRoute() {
-  return <MyDayPage />;
+  // The page reads `?view=all` (the full list's own address) through
+  // `useSearchParams`, which needs a Suspense boundary in the App Router. Its
+  // fallback is the same skeleton as the route's own loading.
+  return (
+    <Suspense fallback={<ModeHomeRouteLoading />}>
+      <MyDayPage />
+    </Suspense>
+  );
 }
