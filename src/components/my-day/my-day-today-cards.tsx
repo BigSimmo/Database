@@ -893,14 +893,16 @@ export function CpdRingsCard({
 
 // ---------------------------------------------------------------- renewals runway
 
-const RUNWAY_MAX_POINTS = 5;
+const RUNWAY_MAX_POINTS = 4;
+/** Half a label's width in runway units: labels are centred inside the line's ends. */
+const RUNWAY_LABEL_HALF = 42;
 
 /** A short runway label: a long name is cut at a word. The dot's own label carries the full name. */
 function runwayLabel(text: string): string {
-  if (text.length <= 18) return text;
-  const cut = text.slice(0, 18);
+  if (text.length <= 13) return text;
+  const cut = text.slice(0, 13);
   const space = cut.lastIndexOf(" ");
-  return `${(space > 8 ? cut.slice(0, space) : cut.slice(0, 17)).trim()}…`;
+  return `${(space > 5 ? cut.slice(0, space) : cut.slice(0, 12)).trim()}…`;
 }
 
 /** Recorded Admin dates over the next six months on one line. Amber only for a date that has passed. */
@@ -914,13 +916,13 @@ export function RenewalsRunwayCard({
   const width = 320;
   const inset = 30;
   const span = width - inset * 2;
-  // Five dates at most on the line; the rest are counted. Labels alternate
-  // between two rows so neighbouring names never overlap.
+  // Four dates at most on the line; the rest are counted. Each label gets an
+  // equal share of the width so neighbouring names never overlap.
   const shown = points.slice(0, RUNWAY_MAX_POINTS);
   const more = points.length - shown.length;
   const labels = spreadLabels(
     shown.map((point) => point.at),
-    0.16,
+    1 / 3,
   );
   return (
     <DashCard
@@ -936,7 +938,7 @@ export function RenewalsRunwayCard({
         </Link>
       }
     >
-      <svg viewBox={`0 0 ${width} 64`} className="block w-full overflow-visible" data-testid="my-day-runway">
+      <svg viewBox={`0 0 ${width} 50`} className="mx-auto block w-full max-w-md overflow-visible" data-testid="my-day-runway">
         <line
           x1={inset}
           x2={width - inset}
@@ -947,7 +949,7 @@ export function RenewalsRunwayCard({
         />
         {shown.map((point, index) => {
           const x = inset + point.at * span;
-          const labelX = inset + (labels[index] ?? point.at) * span;
+          const labelX = RUNWAY_LABEL_HALF + (labels[index] ?? point.at) * (width - RUNWAY_LABEL_HALF * 2);
           const spoken = `${point.title}: ${point.passed ? "date has passed" : "recorded date"}, ${formatPerthDay(point.date)}`;
           return (
             <a key={point.entryId} href={withMyDayReturn(point.href)} aria-label={spoken} className={focusRing}>
@@ -965,7 +967,7 @@ export function RenewalsRunwayCard({
               />
               <text
                 x={labelX}
-                y={index % 2 === 0 ? 44 : 58}
+                y="44"
                 textAnchor="middle"
                 aria-hidden="true"
                 className="fill-[color:var(--dash-muted)] font-dash-title text-3xs"

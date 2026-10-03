@@ -482,7 +482,7 @@ export function MyDayDashboard({
           {`Couldn't load ${listNames(partial)}, so these cards may be missing some of it.`}
         </p>
       ) : null}
-      <div className="grid gap-2.5 lg:grid-cols-2 lg:items-start" data-editing={editing ? "" : undefined}>
+      <div className="grid gap-2.5 lg:block lg:columns-2 lg:gap-2.5 lg:*:mb-2.5 lg:*:break-inside-avoid" data-editing={editing ? "" : undefined}>
         {shownIds.map((id) => (
           <Fragment key={id}>{cards[id]()}</Fragment>
         ))}
