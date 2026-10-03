@@ -13,16 +13,17 @@ type Shifts = {
   demoMode: boolean;
   sample: boolean;
   reload: () => Promise<void>;
+  teamMessage?: string | null;
 };
 const shiftsState = vi.hoisted(() => ({ current: undefined as unknown as Shifts }));
 vi.mock("@/components/roster/use-roster-shifts", () => ({ useRosterShifts: () => shiftsState.current }));
 
-const overview = vi.hoisted(() => ({ anchor: null as string | null }));
+const overview = vi.hoisted(() => ({ anchor: null as string | null, status: "ready" as string }));
 vi.mock("@/components/roster/use-roster-team", () => ({
   useRosterTeams: () => ({ status: "ready", data: { teams: [{ serviceId: "svc", enabled: true }] } }),
   useRosterRead: () => ({
-    status: "ready",
-    data: { settings: { payFortnightAnchor: overview.anchor } },
+    status: overview.status,
+    data: overview.status === "ready" ? { settings: { payFortnightAnchor: overview.anchor } } : null,
   }),
 }));
 
@@ -61,6 +62,7 @@ const day = (date: string, id = date) => shift(id, `${date}T00:00:00Z`, `${date}
 beforeEach(() => {
   auth.status = "authenticated";
   overview.anchor = null;
+  overview.status = "ready";
   reload.mockClear();
   setShifts();
 });
@@ -98,10 +100,37 @@ describe("MyDayHoursPage", () => {
     expect(screen.getByTestId("my-day-hours-fortnight").textContent).toContain("1–14 Oct");
   });
 
-  it("says None booked when no leave is rostered", () => {
+  it("bounds the leave claim to the 40 days fetched when none is rostered", () => {
     setShifts({ shifts: [day("2026-10-05")] });
     render(<MyDayHoursPage now={NOW} />);
-    expect(screen.getByTestId("my-day-hours-leave").textContent).toContain("None booked");
+    expect(screen.getByTestId("my-day-hours-leave").textContent).toContain("None in the next 40 days");
+  });
+
+  it("shows no totals and a warning when team shifts failed to load", () => {
+    setShifts({
+      shifts: [day("2026-10-05")],
+      teamMessage: "Team shifts could not be loaded. Your own shifts are shown.",
+    });
+    render(<MyDayHoursPage now={NOW} />);
+    expect(screen.getByTestId("my-day-hours-partial").textContent).toContain("Team shifts could not be loaded");
+    expect(screen.queryByTestId("my-day-hours-facts")).toBeNull();
+    expect(screen.queryByTestId("my-day-hours-empty")).toBeNull();
+  });
+
+  it("does not present a fallback fortnight when the pay-fortnight settings failed", () => {
+    overview.status = "error";
+    setShifts({ shifts: [day("2026-10-05")] });
+    render(<MyDayHoursPage now={NOW} />);
+    expect(screen.getByTestId("my-day-hours-settings-failed")).toBeTruthy();
+    expect(screen.getByTestId("my-day-hours-fortnight").textContent).toContain("Unavailable");
+    expect(screen.getByTestId("my-day-hours-week").textContent).toContain("5–11 Oct");
+  });
+
+  it("keeps the page loading while the pay-fortnight settings load", () => {
+    overview.status = "loading";
+    setShifts({ shifts: [day("2026-10-05")] });
+    render(<MyDayHoursPage now={NOW} />);
+    expect(screen.getByTestId("my-day-hours-loading")).toBeTruthy();
   });
 
   it("links to Roster Shifts", () => {

@@ -37,7 +37,9 @@ function MyDayHoursBody({ now }: { now: Date }) {
   const anchor = overview.status === "ready" ? (overview.data?.settings?.payFortnightAnchor ?? null) : null;
 
   const today = perthDateOf(now);
-  const loading = shifts.status === "loading" || shifts.teamLoading;
+  const settingsLoading = oneTeamId !== null && overview.status === "loading";
+  const settingsFailed = oneTeamId !== null && (overview.status === "error" || overview.status === "unavailable");
+  const loading = shifts.status === "loading" || shifts.teamLoading || settingsLoading;
   const usable = shifts.status === "ready" && (!shifts.sample || shifts.demoMode);
 
   if (loading) {
@@ -84,6 +86,22 @@ function MyDayHoursBody({ now }: { now: Date }) {
     );
   }
 
+  if (shifts.teamMessage) {
+    return (
+      <div className="grid gap-5" data-testid="my-day-hours-partial">
+        <div className="grid gap-2">
+          <ModeNotice tone="warning">{`${shifts.teamMessage} Your hours may be understated, so no totals are shown.`}</ModeNotice>
+          <div>
+            <Button variant="secondary" onClick={() => void shifts.reload()}>
+              Retry
+            </Button>
+          </div>
+        </div>
+        {link}
+      </div>
+    );
+  }
+
   if (shifts.shifts.length === 0) {
     return (
       <div className="grid gap-5" data-testid="my-day-hours-empty">
@@ -117,6 +135,11 @@ function MyDayHoursBody({ now }: { now: Date }) {
       {shifts.demoMode ? (
         <ModeNotice testId="my-day-hours-demo-notice">Demo data: these shifts are invented examples.</ModeNotice>
       ) : null}
+      {settingsFailed ? (
+        <ModeNotice tone="warning" testId="my-day-hours-settings-failed">
+          Your team&apos;s pay fortnight settings couldn&apos;t be loaded, so this fortnight isn&apos;t shown.
+        </ModeNotice>
+      ) : null}
       <ModeFactTiles testId="my-day-hours-facts">
         <ModeFactTile
           label={`This week · ${formatDateSpan(week.start, week.end)}`}
@@ -125,14 +148,16 @@ function MyDayHoursBody({ now }: { now: Date }) {
           testId="my-day-hours-week"
         />
         <ModeFactTile
-          label={`This fortnight · ${formatDateSpan(fortnight.start, fortnight.end)}`}
-          value={formatHours(fortnight.totalHours)}
+          label={
+            settingsFailed ? "This fortnight" : `This fortnight · ${formatDateSpan(fortnight.start, fortnight.end)}`
+          }
+          value={settingsFailed ? "Unavailable" : formatHours(fortnight.totalHours)}
           size="large"
           testId="my-day-hours-fortnight"
         />
         <ModeFactTile
           label="Next leave"
-          value={leave ? formatDateSpan(leave.start, leave.end) : "None booked"}
+          value={leave ? formatDateSpan(leave.start, leave.end) : "None in the next 40 days"}
           testId="my-day-hours-leave"
         />
       </ModeFactTiles>

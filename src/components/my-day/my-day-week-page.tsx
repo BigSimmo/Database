@@ -15,7 +15,8 @@ import { formatShiftRange, kindOf } from "@/components/roster/roster-format";
 import { useRosterShifts, type MyShift } from "@/components/roster/use-roster-shifts";
 import { perthDateKey, timeRange } from "@/components/teaching/teaching-dates";
 import type { SessionSummaryRead } from "@/components/teaching/teaching-reads";
-import { sessionHref } from "@/components/teaching/teaching-view-model";
+import { relocatedEntryId, sessionHref } from "@/components/teaching/teaching-view-model";
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { useTeachingWeek } from "@/components/teaching/use-teaching-week";
 import { Button } from "@/components/ui/button";
 import { appModeDefinition } from "@/lib/app-modes";
@@ -80,7 +81,7 @@ function teachingRow(session: SessionSummaryRead) {
       key={`teaching:${session.occurrenceId}`}
       title={session.title}
       subtitle={subtitle}
-      href={sessionHref(session) ?? "/teaching"}
+      href={sessionHref(session) ?? `/on-call/education#${onCallEntryAnchorId(relocatedEntryId(session.occurrenceId))}`}
       testId={`my-day-week-session-${session.occurrenceId}`}
     />
   );
@@ -108,9 +109,11 @@ function MyDayWeekBody({ now }: { now: Date }) {
     .filter((source) => source.status === "failed")
     .map((source) => appModeDefinition(source.mode).label);
   if (shifts.status === "error" || shifts.status === "signed-out") failed.push("Roster shifts");
+  if (shifts.teamMessage) failed.push("Team shifts");
   if (teaching.status === "offline" || teaching.status === "error" || teaching.status === "signed-out") {
     failed.push("Teaching sessions");
   }
+  if (teaching.week?.relocatedUnavailable) failed.push("On Call teaching entries");
   const teachingUnavailable = teaching.status === "setup";
 
   // Example shifts belong to a sample doctor, never to the reader: leave them out unless this is a demo.

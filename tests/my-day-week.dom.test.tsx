@@ -234,6 +234,36 @@ describe("MyDayWeekPage", () => {
     expect(row.getAttribute("href")).toBe("/teaching/session/s1");
   });
 
+  it("links a relocated session to its On Call entry", () => {
+    setTeaching([], {
+      week: {
+        sessions: [],
+        relocated: [
+          session("entry1@2026-10-05", "2026-10-05T03:00:00Z", "2026-10-05T04:00:00Z", {
+            source: "on_call_relocated",
+            serviceId: "on-call",
+          }),
+        ],
+        teams: [],
+        relocatedUnavailable: false,
+      },
+    });
+    render(<MyDayWeekPage now={NOW} />);
+    const row = screen.getByTestId("my-day-week-session-entry1@2026-10-05");
+    expect(row.getAttribute("href")).toBe("/on-call/education#on-call-entry-entry1");
+  });
+
+  it("warns when relocated teaching entries or team shifts could not be read", () => {
+    setShifts({ teamMessage: "Team shifts could not be loaded. Your own shifts are shown." } as Partial<Shifts>);
+    setTeaching([], {
+      week: { sessions: [], relocated: [], teams: [], relocatedUnavailable: true },
+    } as Partial<Teaching>);
+    render(<MyDayWeekPage now={NOW} />);
+    expect(screen.getByTestId("my-day-week-failed-notice").textContent).toContain(
+      "Couldn't load: Team shifts and On Call teaching entries. Showing the rest.",
+    );
+  });
+
   it("lists CPD routines due in the week and dated My Day items, once each", () => {
     const routine = {
       id: "r1",
