@@ -37,6 +37,8 @@ describe("governed source URL query policy", () => {
     "https://www.ebs.tga.gov.au/ebs/picmi/picmirepository.nsf/PICMI?OpenForm=1&q=clozapine&t=pi",
     "https://www.ebs.tga.gov.au/ebs/picmi/picmirepository.nsf/PICMI?OpenForm&q=https%3A%2F%2Fexample.invalid&t=pi",
     "https://www.ebs.tga.gov.au/ebs/picmi/picmirepository.nsf/pdf?OpenAgent&id=CP-0000-00000-0",
+    "https://www.ebs.tga.gov.au/ebs/picmi/picmirepository.nsf/pdf",
+    "https://www.ebs.tga.gov.au/ebs/picmi/picmirepository.nsf/PICMI",
   ])("rejects the non-allowlisted query shape %s", (value) => {
     expect(safeCanonicalSourceUrl(value)).toBeNull();
   });

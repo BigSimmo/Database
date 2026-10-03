@@ -83,10 +83,12 @@ function isTgaProductInformationSearch(url: URL, entries: [string, string][]) {
 }
 
 function hasGovernedQuery(url: URL) {
-  if (!url.search) return true;
-
+  // The TGA host is governed for the PI search form only, so a query-less URL
+  // there (an individual PI document path) must not slip through the shortcut below.
   const entries = [...url.searchParams.entries()];
   if (url.hostname === "www.ebs.tga.gov.au") return isTgaProductInformationSearch(url, entries);
+  if (!url.search) return true;
+
   if (entries.length !== 1) return false;
 
   const [[key, value]] = entries;
