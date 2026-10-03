@@ -46,6 +46,33 @@ describe("Railway config as code", () => {
   const worker = readConfig("railway.worker.json");
   const appDockerfile = readFileSync(new URL("../Dockerfile", import.meta.url), "utf8");
 
+  it("lets the app image shell expand Railway PORT instead of overriding it in exec form", () => {
+    expect(app.deploy).not.toHaveProperty("startCommand");
+    expect(appDockerfile).toContain(
+      'CMD ["sh", "-c", "exec node node_modules/next/dist/bin/next start -H 0.0.0.0 -p ${PORT:-3000}"]',
+    );
+  });
+
+  it("retains worker readiness with supported Railway configuration", () => {
+    expect(worker.deploy).toMatchObject({ healthcheckPath: "/health", healthcheckTimeout: 300 });
+    expect(worker.deploy).not.toHaveProperty("healthcheckPort");
+    expect(worker.deploy).not.toHaveProperty("env");
+  });
+
+  it.each(["railway.app.json", "railway.worker.json"])("uses supported deploy keys and one replica in %s", (file) => {
+    const deploy = readConfig(file).deploy;
+    const supportedKeys = [
+      "healthcheckPath",
+      "healthcheckTimeout",
+      "restartPolicyType",
+      "restartPolicyMaxRetries",
+      "preDeployCommand",
+      "multiRegionConfig",
+    ];
+    expect(Object.keys(deploy ?? {}).every((key) => supportedKeys.includes(key))).toBe(true);
+    expect(deploy).toHaveProperty("multiRegionConfig.asia-southeast1-eqsg3a.numReplicas", 1);
+  });
+
   it("ships the local modules imported by next.config.ts in the app runner", () => {
     expect(appDockerfile).toContain("COPY --from=build /app/src/lib/security-headers.ts ./src/lib/security-headers.ts");
     expect(appDockerfile).toContain(
