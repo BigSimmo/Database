@@ -7,15 +7,15 @@ import { focusRing } from "@/components/card-recipes";
 import { OnCallDialSheet, onCallMobileRoute } from "@/components/on-call/kit/dial-sheet";
 import { toHandbookDial } from "@/components/on-call/kit/dial-row";
 import {
-  onCallCallDiscShape,
-  onCallModeIcon,
-  onCallModeIconTile,
-  onCallModuleSurface,
-  onCallPressable,
-  onCallTapArea,
-} from "@/components/on-call/kit/recipes";
+  modeCallDiscShape,
+  modeIdentityIcon,
+  modeIconTile,
+  modeModuleSurface,
+  modePressable,
+  modeTapArea,
+} from "@/components/mode-kit/recipes";
 import { OnCallStateLabel } from "@/components/on-call/kit/state-label";
-import { onCallNameText, onCallNumberText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeNameText, modeNumberText, modeSecondaryText } from "@/components/mode-kit/type";
 import { useOnCallYouCalledAt } from "@/components/on-call/kit/use-you-called";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import { rememberOnCallYouCalled } from "@/lib/on-call/call-marks";
@@ -135,8 +135,8 @@ function CallDisc({
   readonly onCall: () => void;
 }) {
   return (
-    <a href={href} onClick={onCall} aria-label={name} className={cn(onCallTapArea, focusRing, "rounded-full")}>
-      <span aria-hidden="true" className={onCallCallDiscShape.neutral}>
+    <a href={href} onClick={onCall} aria-label={name} className={cn(modeTapArea, focusRing, "rounded-full")}>
+      <span aria-hidden="true" className={modeCallDiscShape.neutral}>
         <Phone aria-hidden="true" strokeWidth={1.5} className="size-icon-md" />
       </span>
     </a>
@@ -153,14 +153,14 @@ function PinToggle({ tile }: { readonly tile: Extract<UsualTile, { kind: "handbo
       aria-label={`${tile.pinned ? "Unpin" : "Pin"} ${tile.title}`}
       onClick={() => setOnCallUsualPinned(tile.id, !tile.pinned)}
       data-testid={`on-call-now-usual-${tile.id}-pin`}
-      className={cn(onCallTapArea, focusRing, "-mr-2 -mt-3 rounded-md text-[color:var(--text-muted)]")}
+      className={cn(modeTapArea, focusRing, "-mr-2 -mt-3 rounded-md text-[color:var(--text-muted)]")}
     >
       <Icon aria-hidden="true" strokeWidth={1.5} className="size-icon-sm" />
     </button>
   );
 }
 
-const tileSurface = cn(onCallModuleSurface, "grid min-h-24 min-w-0 content-between gap-1 py-3 pl-3 pr-1");
+const tileSurface = cn(modeModuleSurface, "grid min-h-24 min-w-0 content-between gap-1 py-3 pl-3 pr-1");
 
 function DialTile({
   tile,
@@ -200,10 +200,7 @@ function DialTile({
     <li className={tileSurface} data-testid={`on-call-now-usual-${tile.id}`}>
       <span className="flex min-w-0 items-start gap-1">
         <span
-          className={cn(
-            onCallNameText,
-            "min-w-0 flex-1 break-words text-sm leading-5 text-[color:var(--text-heading)]",
-          )}
+          className={cn(modeNameText, "min-w-0 flex-1 break-words text-sm leading-5 text-[color:var(--text-heading)]")}
         >
           {tile.title}
         </span>
@@ -219,8 +216,8 @@ function DialTile({
               onClick={() => setSheetOpen(true)}
               className={cn(
                 focusRing,
-                onCallPressable,
-                onCallNumberText,
+                modePressable,
+                modeNumberText,
                 "-ml-1 min-h-12 rounded-md px-1 text-left text-base-minus text-[color:var(--text)]",
               )}
             >
@@ -229,7 +226,7 @@ function DialTile({
           ) : null}
           {!dial ? <OnCallStateLabel state={{ kind: "not-recorded" }} /> : null}
           {secondary.length > 0 ? (
-            <span className={cn(onCallSecondaryText, "break-words")}>{secondary.join(" · ")}</span>
+            <span className={cn(modeSecondaryText, "break-words")}>{secondary.join(" · ")}</span>
           ) : null}
         </span>
         {route?.tel ? (
@@ -303,8 +300,8 @@ export function NowYourUsual({
   return (
     <section aria-labelledby={headingId} className="grid min-w-0 gap-2" data-testid="on-call-home-recent">
       <div className="flex min-w-0 items-center gap-2 px-3">
-        <span aria-hidden="true" data-mode-identity="on-call" className={onCallModeIconTile}>
-          <Pin aria-hidden="true" strokeWidth={1.5} className={onCallModeIcon} />
+        <span aria-hidden="true" data-mode-identity="on-call" className={modeIconTile}>
+          <Pin aria-hidden="true" strokeWidth={1.5} className={modeIdentityIcon} />
         </span>
         <h2 id={headingId} className={cn(eyebrowText, "min-w-0 flex-1")}>
           Your usual
@@ -327,7 +324,7 @@ export function NowYourUsual({
       {outlineCount !== null ? (
         <TileOutlines count={Math.max(1, Math.min(outlineCount, ON_CALL_USUAL_TILE_LIMIT))} />
       ) : tiles.length === 0 ? (
-        <p className={cn(onCallSecondaryText, "px-3")} data-testid="on-call-now-usual-empty">
+        <p className={cn(modeSecondaryText, "px-3")} data-testid="on-call-now-usual-empty">
           To add a number, tick &quot;Call first on the home&quot; on your own entry.
         </p>
       ) : (

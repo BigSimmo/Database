@@ -8,9 +8,9 @@ import { focusRing } from "@/components/card-recipes";
 import { modeSummaryHairline, modeSummaryMutedText, modeSummarySurface } from "@/components/mode-kit/recipes";
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
 import { OnCallRow } from "@/components/on-call/kit/grouped-list";
-import { onCallInsetHairline, onCallPressable, onCallRowHeight } from "@/components/on-call/kit/recipes";
+import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
 import { OnCallStateLabel } from "@/components/on-call/kit/state-label";
-import { onCallHeadingText, onCallNameText, onCallNumberText } from "@/components/on-call/kit/type";
+import { modeHeadingText, modeNameText, modeNumberText } from "@/components/mode-kit/type";
 import { cn, eyebrowText } from "@/components/ui-primitives";
 import type { HandbookItem } from "@/lib/on-call/handbook-items";
 import type { OnCallPeriod } from "@/lib/on-call/number-resolver";
@@ -71,8 +71,8 @@ export function NowRightNow({
           Right now
         </h2>
         {hours && hospitalPeriod ? (
-          <p className={cn(onCallNumberText, "text-sm text-[color:var(--surface-summary-ink)]")}>
-            <span className={onCallNameText}>{afterHours ? "After hours" : "In hours"}</span>
+          <p className={cn(modeNumberText, "text-sm text-[color:var(--surface-summary-ink)]")}>
+            <span className={modeNameText}>{afterHours ? "After hours" : "In hours"}</span>
             <span className={modeSummaryMutedText}>
               {afterHours
                 ? ` since ${hours.afterHoursFrom} · until ${hours.afterHoursUntil}`
@@ -104,7 +104,7 @@ export function NowRightNow({
           </span>
           <span
             className={cn(
-              onCallNumberText,
+              modeNumberText,
               modeSummaryMutedText,
               "absolute inset-x-0 top-4 flex justify-between text-2xs leading-4",
             )}
@@ -121,7 +121,7 @@ export function NowRightNow({
           <li
             aria-hidden="true"
             data-testid="on-call-now-right-now-outline"
-            className={cn(onCallInsetHairline, onCallRowHeight.double, "flex items-center gap-3 px-3")}
+            className={cn(modeInsetHairline, modeRowHeight.double, "flex items-center gap-3 px-3")}
           >
             <span className="h-3 w-2/5 rounded-sm bg-[color:var(--surface-summary-line)]" />
             <span className="ml-auto h-3 w-1/5 rounded-sm bg-[color:var(--surface-summary-line)]" />
@@ -153,11 +153,11 @@ export function NowRightNow({
         href="/on-call/call"
         data-testid="on-call-now-all-roles"
         className={cn(
-          onCallRowHeight.single,
-          onCallPressable,
+          modeRowHeight.single,
+          modePressable,
           focusRing,
           modeSummaryHairline,
-          onCallHeadingText,
+          modeHeadingText,
           "flex min-w-0 items-center gap-3 border-t px-3 text-base-minus text-[color:var(--surface-summary-ink)] no-underline",
         )}
       >

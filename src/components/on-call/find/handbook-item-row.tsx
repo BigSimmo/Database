@@ -4,11 +4,11 @@ import { ChevronRight } from "lucide-react";
 import { useState } from "react";
 
 import { OnCallHospitalPhoneSwitch } from "@/components/on-call/call/hospital-phone-switch";
-import { OnCallActionButton } from "@/components/on-call/kit/action-button";
+import { ModeActionButton } from "@/components/mode-kit/action-button";
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
-import { onCallInsetHairline, onCallPressable, onCallRowHeight } from "@/components/on-call/kit/recipes";
-import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
 import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import { focusRing } from "@/components/card-recipes";
 import { Sheet } from "@/components/ui/sheet";
@@ -79,7 +79,7 @@ export function OnCallHandbookItemRow({
           <p className="whitespace-pre-line break-words text-base-minus text-[color:var(--text)]">{body}</p>
         ) : null}
         {item.aliases.length > 0 ? (
-          <p className={cn(onCallSecondaryText, "break-words")}>Also known as {item.aliases.join(", ")}</p>
+          <p className={cn(modeSecondaryText, "break-words")}>Also known as {item.aliases.join(", ")}</p>
         ) : null}
         {hasNumber ? (
           <OnCallGroupedList>
@@ -126,7 +126,7 @@ export function OnCallHandbookItemRow({
           sources={item.sources}
           hospitalName={hospitalName}
           trailingAction={
-            <OnCallActionButton
+            <ModeActionButton
               icon={ChevronRight}
               label={`Details: ${label}`}
               onClick={() => setOpen(true)}
@@ -141,23 +141,23 @@ export function OnCallHandbookItemRow({
   }
 
   return (
-    <li className={cn(onCallInsetHairline, "min-w-0")} data-testid={testId}>
+    <li className={cn(modeInsetHairline, "min-w-0")} data-testid={testId}>
       <button
         type="button"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
         className={cn(
-          secondary ? onCallRowHeight.double : onCallRowHeight.single,
-          onCallPressable,
+          secondary ? modeRowHeight.double : modeRowHeight.single,
+          modePressable,
           focusRing,
           "flex w-full min-w-0 items-center gap-3 pl-3 pr-2 text-left",
         )}
       >
         <span className="grid min-w-0 flex-1 gap-0.5">
-          <span className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
+          <span className={cn(modeNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
             {label}
           </span>
-          {secondary ? <span className={cn(onCallSecondaryText, "break-words")}>{secondary}</span> : null}
+          {secondary ? <span className={cn(modeSecondaryText, "break-words")}>{secondary}</span> : null}
         </span>
         <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
       </button>
