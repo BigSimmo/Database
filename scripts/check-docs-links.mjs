@@ -30,8 +30,9 @@
 
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { applyRequestBatch, validateRequest } from "./ledger-inbox.mjs";
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -424,5 +425,5 @@ function main() {
   console.log(`docs link check passed: ${checked} repo path references resolve.`);
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectEntrypoint(import.meta.url);
 if (invokedDirectly) main();

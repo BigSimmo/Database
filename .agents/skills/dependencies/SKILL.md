@@ -1,6 +1,6 @@
 ---
 name: dependencies
-description: Maintain Database dependencies safely by checking compatible stable versions, release notes, peer and engine constraints, old API usage, lockfile integrity, security, and focused verification. Use for dependency updates or reviews.
+description: Maintain PsychSift dependencies safely by checking compatible stable versions, release notes, peer and engine constraints, old API usage, lockfile integrity, security, and focused verification. Use for dependency updates or reviews.
 ---
 
 # Dependencies

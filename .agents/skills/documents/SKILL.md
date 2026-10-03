@@ -1,6 +1,6 @@
 ---
 name: documents
-description: Verify Database document access, storage, signed images, metadata, extraction, labels, downloads, and lifecycle behavior. Use for private documents, image loading, signed URLs, document routes, or storage defects.
+description: Verify PsychSift document access, storage, signed images, metadata, extraction, labels, downloads, and lifecycle behavior. Use for private documents, image loading, signed URLs, document routes, or storage defects.
 ---
 
 # Documents

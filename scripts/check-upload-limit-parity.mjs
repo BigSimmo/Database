@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import nextEnv from "@next/env";
 
 const { loadEnvConfig, resetEnv } = nextEnv;
@@ -123,4 +124,4 @@ function main() {
   console.log(`Upload-limit parity passed: client and server both resolve to ${result.serverValue} MB.`);
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) main();
+if (isDirectEntrypoint(import.meta.url)) main();

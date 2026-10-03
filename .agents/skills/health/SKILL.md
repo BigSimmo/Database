@@ -1,6 +1,6 @@
 ---
 name: health
-description: Assess local Database repository health quickly with offline checks and clear separation of code failures from environment or tooling blockers. Use for routine health checks, stale-state diagnosis, or a fast confidence snapshot.
+description: Assess local PsychSift repository health quickly with offline checks and clear separation of code failures from environment or tooling blockers. Use for routine health checks, stale-state diagnosis, or a fast confidence snapshot.
 ---
 
 # Health

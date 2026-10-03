@@ -1,6 +1,6 @@
 ---
 name: export
-description: Create a review-safe Database codebase archive with a manifest while excluding secrets, dependencies, build output, caches, logs, and machine-local state. Use when the user asks to package or export the repository for review.
+description: Create a review-safe PsychSift codebase archive with a manifest while excluding secrets, dependencies, build output, caches, logs, and machine-local state. Use when the user asks to package or export the repository for review.
 ---
 
 # Export

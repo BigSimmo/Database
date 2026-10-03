@@ -19,7 +19,7 @@
  *   extension is what marks the bundle as ESM.
  */
 import { writeFileSync } from "node:fs";
-import { pathToFileURL } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { build } from "esbuild";
 
 /**
@@ -62,7 +62,7 @@ function extractExternals(metafile) {
   return [...externals].sort();
 }
 
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isDirectEntrypoint(import.meta.url)) {
   const indexResult = await build({ ...workerBuildOptions, metafile: true });
   const externals = extractExternals(indexResult.metafile ?? {});
   writeFileSync("dist/worker/externals.json", `${JSON.stringify(externals, null, 2)}\n`);

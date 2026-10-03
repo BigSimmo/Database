@@ -507,4 +507,8 @@ function run(argv = process.argv.slice(2)) {
 }
 
 const invokedPath = process.argv[1] ? path.resolve(process.argv[1]) : "";
-if (invokedPath === fileURLToPath(import.meta.url)) run();
+if (invokedPath) {
+  try {
+    if (fs.realpathSync(invokedPath) === fs.realpathSync(fileURLToPath(import.meta.url))) run();
+  } catch {}
+}

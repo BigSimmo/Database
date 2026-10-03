@@ -83,8 +83,8 @@ export function verifyProxyAuthHeader(headerValue: string): string | null {
 
   try {
     // Constant-time: never let comparison timing reveal how much of a forged signature was right.
-    const provided = Buffer.from(signature, "utf8");
-    const expected = Buffer.from(expectedSignature, "utf8");
+    const provided = Buffer.from(signature, "base64url");
+    const expected = Buffer.from(expectedSignature, "base64url");
     if (provided.length === expected.length && timingSafeEqual(provided, expected)) {
       return payloadBase64;
     }

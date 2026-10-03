@@ -1,6 +1,6 @@
 ---
 name: skills
-description: List every unique Database-specific skill with a clear explanation, hide compatibility aliases, and recommend the smallest useful set for the current request. Use when the user asks what skills exist, what they do, or which workflow to choose.
+description: List every unique PsychSift-specific skill with a clear explanation, hide compatibility aliases, and recommend the smallest useful set for the current request. Use when the user asks what skills exist, what they do, or which workflow to choose.
 ---
 
 # Skills

@@ -134,8 +134,10 @@ describe("overlay and global CSS contracts", () => {
     expect(documentViewerSource).toContain("max-sm:pb-[calc(9rem+var(--safe-area-bottom)+var(--keyboard-height,0px))]");
   });
   it("keeps the remembered search chrome rules aligned with the hidden reserve contract", () => {
-    expect(agentsSource).toContain("<!-- BEGIN:search-chrome-behaviour -->");
-    expect(agentsSource).toContain("Hidden means zero reserve");
+    const searchChromeRule = read("docs/agents/native-startup/search-chrome-behaviour.md");
+    expect(searchChromeRule).toContain("<!-- BEGIN:search-chrome-behaviour -->");
+    expect(searchChromeRule).toContain("Hidden means zero reserve");
+    expect(agentsSource).toMatch(/search-chrome-behaviour\.md/);
     expect(searchChromeBehaviourSource).toContain(
       "A hidden phone dock must release the content-facing reserve to `0rem`",
     );

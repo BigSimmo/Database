@@ -9,7 +9,8 @@
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { dirname, join } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { childProcessExitCode } from "./child-process-result.mjs";
 
 const zeroSha = /^0{40}$/;
@@ -139,7 +140,7 @@ function main(argv) {
   process.exit(childProcessExitCode(result));
 }
 
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectEntrypoint(import.meta.url);
 if (invokedDirectly) {
   main(process.argv.slice(2));
 }
