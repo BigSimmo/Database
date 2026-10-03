@@ -65,6 +65,10 @@ function TodayLoadingSkeleton() {
     <div className={TODAY_COLUMNS} data-testid="admin-today-loading" aria-hidden="true">
       <div className={TODAY_COLUMN}>
         <ModeModuleSkeleton rows={3} twoLine eyebrow testId="admin-today-loading-renew-next" />
+        <ModeModuleSkeleton rows={2} twoLine eyebrow testId="admin-today-loading-needs-you" />
+      </div>
+      <div className={TODAY_COLUMN}>
+        <ModeModuleSkeleton rows={4} twoLine eyebrow testId="admin-today-loading-coming-up" />
         <div className="grid grid-cols-3 gap-2" data-testid="admin-today-loading-at-a-glance">
           {[0, 1, 2].map((index) => (
             <div key={index} className={cn(modeModuleSurface, "grid h-17 content-between px-3 py-2")}>
@@ -73,10 +77,6 @@ function TodayLoadingSkeleton() {
             </div>
           ))}
         </div>
-        <ModeModuleSkeleton rows={2} twoLine eyebrow testId="admin-today-loading-needs-you" />
-      </div>
-      <div className={TODAY_COLUMN}>
-        <ModeModuleSkeleton rows={4} twoLine eyebrow testId="admin-today-loading-coming-up" />
       </div>
     </div>
   );
