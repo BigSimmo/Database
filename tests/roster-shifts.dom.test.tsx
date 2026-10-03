@@ -91,7 +91,9 @@ function fetchCalls(url: string, method: string) {
 beforeEach(() => {
   routes.clear();
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const handler = routes.get(`${init?.method ?? "GET"} ${String(input)}`);
+    // Saved extra time is read for whichever fortnight is shown; one route answers every range.
+    const url = String(input).startsWith("/api/roster/extra-time?") ? "/api/roster/extra-time" : String(input);
+    const handler = routes.get(`${init?.method ?? "GET"} ${url}`);
     return handler ? handler(init) : Response.json({});
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -162,6 +164,17 @@ describe("Roster Shifts", () => {
     expect(screen.queryByText("Less than 6 hours' rest before this shift")).toBeNull();
     for (const id of [first, second]) expect(fetchCalls(`/api/roster/team/${id}?what=overview`, "GET")).toHaveLength(1);
   });
+  it("offers Who can cover? on a team shift, beside the existing request rows", async () => {
+    mockShifts([]);
+    mockTeamWindow("2026-09-21", "2026-10-27", ["2026-10-15"]);
+    render(<RosterShiftsPage now={new Date("2026-10-13T02:00:00Z")} />);
+    const row = await screen.findByTestId("roster-shifts-row");
+    fireEvent.click(row);
+    const sheet = await screen.findByTestId("roster-team-shift-actions");
+    expect(within(sheet).getByRole("link", { name: "Swap" })).toBeInTheDocument();
+    expect(within(sheet).getByTestId("roster-who-can-cover")).toHaveTextContent("Who can cover?");
+  });
+
   it("loads the newly selected week before saying it has no team shifts", async () => {
     mockShifts([]);
     // Each week is read 21 days back (team rule lookback) and through the
@@ -256,6 +269,7 @@ describe("Roster Shifts", () => {
   it("shows the fortnight's rostered hours and logs a late finish with one tap", async () => {
     // Monday 12 Oct day shift finished at 16:30; it is now 17:45 Perth.
     mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () => Response.json({ records: [] }));
     routes.set("POST /api/roster/extra-time", () => Response.json({ saved: true }));
     render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
     await screen.findByText(/08:00\s*\+1/);
@@ -274,8 +288,67 @@ describe("Roster Shifts", () => {
     });
     expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
     expect(within(screen.getByTestId("roster-hours-facts")).getByText("1.25 h")).toBeInTheDocument();
-    // Extra time is never read back, so the tile says it covers this visit only.
+    expect(screen.getByTestId("roster-hours-facts")).not.toHaveTextContent("Extra time recorded this visit");
+  });
+
+  it("counts saved extra time after a reload, and will not log the same late finish twice", async () => {
+    mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () =>
+      Response.json({
+        records: [{ kind: "stayed_late", startedAt: "2026-10-12T08:30:00.000Z", endedAt: "2026-10-12T09:30:00.000Z" }],
+      }),
+    );
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByText(/08:00\s*\+1/);
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const facts = await screen.findByTestId("roster-hours-facts");
+    expect(await within(facts).findByText("1 h")).toBeInTheDocument();
+    expect(facts).toHaveTextContent("Extra time");
+    expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
+    const [read] = fetchMock.mock.calls.filter(([input]) => String(input).startsWith("/api/roster/extra-time?"));
+    expect(String(read?.[0])).toMatch(/^\/api\/roster\/extra-time\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
+  });
+
+  it("treats one instant as one record whatever its spelling, and a call-in as a different record", async () => {
+    mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () =>
+      Response.json({
+        records: [
+          // Monday's shift ended 08:30Z; the database spells it with +00:00. A call-in shares the start.
+          { kind: "called_in", startedAt: "2026-10-12T08:30:00+00:00", endedAt: "2026-10-12T09:00:00+00:00" },
+        ],
+      }),
+    );
+    routes.set("POST /api/roster/extra-time", () => Response.json({ saved: true }));
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByText(/08:00\s*\+1/);
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const facts = await screen.findByTestId("roster-hours-facts");
+    expect(await within(facts).findByText("0.5 h")).toBeInTheDocument();
+    // The call-in is not a late finish, so "Stayed late" is still offered.
+    const stayed = screen.getByRole("button", { name: "Stayed late" });
+    expect(stayed).toBeEnabled();
+    fireEvent.click(stayed);
+    await screen.findByText("Saved");
+    expect(within(facts).getByText("1.75 h")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
+  });
+
+  it("says so when saved extra time cannot be loaded, and retries", async () => {
+    mockShifts([day("2026-10-12")]);
+    let reads = 0;
+    routes.set("GET /api/roster/extra-time", () => {
+      reads += 1;
+      return reads === 1 ? Response.json({ error: "down" }, { status: 503 }) : Response.json({ records: [] });
+    });
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByRole("radio", { name: "Hours" });
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const error = await screen.findByTestId("roster-hours-extras-error");
+    expect(error).toHaveTextContent("Saved extra time could not be loaded");
     expect(screen.getByTestId("roster-hours-facts")).toHaveTextContent("Extra time recorded this visit");
+    fireEvent.click(within(error).getByRole("button", { name: "Try again" }));
+    await waitFor(() => expect(screen.queryByTestId("roster-hours-extras-error")).toBeNull());
   });
 
   it("reads a new calendar link straight away, and shows the new shifts", async () => {
