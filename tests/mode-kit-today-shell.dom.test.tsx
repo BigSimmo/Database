@@ -116,6 +116,11 @@ describe("TodayShell Needs you", () => {
     expect(screen.getByTestId("today-now")).toBeTruthy();
   });
 
+  it("shows the empty notice for state empty even with no needsYou payload", () => {
+    render(shell({ state: { kind: "empty" } }));
+    expect(screen.getByTestId("today-needs-you-empty").textContent).toContain(todayStateCopy.empty("Admin").title);
+  });
+
   it("uses renderItem when supplied", () => {
     render(
       shell({
