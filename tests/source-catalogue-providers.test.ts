@@ -39,7 +39,7 @@ const expectedProviders = {
     "src/lib/form-register.ts",
   ],
   mha: ["data/mha-2014-sections.source.json"],
-  medications: ["data/medications-snapshot.json"],
+  medications: ["data/medications-snapshot.json", "src/data/medication-source-links.json"],
   services: ["data/services-snapshot.json"],
   dsm: ["src/data/dsm-clinical-content.json"],
   calculators: ["data/calculators/evidence.json", "src/lib/calculators/calculator-fixtures.ts"],

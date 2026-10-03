@@ -550,25 +550,36 @@ export function MedicationRecordPage({
           )}
         </div>
         <InformationPageFooter className="mt-4 pb-1">
-          {/* No medication record carries its own source link yet (ledger #05WXHX). Until it does, the
-              footer links the owner's chosen default source, a TGA Product Information search. */}
-          PsychSift is a clinical reference prototype, not validated decision support. This record does not yet link to
-          its own sources: verify every dose and interaction against the current Australian product information or your
-          local guideline before acting on it.
-          {record ? (
+          {/* A record with owner-confirmed source links points at them (they render in the Additional tab's
+              Sources list). A record without any keeps the owner's chosen default: a TGA Product Information
+              search (ledger #05WXHX). */}
+          {sourceLinks.length > 0 ? (
             <>
-              {" "}
-              <a
-                href={tgaProductInformationSearchUrl(record.name)}
-                target="_blank"
-                rel="noreferrer"
-                className="font-semibold text-[color:var(--clinical-accent)] underline underline-offset-2"
-              >
-                Search the TGA Product Information for {record.name}
-              </a>
-              .
+              PsychSift is a clinical reference prototype, not validated decision support. Verify every dose and
+              interaction against this record&rsquo;s linked sources (listed under Sources on the Additional tab) and
+              your local guideline before acting on it.
             </>
-          ) : null}
+          ) : (
+            <>
+              PsychSift is a clinical reference prototype, not validated decision support. This record does not yet link
+              to its own sources: verify every dose and interaction against the current Australian product information
+              or your local guideline before acting on it.
+              {record ? (
+                <>
+                  {" "}
+                  <a
+                    href={tgaProductInformationSearchUrl(record.name)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold text-[color:var(--clinical-accent)] underline underline-offset-2"
+                  >
+                    Search the TGA Product Information for {record.name}
+                  </a>
+                  .
+                </>
+              ) : null}
+            </>
+          )}
         </InformationPageFooter>
       </InformationPageShell>
     </>

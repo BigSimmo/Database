@@ -194,4 +194,19 @@ describe("MedicationRecordPage confirmed source links (#05WXHX step 2)", () => {
     expect(link.getAttribute("rel")?.split(" ")).toEqual(expect.arrayContaining(["noreferrer", "noopener"]));
     expect(within(list).getByText("Therapeutic Goods Administration")).toBeInTheDocument();
   });
+
+  it("keeps the no-sources footer and TGA fallback search when no link is confirmed", () => {
+    mockDetail({ data: { record: fallbackDrug }, loading: false, error: null });
+    render(<MedicationRecordPage slug="test-med" fallbackRecord={fallbackDrug} />);
+    expect(screen.getByText(/does not yet link to its own sources/)).toBeInTheDocument();
+    expect(screen.queryByText(/linked sources/)).not.toBeInTheDocument();
+  });
+
+  it("points the footer at the linked sources instead of the fallback search when a link is confirmed", () => {
+    mockDetail({ data: { record: fallbackDrug }, loading: false, error: null });
+    render(<MedicationRecordPage slug="test-med" fallbackRecord={fallbackDrug} sourceLinks={[confirmedLink]} />);
+    expect(screen.queryByText(/does not yet link to its own sources/)).not.toBeInTheDocument();
+    expect(screen.getByText(/against this record’s linked sources/)).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Search the TGA Product Information/ })).not.toBeInTheDocument();
+  });
 });
