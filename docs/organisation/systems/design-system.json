@@ -39,6 +39,7 @@
     "src/components/card-recipes.ts",
     "src/components/category-icon-tile.tsx",
     "src/components/clinical-dashboard/brand.tsx",
+    "src/components/dashboard-kit/**",
     "src/components/mode-kit/**",
     "src/components/primitive-recipes/**",
     "src/components/ui-primitives.tsx",
