@@ -13,16 +13,16 @@ vi.mock("@/components/my-day/use-my-day-items", () => ({
   useMyDayItems: () => hookState.current,
 }));
 
-let isAuthenticated = true;
-vi.mock("@/components/account-data-provider", () => ({
-  useAccountData: () => ({ isAuthenticated }),
+const auth = vi.hoisted(() => ({ status: "authenticated", authEpoch: 1 }));
+vi.mock("@/lib/supabase/client", () => ({
+  useAuthSession: () => auth,
 }));
 
 vi.mock("@/components/clinical-dashboard/account-setup-dialog", () => ({
   AccountSetupDialog: ({ open }: { open: boolean }) => (open ? <div data-testid="account-dialog" /> : null),
 }));
 
-import { MyDayHomeCard } from "@/components/my-day/my-day-home-card";
+import { MyDayHomeCard, resetMyDayHomeCardCache } from "@/components/my-day/my-day-home-card";
 import { MyDayPage } from "@/components/my-day/my-day-page";
 
 // 09:00 on Sat 26 Sep 2026 in Perth.
@@ -61,7 +61,9 @@ function setState(overrides: Partial<MyDayState>) {
 }
 
 beforeEach(() => {
-  isAuthenticated = true;
+  auth.status = "authenticated";
+  auth.authEpoch = 1;
+  resetMyDayHomeCardCache();
   retry.mockClear();
   setState({});
 });
@@ -73,11 +75,41 @@ describe("MyDayPage", () => {
     render(<MyDayPage now={NOW} />);
     expect(screen.getByRole("heading", { name: "My Day" })).toBeTruthy();
     expect(screen.getByTestId("my-day-loading")).toBeTruthy();
+    expect(screen.getByRole("status").textContent).toBe("Loading My Day");
     expect(screen.queryByTestId("my-day-ready")).toBeNull();
   });
 
+  it("shows the skeleton, not the sign-in prompt, while the sign-in is still being checked", () => {
+    auth.status = "loading";
+    setState({ status: "signed-out" });
+    render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-loading")).toBeTruthy();
+    expect(screen.queryByTestId("my-day-signed-out")).toBeNull();
+  });
+
+  it("runs the sources in a local demo build with no sign-in configured", () => {
+    auth.status = "unconfigured";
+    setState({ items: [item("a", "soon")] });
+    render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-item-a")).toBeTruthy();
+    expect(screen.queryByTestId("my-day-signed-out")).toBeNull();
+  });
+
+  it("says it could not check the sign-in, with a retry, rather than asking to sign in", () => {
+    auth.status = "error";
+    setState({ status: "signed-out" });
+    const reload = vi.fn();
+    vi.stubGlobal("location", { ...window.location, reload });
+    render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-auth-error").textContent).toContain("Couldn't check your sign-in. Try again.");
+    expect(screen.queryByTestId("my-day-signed-out")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(reload).toHaveBeenCalledTimes(1);
+    vi.unstubAllGlobals();
+  });
+
   it("asks a signed-out reader to sign in", () => {
-    isAuthenticated = false;
+    auth.status = "signed_out";
     setState({ status: "signed-out" });
     render(<MyDayPage now={NOW} />);
     const panel = screen.getByTestId("my-day-signed-out");
@@ -87,13 +119,20 @@ describe("MyDayPage", () => {
     expect(screen.getByTestId("account-dialog")).toBeTruthy();
   });
 
-  it("groups items as Overdue, Due soon, Later in that order and omits empty groups", () => {
+  it("treats an expired session as signed out", () => {
+    auth.status = "expired";
+    setState({ status: "signed-out" });
+    render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-signed-out")).toBeTruthy();
+  });
+
+  it("groups items as Needs you now, Due soon, Later in that order and omits empty groups", () => {
     setState({
       items: [item("a", "overdue"), item("b", "soon"), item("c", "info", { mode: "cme", detail: "Extra line" })],
     });
     render(<MyDayPage now={NOW} />);
     const headings = screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent);
-    expect(headings).toEqual(["Overdue", "Due soon", "Later"]);
+    expect(headings).toEqual(["Needs you now", "Due soon", "Later"]);
     const later = screen.getByTestId("my-day-item-c");
     expect(later.textContent).toContain("CPD");
     expect(later.textContent).toContain("Extra line");
@@ -105,14 +144,17 @@ describe("MyDayPage", () => {
     expect(screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)).toEqual(["Due soon"]);
   });
 
-  it("marks only overdue rows with a warning label and a plain Due soon label otherwise", () => {
-    setState({ items: [item("a", "overdue"), item("b", "soon"), item("c", "info")] });
+  it("puts the state word in the link text, Date passed for Admin and Overdue elsewhere", () => {
+    setState({
+      items: [item("a", "overdue"), item("o", "overdue", { mode: "cme" }), item("b", "soon"), item("c", "info")],
+    });
     render(<MyDayPage now={NOW} />);
-    const overdue = within(screen.getByTestId("my-day-item-a").parentElement as HTMLElement).getByText("Overdue");
-    expect(overdue.closest("[data-testid], span")).toBeTruthy();
-    expect(document.querySelectorAll(".bg-\\[color\\:var\\(--warning\\)\\]").length).toBe(1);
-    expect(screen.getByText("Due soon", { selector: "span" })).toBeTruthy();
-    expect(within(screen.getByTestId("my-day-item-c").parentElement as HTMLElement).queryByText("Due soon")).toBeNull();
+    expect(screen.getByTestId("my-day-item-a").textContent).toContain("Admin · Date passed · ");
+    expect(screen.getByTestId("my-day-item-o").textContent).toContain("CPD · Overdue · ");
+    expect(screen.getByTestId("my-day-item-b").textContent).toContain("Admin · Due soon · ");
+    expect(screen.getByTestId("my-day-item-c").textContent).not.toMatch(/Overdue|Due soon|Date passed/);
+    // The trailing visual label is hidden from assistive tech: the link text carries the meaning.
+    expect(document.querySelectorAll('[aria-hidden="true"] [data-state-dot]').length).toBe(3);
   });
 
   it("names failed sources, keeps the rest, and retries on click", () => {
@@ -127,6 +169,9 @@ describe("MyDayPage", () => {
       "Couldn't load: Roster, CPD. Showing the rest.",
     );
     expect(screen.getByTestId("my-day-item-a")).toBeTruthy();
+    expect(
+      screen.getByTestId("my-day-failed-notice").querySelector('[class*="border-l-[color:var(--warning)]"]'),
+    ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(retry).toHaveBeenCalledTimes(1);
   });
@@ -151,6 +196,17 @@ describe("MyDayPage", () => {
     );
   });
 
+  it("does not claim 'nothing needs you' when no source could be checked", () => {
+    setState({ sources: readySources.map((source) => ({ ...source, status: "failed" as const })) });
+    render(<MyDayPage now={NOW} />);
+    const empty = screen.getByTestId("my-day-empty");
+    expect(empty.textContent).toContain("Couldn't check your day");
+    expect(empty.textContent).not.toContain("Nothing needs you right now");
+    expect(screen.getAllByRole("button", { name: "Retry" })).toHaveLength(1);
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
   it("shows a calm empty state naming only the modes that were checked", () => {
     setState({
       sources: readySources.map((source) =>
@@ -169,16 +225,53 @@ describe("MyDayPage", () => {
 
 describe("MyDayHomeCard", () => {
   it("renders nothing when signed out", () => {
-    isAuthenticated = false;
+    auth.status = "signed_out";
     setState({ status: "signed-out", items: [] });
     const { container } = render(<MyDayHomeCard now={NOW} />);
     expect(container.innerHTML).toBe("");
   });
 
-  it("renders nothing while loading", () => {
+  it("renders nothing while loading with nothing remembered", () => {
     setState({ status: "loading", items: [item("a", "overdue")] });
     const { container } = render(<MyDayHomeCard now={NOW} />);
     expect(container.innerHTML).toBe("");
+  });
+
+  it("shows the remembered items at once on return, for the same sign-in and under two minutes", () => {
+    setState({ items: [item("a", "overdue")] });
+    render(<MyDayHomeCard now={NOW} />);
+    cleanup();
+
+    setState({ status: "loading", items: [] });
+    render(<MyDayHomeCard now={NOW} />);
+    expect(screen.getByTestId("my-day-item-a")).toBeTruthy();
+    cleanup();
+
+    auth.authEpoch = 2;
+    render(<MyDayHomeCard now={NOW} />);
+    expect(screen.queryByTestId("my-day-home-card")).toBeNull();
+    cleanup();
+
+    auth.authEpoch = 1;
+    vi.useFakeTimers();
+    vi.setSystemTime(Date.now() + 3 * 60_000);
+    render(<MyDayHomeCard now={NOW} />);
+    expect(screen.queryByTestId("my-day-home-card")).toBeNull();
+    vi.useRealTimers();
+  });
+
+  it("says which modes could not load instead of the counts", () => {
+    setState({
+      items: [item("a", "overdue"), item("b", "soon")],
+      sources: readySources.map((source) =>
+        source.mode === "roster" || source.mode === "cme" ? { ...source, status: "failed" as const } : source,
+      ),
+    });
+    render(<MyDayHomeCard now={NOW} />);
+    const seeAll = screen.getByTestId("my-day-home-card-see-all");
+    expect(seeAll.textContent).toContain("See all 2 in My Day");
+    expect(seeAll.textContent).toContain("Roster and CPD couldn't load");
+    expect(seeAll.textContent).not.toContain("overdue");
   });
 
   it("renders nothing in demo mode", () => {
@@ -205,7 +298,7 @@ describe("MyDayHomeCard", () => {
     expect(screen.queryByTestId("my-day-item-d")).toBeNull();
     const seeAll = screen.getByTestId("my-day-home-card-see-all");
     expect(seeAll.getAttribute("href")).toBe("/my-day");
-    expect(seeAll.textContent).toContain("See all 5");
+    expect(seeAll.textContent).toContain("See all 5 in My Day");
     expect(seeAll.textContent).toContain("2 overdue · 1 due soon");
   });
 });

@@ -1,9 +1,8 @@
 "use client";
 
-import { CircleCheck, LogIn } from "lucide-react";
+import { LogIn, Sunrise } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { useAccountData } from "@/components/account-data-provider";
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
@@ -19,7 +18,14 @@ import { formatDateEcho } from "@/lib/admin/renewal-dates";
 import { appModeDefinition } from "@/lib/app-modes";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { formatMyDayDue } from "@/lib/my-day/merge";
-import { myDaySourceModes, type MyDayItem, type MyDaySourceMode } from "@/lib/my-day/model";
+import {
+  myDayEnabledForAuth,
+  myDayNeedsSignIn,
+  myDaySourceModes,
+  type MyDayItem,
+  type MyDaySourceMode,
+} from "@/lib/my-day/model";
+import { useAuthSession } from "@/lib/supabase/client";
 
 const PAGE_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6";
 const TICK_MS = 60_000;
@@ -42,7 +48,16 @@ function modeLabel(mode: MyDaySourceMode): string {
 /** One My Day row, shared by the page and the home card. */
 export function MyDayItemRow({ item, now }: { readonly item: MyDayItem; readonly now: Date }) {
   const due = formatMyDayDue(item.due, now);
-  const subtitle = due ? `${modeLabel(item.mode)} · ${due}` : modeLabel(item.mode);
+  // The state word is part of the link's own text, so it never relies on colour or a dot.
+  const stateWord =
+    item.severity === "overdue"
+      ? item.mode === "my-work"
+        ? "Date passed"
+        : "Overdue"
+      : item.severity === "soon"
+        ? "Due soon"
+        : "";
+  const subtitle = [modeLabel(item.mode), stateWord, due].filter(Boolean).join(" · ");
   return (
     <ModeRow
       title={item.title}
@@ -53,25 +68,26 @@ export function MyDayItemRow({ item, now }: { readonly item: MyDayItem; readonly
       href={item.href}
       testId={`my-day-item-${item.id}`}
       trailing={
-        item.severity === "overdue" ? (
-          <ModeStateLabel tone="warning">Overdue</ModeStateLabel>
-        ) : item.severity === "soon" ? (
-          <ModeStateLabel>Due soon</ModeStateLabel>
+        stateWord ? (
+          <span aria-hidden="true">
+            <ModeStateLabel tone={item.severity === "overdue" ? "warning" : "muted"}>{stateWord}</ModeStateLabel>
+          </span>
         ) : undefined
       }
     />
   );
 }
 
-function listNames(names: readonly string[]): string {
+export function listNames(names: readonly string[]): string {
   if (names.length <= 1) return names.join("");
   return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
 }
 
 export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
-  const { isAuthenticated } = useAccountData();
+  const { status: authStatus } = useAuthSession();
+  const enabled = myDayEnabledForAuth(authStatus);
   const now = useMyDayNow(nowProp);
-  const state = useMyDayItems({ enabled: isAuthenticated, now });
+  const state = useMyDayItems({ enabled, now });
   const [signInOpen, setSignInOpen] = useState(false);
 
   const failed = state.sources.filter((source) => source.status === "failed").map((source) => modeLabel(source.mode));
@@ -84,7 +100,7 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
     .map(modeLabel);
 
   const sections = [
-    { key: "overdue", eyebrow: "Overdue", items: state.items.filter((item) => item.severity === "overdue") },
+    { key: "overdue", eyebrow: "Needs you now", items: state.items.filter((item) => item.severity === "overdue") },
     { key: "soon", eyebrow: "Due soon", items: state.items.filter((item) => item.severity === "soon") },
     { key: "later", eyebrow: "Later", items: state.items.filter((item) => item.severity === "info") },
   ].filter((section) => section.items.length > 0);
@@ -97,14 +113,30 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
           <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(perthCalendarDate(now))}</p>
         </header>
 
-        {state.status === "loading" ? (
-          <div className="grid gap-5" data-testid="my-day-loading" aria-hidden="true">
-            <ModeModuleSkeleton rows={3} twoLine eyebrow />
-            <ModeModuleSkeleton rows={2} twoLine eyebrow />
+        {authStatus === "loading" || (enabled && state.status === "loading") ? (
+          <>
+            <span role="status" className="sr-only">
+              Loading My Day
+            </span>
+            <div className="grid gap-5" data-testid="my-day-loading" aria-hidden="true">
+              <ModeModuleSkeleton rows={3} twoLine eyebrow />
+              <ModeModuleSkeleton rows={2} twoLine eyebrow />
+            </div>
+          </>
+        ) : null}
+
+        {authStatus === "error" ? (
+          <div className="grid gap-2" data-testid="my-day-auth-error">
+            <ModeNotice tone="warning">Couldn&apos;t check your sign-in. Try again.</ModeNotice>
+            <div>
+              <Button variant="secondary" onClick={() => window.location.reload()}>
+                Retry
+              </Button>
+            </div>
           </div>
         ) : null}
 
-        {state.status === "signed-out" ? (
+        {myDayNeedsSignIn(authStatus) ? (
           <div className="grid gap-3" data-testid="my-day-signed-out">
             <EmptyState
               icon={LogIn}
@@ -120,19 +152,21 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
           </div>
         ) : null}
 
-        {state.status === "ready" ? (
+        {enabled && state.status === "ready" ? (
           <div className="grid gap-5" data-testid="my-day-ready">
             {state.demoMode ? (
               <ModeNotice testId="my-day-demo-notice">Demo data: these items are invented examples.</ModeNotice>
             ) : null}
             {failed.length > 0 ? (
               <div className="grid gap-2" data-testid="my-day-failed-notice">
-                <ModeNotice>{`Couldn't load: ${failed.join(", ")}. Showing the rest.`}</ModeNotice>
-                <div>
-                  <Button variant="secondary" onClick={state.retry}>
-                    Retry
-                  </Button>
-                </div>
+                <ModeNotice tone="warning">{`Couldn't load: ${failed.join(", ")}.${checked.length > 0 ? " Showing the rest." : ""}`}</ModeNotice>
+                {checked.length > 0 ? (
+                  <div>
+                    <Button variant="secondary" onClick={state.retry}>
+                      Retry
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
             {rosterUnavailable ? (
@@ -148,11 +182,24 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
 
             {sections.length === 0 ? (
               <div data-testid="my-day-empty">
-                <EmptyState
-                  icon={CircleCheck}
-                  title="Nothing needs you right now"
-                  body={checked.length > 0 ? `Checked ${listNames(checked)}.` : "No source could be checked just now."}
-                />
+                {checked.length > 0 ? (
+                  <EmptyState
+                    icon={Sunrise}
+                    title="Nothing needs you right now"
+                    body={`Checked ${listNames(checked)}.`}
+                  />
+                ) : (
+                  <EmptyState
+                    icon={Sunrise}
+                    title="Couldn't check your day"
+                    body="No source could be checked just now."
+                    actions={
+                      <Button variant="secondary" onClick={state.retry}>
+                        Retry
+                      </Button>
+                    }
+                  />
+                )}
               </div>
             ) : (
               sections.map((section) => (

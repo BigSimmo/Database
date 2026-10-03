@@ -10,6 +10,7 @@ import { routineLogPrefill, routinesDueOn, type CmeRoutine } from "@/lib/cme/rou
 import { myDaySeverityForDue } from "@/lib/my-day/merge";
 import type { MyDayItem, MyDaySourceResult } from "@/lib/my-day/model";
 import { perthDateKey, showsReminderInApp, type ReminderSettings } from "@/lib/reminders/settings";
+import { useAuthSession } from "@/lib/supabase/client";
 
 /**
  * CPD for My Day: routines due today or earlier (when the reader's own
@@ -89,7 +90,8 @@ export function useCmeMyDaySource({ enabled, now }: { enabled: boolean; now: Dat
   retry: () => void;
 } {
   const reminders = useAppPreferences().preferences.reminders;
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const { authEpoch } = useAuthSession();
+  const [stored, setStored] = useState<{ epoch: number; loaded: Loaded } | null>(null);
   const [generation, setGeneration] = useState(0);
   const retry = useCallback(() => setGeneration((value) => value + 1), []);
 
@@ -97,13 +99,15 @@ export function useCmeMyDaySource({ enabled, now }: { enabled: boolean; now: Dat
     if (!enabled) return;
     const controller = new AbortController();
     void loadCme(controller.signal).then((next) => {
-      if (next && !controller.signal.aborted) setLoaded(next);
+      if (next && !controller.signal.aborted) setStored({ epoch: authEpoch, loaded: next });
     });
     return () => controller.abort();
-  }, [enabled, generation]);
+  }, [enabled, generation, authEpoch]);
 
   if (!enabled) return { result: signedOut, retry };
-  if (!loaded) return { result: loading, retry };
+  // Data from another account (a different auth epoch) is never shown.
+  if (!stored || stored.epoch !== authEpoch) return { result: loading, retry };
+  const loaded = stored.loaded;
   if (loaded.status !== "ready") return { result: { mode: "cme", status: loaded.status, items: [] }, retry };
   return {
     result: {

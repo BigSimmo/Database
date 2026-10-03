@@ -58,6 +58,37 @@ describe("adminMyDayItems", () => {
     });
   });
 
+  it("treats a future date inside its renewal window as soon, and one before it as later", () => {
+    const inWindow = complianceFixture("Indemnity", { category: "Registration", expiresOn: "2026-10-20" });
+    const beforeWindow = complianceFixture("Working with children", {
+      category: "Clearances",
+      expiresOn: "2026-12-30",
+    });
+    const longLead = complianceFixture("ALS", { category: "Training", expiresOn: "2026-12-30", leadTimeDays: 120 });
+    const byId = new Map(adminMyDayItems([inWindow, beforeWindow, longLead], NOW).map((item) => [item.id, item]));
+    // Default lead time is 30 days: 20 Oct starts renewing on 20 Sep (before today).
+    expect(byId.get(`my-work:date:${inWindow.id}`)?.severity).toBe("soon");
+    expect(byId.get(`my-work:date:${beforeWindow.id}`)?.severity).toBe("info");
+    expect(byId.get(`my-work:date:${longLead.id}`)?.severity).toBe("soon");
+  });
+
+  it("caps the dated rows at Admin's default and adds one 'more dates' item with the right plural", () => {
+    const many = Array.from({ length: 8 }, (_, n) =>
+      complianceFixture(`Item ${n}`, { category: "Training", expiresOn: `2027-01-0${n + 1}` }),
+    );
+    const items = adminMyDayItems(many, NOW);
+    expect(items.filter((item) => item.id.startsWith("my-work:date:"))).toHaveLength(6);
+    expect(items.find((item) => item.id === "my-work:more")).toMatchObject({
+      title: "2 more dates in Renewals",
+      severity: "info",
+      due: null,
+      href: "/admin/renewals",
+    });
+    const seven = adminMyDayItems(many.slice(0, 7), NOW);
+    expect(seven.find((item) => item.id === "my-work:more")?.title).toBe("1 more date in Renewals");
+    expect(adminMyDayItems(many.slice(0, 6), NOW).some((item) => item.id === "my-work:more")).toBe(false);
+  });
+
   it("returns nothing when compliance-date reminders are switched off", () => {
     expect(adminMyDayItems([passed, soon], NOW, remindersOff("compliance-dates"))).toEqual([]);
   });
@@ -86,14 +117,30 @@ describe("onCallMyDayItems", () => {
     expect(items.some((item) => item.title === "Fire training")).toBe(false);
   });
 
-  it("maps a long-unconfirmed row to overdue and a never-confirmed row to info, undated", () => {
+  it("shows no compliance row at all, with a future date or none", () => {
+    const future = complianceFixture("Future registration", { category: "Registration", expiresOn: "2027-06-01" });
+    const undated = complianceFixture("Undated card", { category: "Registration" });
+    expect(onCallMyDayItems([future, undated], NOW, DEFAULT_REMINDER_SETTINGS)).toEqual([]);
+  });
+
+  it("shows nothing for a colleague's shared row", () => {
+    const shared = onCallEntryFixture({
+      section: "contacts",
+      title: "Their switchboard",
+      lastVerifiedAt: "2020-01-01T00:00:00Z",
+      isOwn: false,
+    });
+    expect(onCallMyDayItems([shared], NOW, DEFAULT_REMINDER_SETTINGS)).toEqual([]);
+  });
+
+  it("maps a long-unconfirmed row and a never-confirmed row both to info, undated", () => {
     const items = onCallMyDayItems([unverified, stale], NOW, DEFAULT_REMINDER_SETTINGS);
     const byTitle = new Map(items.map((item) => [item.title, item]));
 
     expect(byTitle.get("Switchboard")).toMatchObject({
       id: `on-call:${stale.id}:overdue`,
       mode: "on-call",
-      severity: "overdue",
+      severity: "info",
       due: null,
     });
     expect(byTitle.get("Registrar rota")).toMatchObject({
@@ -175,6 +222,14 @@ describe("teachingMyDayItems", () => {
       severity: "soon",
       href: "/teaching/teach",
     });
+  });
+
+  it("never lets presenter prep be overdue, even for a session that started earlier today", () => {
+    const [item] = teachingMyDayItems(
+      { unloggedCount: 0, teach: teach(upcoming(1, "2026-09-26T00:30:00Z")), feedbackOpen: null },
+      NOW,
+    );
+    expect(item).toMatchObject({ id: "teaching:prep:00000000-0000-4000-8000-000000000301", severity: "soon" });
   });
 
   it("returns nothing when Teaching reminders are switched off", () => {

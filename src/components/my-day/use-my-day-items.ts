@@ -26,10 +26,15 @@ export function useMyDayItems({ enabled, now }: { readonly enabled: boolean; rea
   const cme = useCmeMyDaySource({ enabled, now });
   const teaching = useTeachingMyDaySource({ enabled, now });
 
-  const sources: readonly MyDaySourceResult[] = useMemo(
-    () => [entries.onCall, roster.result, cme.result, teaching.result, entries.admin],
-    [entries.onCall, entries.admin, roster.result, cme.result, teaching.result],
-  );
+  const sources: readonly MyDaySourceResult[] = useMemo(() => {
+    const all = [entries.onCall, roster.result, cme.result, teaching.result, entries.admin];
+    // While enabled, a source that answers "signed out" (the session lapsed under it) did not check anything.
+    return enabled
+      ? all.map((source): MyDaySourceResult =>
+          source.status === "signed-out" ? { ...source, status: "failed" } : source,
+        )
+      : all;
+  }, [enabled, entries.onCall, entries.admin, roster.result, cme.result, teaching.result]);
   const items = useMemo(() => mergeMyDayItems(sources.map((source) => source.items)), [sources]);
 
   const retryEntries = entries.retry;
@@ -43,13 +48,14 @@ export function useMyDayItems({ enabled, now }: { readonly enabled: boolean; rea
     retryTeaching();
   }, [retryEntries, retryRoster, retryCme, retryTeaching]);
 
-  const signedOut = !enabled || sources.every((source) => source.status === "signed-out");
+  const signedOut = !enabled;
   const loading = sources.some((source) => source.status === "loading");
   return {
     status: signedOut ? "signed-out" : loading ? "loading" : "ready",
     items: signedOut ? [] : items,
     sources,
-    demoMode: sources.some((source) => source.sample === true),
+    // Only a source that actually loaded sample data makes the view "demo".
+    demoMode: sources.some((source) => source.status === "ready" && source.sample === true),
     retry,
   };
 }

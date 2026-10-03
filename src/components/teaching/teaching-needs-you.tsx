@@ -79,10 +79,14 @@ export function NeedsYou({
  * how many readiness items are done, and whether de-identification is still to
  * confirm. Null when nothing upcoming needs anything.
  */
-export function presenterPrep(read: TeachRead, today: string | null): { title: string; subtitle: string } | null {
-  const next = [...read.upcoming]
+export function nextPresentedSession(read: TeachRead, today: string | null) {
+  return [...read.upcoming]
     .filter((session) => session.status !== "cancelled" && (!today || perthDateKey(session.startsAt) >= today))
     .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
+}
+
+export function presenterPrep(read: TeachRead, today: string | null): { title: string; subtitle: string } | null {
+  const next = nextPresentedSession(read, today);
   if (!next) return null;
   const done = next.items.length;
   const total = readinessItems.length;

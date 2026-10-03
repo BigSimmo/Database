@@ -2,8 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 
-import { presenterPrep } from "@/components/teaching/teaching-needs-you";
-import { perthDateKey as teachingDateKey } from "@/components/teaching/teaching-dates";
+import { nextPresentedSession, presenterPrep } from "@/components/teaching/teaching-needs-you";
 import { withUnit } from "@/components/teaching/teaching-number";
 import { useTeachingResource, type TeachingResourceStatus } from "@/components/teaching/use-teaching-resource";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
@@ -21,19 +20,16 @@ import type { SessionRef, TeachRead } from "@/lib/teaching/depth-model";
  * Teaching's "Needs you" rows, read the way `teaching-needs-you.tsx` reads them
  * (three counts-only GETs) and worded by the same code. Demo mode is handled by
  * the API routes themselves; the signed-out sample path is deliberately unused.
+ *
+ * Deliberate decision: My Day gates Teaching items on the "teaching" reminder,
+ * unlike Teaching's own page, which always shows its "Needs you" rows. My Day
+ * is a nudge surface, so the reader's reminder choice decides whether it nudges.
  */
 
 export interface TeachingMyDayInput {
   readonly unloggedCount: number | null;
   readonly teach: TeachRead | null;
   readonly feedbackOpen: { readonly sessions: readonly SessionRef[] } | null;
-}
-
-/** The session `presenterPrep` words: next non-cancelled upcoming one, by the same filter and sort. */
-function nextPresentedSession(read: TeachRead, today: string) {
-  return [...read.upcoming]
-    .filter((session) => session.status !== "cancelled" && teachingDateKey(session.startsAt) >= today)
-    .sort((a, b) => a.startsAt.localeCompare(b.startsAt))[0];
 }
 
 export function teachingMyDayItems(
@@ -60,6 +56,7 @@ export function teachingMyDayItems(
 
   const prep = input.teach ? presenterPrep(input.teach, today) : null;
   const session = input.teach && prep ? nextPresentedSession(input.teach, today) : undefined;
+  // Prep is a nudge to get ready, never an overdue failure: cap at "soon".
   if (prep && session) {
     items.push({
       id: `teaching:prep:${session.occurrenceId}`,
@@ -67,7 +64,7 @@ export function teachingMyDayItems(
       title: prep.title,
       detail: prep.subtitle,
       due: session.startsAt,
-      severity: myDaySeverityForDue(session.startsAt, now),
+      severity: myDaySeverityForDue(session.startsAt, now) === "info" ? "info" : "soon",
       href: "/teaching/teach",
     });
   }

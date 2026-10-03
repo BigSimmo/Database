@@ -34,6 +34,20 @@ export interface MyDayItem extends TodayItem {
   readonly mode: MyDaySourceMode;
 }
 
+/**
+ * Whether the sources should read, given the sign-in status. A signed-in
+ * reader, or a local demo build with no Supabase configured (the API routes
+ * answer with demo data), is enabled; loading, error and signed-out are not.
+ */
+export function myDayEnabledForAuth(status: string): boolean {
+  return status === "authenticated" || status === "unconfigured";
+}
+
+/** True when the reader has to sign in (again) before My Day can read anything. */
+export function myDayNeedsSignIn(status: string): boolean {
+  return status === "signed_out" || status === "expired";
+}
+
 /** How one mode's read went, so the page can say honestly what it could not load. */
 export type MyDaySourceStatus = "loading" | "ready" | "failed" | "signed-out" | "unavailable";
 

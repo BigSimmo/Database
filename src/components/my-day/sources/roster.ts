@@ -9,6 +9,7 @@ import type { MyDayItem, MyDaySourceResult } from "@/lib/my-day/model";
 import { addDaysToDate, formatPerthDay, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import type { RosterManage, RosterOverview, RosterRequests, RosterTeam } from "@/lib/roster/team/model";
 import { swapProgress } from "@/lib/roster/team/swap-progress";
+import { useAuthSession } from "@/lib/supabase/client";
 
 /** What one team contributes: the same reads Roster Today's team strip makes. */
 export interface RosterMyDayTeamInput {
@@ -129,7 +130,8 @@ export function useRosterMyDaySource({ enabled, now }: { enabled: boolean; now: 
   result: MyDaySourceResult;
   retry: () => void;
 } {
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
+  const { authEpoch } = useAuthSession();
+  const [stored, setStored] = useState<{ epoch: number; loaded: Loaded } | null>(null);
   const [generation, setGeneration] = useState(0);
   const retry = useCallback(() => setGeneration((value) => value + 1), []);
 
@@ -137,23 +139,17 @@ export function useRosterMyDaySource({ enabled, now }: { enabled: boolean; now: 
     if (!enabled) return;
     const controller = new AbortController();
     void loadRoster(controller.signal).then((next) => {
-      if (next && !controller.signal.aborted) setLoaded(next);
+      if (next && !controller.signal.aborted) setStored({ epoch: authEpoch, loaded: next });
     });
     return () => controller.abort();
-  }, [enabled, generation]);
+  }, [enabled, generation, authEpoch]);
 
   if (!enabled) return { result: signedOut, retry };
-  if (!loaded) return { result: loading, retry };
+  // Data from another account (a different auth epoch) is never shown.
+  if (!stored || stored.epoch !== authEpoch) return { result: loading, retry };
+  const loaded = stored.loaded;
   if (loaded.status === "ready") {
     return { result: { mode: "roster", status: "ready", items: rosterMyDayItems(loaded.input, now) }, retry };
   }
-  return {
-    result: {
-      mode: "roster",
-      status: loaded.status,
-      items: [],
-      ...(loaded.status === "unavailable" ? { sample: true } : {}),
-    },
-    retry,
-  };
+  return { result: { mode: "roster", status: loaded.status, items: [] }, retry };
 }

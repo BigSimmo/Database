@@ -6,9 +6,12 @@ import { renewalsItemHref, renewalsShowHref } from "@/components/admin/today/tod
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
 import { adminLoadState, selectAdminOwnEntries, type AdminLoadState } from "@/lib/admin/own-entries";
+import { renewalStartOn } from "@/lib/admin/renewal-dates";
 import { selectComingUp, selectNeedsYou } from "@/lib/admin/today-selectors";
+import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { myDaySeverityForDue } from "@/lib/my-day/merge";
 import type { MyDayItem, MyDaySourceResult, MyDaySourceStatus } from "@/lib/my-day/model";
+import { isComplianceEntry } from "@/lib/on-call/compliance";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
 import { deriveOnCallNotifications, visibleOnCallNotifications } from "@/lib/on-call/notifications";
@@ -26,9 +29,12 @@ import {
  *
  * Wording follows the compliance rule: a recorded date is "Recorded date" or
  * "Date has passed", never a statement about the reader's standing.
+ *
+ * Deliberate decision: My Day gates Admin items on the "compliance-dates"
+ * reminder, unlike Admin's own pages, which always show the reader's dates.
+ * My Day is a nudge surface, so the reader's reminder choice decides whether
+ * it nudges.
  */
-
-const ADMIN_LIMIT = 20;
 
 function plural(count: number, singular: string, pluralForm: string): string {
   return count === 1 ? singular : pluralForm;
@@ -41,10 +47,19 @@ export function adminMyDayItems(
 ): MyDayItem[] {
   if (!showsReminderInApp(reminders, "compliance-dates", perthDateKey(now))) return [];
   const items: MyDayItem[] = [];
+  const today = perthCalendarDate(now);
+  const entryById = new Map(own.map((entry) => [entry.id, entry]));
 
-  for (const group of selectComingUp(own, now, { limit: ADMIN_LIMIT }).groups) {
+  const comingUp = selectComingUp(own, now);
+  for (const group of comingUp.groups) {
     for (const row of group.rows) {
-      const severity = myDaySeverityForDue(row.expiresOn, now);
+      let severity = myDaySeverityForDue(row.expiresOn, now);
+      // A future date inside its renewal window is "soon", as Admin's "Renew next" treats it.
+      if (severity === "info") {
+        const entry = entryById.get(row.entryId);
+        const start = entry ? renewalStartOn(entry) : undefined;
+        if (start && today >= start) severity = "soon";
+      }
       items.push({
         id: `my-work:date:${row.entryId}`,
         mode: "my-work",
@@ -55,6 +70,17 @@ export function adminMyDayItems(
         href: renewalsItemHref(row.entryId),
       });
     }
+  }
+  const more = comingUp.total - comingUp.shown;
+  if (more > 0) {
+    items.push({
+      id: "my-work:more",
+      mode: "my-work",
+      title: `${more} more ${plural(more, "date", "dates")} in Renewals`,
+      due: null,
+      severity: "info",
+      href: "/admin/renewals",
+    });
   }
 
   const needsYou = selectNeedsYou(own, now);
@@ -77,14 +103,20 @@ export function adminMyDayItems(
 
 export function onCallMyDayItems(entries: readonly OnCallEntry[], now: Date, reminders: ReminderSettings): MyDayItem[] {
   return visibleOnCallNotifications(deriveOnCallNotifications(entries, now), reminders, perthDateKey(now))
-    .filter((notification) => notification.kind !== "compliance-date-passed")
+    .filter(
+      (notification) =>
+        // Admin owns compliance rows; a colleague's shared row is not the reader's work.
+        notification.kind !== "compliance-date-passed" &&
+        !isComplianceEntry(notification.entry) &&
+        notification.entry.isOwn !== false,
+    )
     .map((notification) => ({
       id: `on-call:${notification.id}`,
       mode: "on-call" as const,
       title: notification.title,
       detail: notification.detail,
       due: null,
-      severity: notification.kind === "overdue" ? ("overdue" as const) : ("info" as const),
+      severity: "info" as const,
       href: onCallEntryHref(notification.entry),
     }));
 }
