@@ -13,13 +13,8 @@ import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
 import { OnCallHandbookState } from "@/components/on-call/kit/handbook-state";
 import { OnCallHospitalLine } from "@/components/on-call/kit/hospital-line";
 import { OnCallHubPageFrame } from "@/components/on-call/kit/hub-page-frame";
-import {
-  onCallInsetHairline,
-  onCallModuleSurface,
-  onCallPressable,
-  onCallRowHeight,
-} from "@/components/on-call/kit/recipes";
-import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeInsetHairline, modeModuleSurface, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
 import { onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { ON_CALL_HUB_GROUPS, onCallHubPageSections } from "@/components/on-call/on-call-page-sections";
 import { ON_CALL_ON_SITE_HREF, ON_CALL_ON_SITE_LABEL } from "@/components/on-call/on-call-section-identity";
@@ -137,19 +132,19 @@ export function OnCallFindPage() {
                   />
                 ))}
                 {group.slug === "manuals" ? (
-                  <li className={cn(onCallInsetHairline, "min-w-0")}>
+                  <li className={cn(modeInsetHairline, "min-w-0")}>
                     {/* A literal next/link href: route-reachability counts only those. */}
                     <Link
                       href="/on-call/orientation"
                       data-testid="on-call-find-manuals-link"
                       className={cn(
-                        onCallRowHeight.single,
-                        onCallPressable,
+                        modeRowHeight.single,
+                        modePressable,
                         focusRing,
                         "flex min-w-0 items-center gap-3 px-3 text-[color:var(--text-heading)] no-underline",
                       )}
                     >
-                      <span className={cn(onCallNameText, "min-w-0 flex-1 break-words text-base-minus")}>
+                      <span className={cn(modeNameText, "min-w-0 flex-1 break-words text-base-minus")}>
                         Your manuals
                       </span>
                       <ChevronRight
@@ -165,20 +160,20 @@ export function OnCallFindPage() {
         : null}
       {ready && !searching && (hasDeskOnly || hospitalPhone) ? <OnCallHospitalPhoneSwitch on={hospitalPhone} /> : null}
 
-      <div className={onCallModuleSurface} data-testid="on-call-find-on-site">
+      <div className={modeModuleSurface} data-testid="on-call-find-on-site">
         <Link
           href={ON_CALL_ON_SITE_HREF}
           className={cn(
-            onCallRowHeight.single,
-            onCallPressable,
+            modeRowHeight.single,
+            modePressable,
             focusRing,
             "flex min-w-0 items-center gap-3 px-3 text-[color:var(--text-heading)] no-underline",
           )}
         >
-          <span className={cn(onCallNameText, "min-w-0 flex-1 break-words text-base-minus")}>
+          <span className={cn(modeNameText, "min-w-0 flex-1 break-words text-base-minus")}>
             {ON_CALL_ON_SITE_LABEL}
           </span>
-          <span className={onCallSecondaryText}>Admin</span>
+          <span className={modeSecondaryText}>Admin</span>
           <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
         </Link>
       </div>
