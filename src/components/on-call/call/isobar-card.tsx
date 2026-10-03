@@ -1,4 +1,4 @@
-import { OnCallFactTile, OnCallFactTiles } from "@/components/on-call/kit/fact-tile";
+import { ModeFactTile, ModeFactTiles } from "@/components/mode-kit/fact-tile";
 import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import { eyebrowText } from "@/components/ui-primitives";
 import { ISOBAR_HEADINGS, ISOBAR_SOURCE } from "@/lib/on-call/isobar-source";
@@ -22,11 +22,11 @@ export function OnCallIsobarCard() {
       <h2 id="on-call-call-isobar-heading" className={`${eyebrowText} px-3`}>
         Calling a consultant
       </h2>
-      <OnCallFactTiles>
+      <ModeFactTiles>
         {ISOBAR_HEADINGS.map((row) => (
-          <OnCallFactTile key={row.letter} label={row.letter} value={row.heading} />
+          <ModeFactTile key={row.letter} label={row.letter} value={row.heading} />
         ))}
-      </OnCallFactTiles>
+      </ModeFactTiles>
       <div className="px-3">
         <OnCallUpdatedLine updatedAt={source.readOn} sources={[{ label: source.publisher, url: source.url }]} />
       </div>

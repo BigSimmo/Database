@@ -2,8 +2,8 @@
 
 import { setOnCallHospitalPhone } from "@/components/on-call/call/call-device-stores";
 import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
-import { onCallInsetHairline, onCallRowHeight } from "@/components/on-call/kit/recipes";
-import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeInsetHairline, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
 import { ToggleSwitch } from "@/components/primitive-recipes/feedback";
 import { cn } from "@/components/ui-primitives";
 
@@ -23,12 +23,12 @@ export function OnCallHospitalPhoneSwitch({
 }) {
   return (
     <OnCallGroupedList testId={testId}>
-      <li className={cn(onCallInsetHairline, onCallRowHeight.double, "flex min-w-0 items-center gap-3 pl-3 pr-1")}>
+      <li className={cn(modeInsetHairline, modeRowHeight.double, "flex min-w-0 items-center gap-3 pl-3 pr-1")}>
         <span className="grid min-w-0 flex-1 gap-0.5">
-          <span className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
+          <span className={cn(modeNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
             I&apos;m on a hospital phone
           </span>
-          <span className={cn(onCallSecondaryText, "break-words")}>
+          <span className={cn(modeSecondaryText, "break-words")}>
             Only on a hospital-issued phone that dials extensions
           </span>
         </span>

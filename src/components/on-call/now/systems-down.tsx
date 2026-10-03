@@ -5,13 +5,8 @@ import Link from "next/link";
 
 import { focusRing } from "@/components/card-recipes";
 import { OnCallRow } from "@/components/on-call/kit/grouped-list";
-import {
-  onCallInsetHairline,
-  onCallModuleSurface,
-  onCallPressable,
-  onCallRowHeight,
-} from "@/components/on-call/kit/recipes";
-import { onCallNameText } from "@/components/on-call/kit/type";
+import { modeInsetHairline, modeModuleSurface, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeNameText } from "@/components/mode-kit/type";
 import { NowShiftLists } from "@/components/on-call/now/shift-lists";
 import {
   ON_CALL_FIND_DOWNTIME_HREF,
@@ -24,15 +19,12 @@ import type { HandbookItem } from "@/lib/on-call/handbook-items";
 import type { OnCallShiftContext } from "@/lib/on-call/shift-context";
 
 const literalRow = cn(
-  onCallRowHeight.single,
-  onCallPressable,
+  modeRowHeight.single,
+  modePressable,
   focusRing,
   "flex min-w-0 items-center gap-3 pl-3 pr-2 no-underline",
 );
-const literalRowText = cn(
-  onCallNameText,
-  "min-w-0 flex-1 break-words text-base-minus text-[color:var(--text-heading)]",
-);
+const literalRowText = cn(modeNameText, "min-w-0 flex-1 break-words text-base-minus text-[color:var(--text-heading)]");
 const literalRowChevron = "size-icon-md shrink-0 text-[color:var(--text-muted)]";
 
 /**
@@ -61,10 +53,10 @@ export function NowFooter({
 }) {
   return (
     <nav aria-label="More for this shift" className="grid min-w-0" data-testid="on-call-now-footer">
-      <ul role="list" className={onCallModuleSurface}>
+      <ul role="list" className={modeModuleSurface}>
         {/* Literal hrefs on Links: the route-reachability guard reads only
             those, and these two are their pages' only ways in from On Call. */}
-        <li className={onCallInsetHairline}>
+        <li className={modeInsetHairline}>
           <Link href="/on-call/now" data-testid="on-call-home-call-now" className={literalRow}>
             <span className={literalRowText}>Who do I call now?</span>
             <ChevronRight aria-hidden="true" className={literalRowChevron} />
@@ -77,7 +69,7 @@ export function NowFooter({
           href={ON_CALL_FIND_DOWNTIME_HREF}
           testId="on-call-now-systems-down"
         />
-        <li className={onCallInsetHairline}>
+        <li className={modeInsetHairline}>
           <Link href="/on-call/first-night" data-testid="on-call-home-first-night" className={literalRow}>
             <span className={literalRowText}>First night</span>
             <ChevronRight aria-hidden="true" className={literalRowChevron} />
