@@ -109,7 +109,7 @@ describe("the catch-up section", () => {
     expect(slides).toHaveAttribute("href", "https://example.org/slides");
     expect(slides).toHaveAttribute("target", "_blank");
     expect(slides).toHaveTextContent("(opens in a new tab)");
-    expect(list.getByText("No slides or recording shared yet.")).toBeInTheDocument();
+    expect(list.getByText("No catch-up recording or slides yet.")).toBeInTheDocument();
     expect(screen.queryByText(/missed/i)).toBeNull();
     expect(screen.queryByText("Attended case conference")).toBeNull();
     expect(screen.queryByText("Cancelled talk")).toBeNull();

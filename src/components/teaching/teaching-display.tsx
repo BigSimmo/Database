@@ -75,7 +75,7 @@ export function TeachingDisplayScreen({ secret }: { secret: string }) {
             <CheckinQr
               value={`${window.location.origin}${checkinScanPath(payload.token)}`}
               label="Check-in QR code. Scan it with your phone's camera."
-              className="max-w-[min(80vw,60vh)]"
+              className="max-w-[min(80vw,60vh,calc(100dvh_-_22rem))]"
             />
             <p className="nums text-hero font-normal tracking-widest lg:text-display" data-testid="teaching-typed-code">
               {formatTypedCode(payload.typedCode)}

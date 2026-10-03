@@ -7,7 +7,10 @@ import { cn } from "@/components/ui-primitives";
  * The check-in QR as one SVG path from the `qrcode` module matrix: no canvas,
  * no image, no innerHTML. Dark on light in every theme (`--teaching-qr-*`,
  * which U1 does not redefine for dark), because cameras need a light quiet
- * zone; `forced-color-adjust` stops high contrast repainting it.
+ * zone; `forced-color-adjust` stops high contrast repainting it. The SVG
+ * carries the Teaching identity itself because the shared display screen sits
+ * outside every Teaching page: without it the pair is undefined there and the
+ * whole code paints as one black square no camera can read.
  */
 const QUIET_ZONE = 4;
 
@@ -32,6 +35,7 @@ export function CheckinQr({ value, label, className }: { value: string; label: s
       viewBox={`0 0 ${drawn.size} ${drawn.size}`}
       shapeRendering="crispEdges"
       data-testid="teaching-checkin-qr"
+      data-mode-identity="teaching"
       data-qr-value={value}
       className={cn("block aspect-square w-full forced-color-adjust-none", className)}
     >
