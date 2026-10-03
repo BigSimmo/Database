@@ -11,14 +11,10 @@ import {
   RefreshCw,
 } from "lucide-react";
 
+import { ADMIN_PAGE_HREFS } from "@/lib/admin/page-hrefs";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
 
-export const ADMIN_PAGE_HREFS = {
-  today: "/admin",
-  renewals: "/admin/renewals",
-  newJob: "/admin/new-job",
-  help: "/admin/help",
-} as const;
+export { ADMIN_PAGE_HREFS };
 
 /** One word per tab (spec), drawn by the `wordmark-five` rail. The ids are the DOM anchors. */
 export const ADMIN_NEW_JOB_SECTIONS: readonly PageSection[] = [

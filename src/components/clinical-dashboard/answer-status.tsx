@@ -17,6 +17,7 @@ import type { VerifiedEvidencePreviewUnit } from "@/lib/answer-stream-contract";
 import { AnswerSuggestionChips } from "@/components/clinical-dashboard/answer-suggestion-chips";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { ModeHomeTemplate } from "@/components/mode-home-template";
+import { LazyMyDayHomeCard } from "@/components/my-day/my-day-home-card-lazy";
 import { ShowAllChip } from "@/components/show-all-chip";
 import { cn } from "@/components/ui-primitives";
 import { appModeIcons } from "@/lib/app-mode-icons";
@@ -93,6 +94,10 @@ export function SharedHomeEmptyState({
       actions={[]}
       footer={
         <div className="grid w-full gap-3">
+          {/* My Day sits under the composer, never above it: the composer
+              stays the first thing on the home screen (one owner, no shift),
+              and the card renders nothing at all until it has items. */}
+          <LazyMyDayHomeCard />
           {recents.length > 0 && (
             <AnswerSuggestionChips
               testId="shared-home-recent-queries"
