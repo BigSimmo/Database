@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
 
-
-
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { DEV_SERVER_BUILD_REFUSED_EXIT_CODE, findRunningProjectServer } from "./guard-next-build.mjs";

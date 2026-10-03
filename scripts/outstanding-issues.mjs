@@ -49,7 +49,6 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
-
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 import { ISSUES_PATH, checkIssues, parseIssues } from "./check-outstanding-issues.mjs";

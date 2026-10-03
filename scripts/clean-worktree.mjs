@@ -11,7 +11,6 @@ import { spawnSync } from "node:child_process";
 import { lstatSync } from "node:fs";
 import path from "node:path";
 
-
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 const ZERO_MUTATIONS = Object.freeze({ cleaned: 0, pruned: 0, removed: 0, deregistered: 0 });

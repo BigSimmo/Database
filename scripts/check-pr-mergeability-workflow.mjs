@@ -8,7 +8,6 @@
  */
 import fs from "node:fs";
 
-
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
 

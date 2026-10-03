@@ -5,7 +5,6 @@
  */
 import { appendFileSync } from "node:fs";
 
-
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 import { collidingRouteSlugs, WEB_VITALS_STRATEGIES, WEB_VITALS_MIN_SAMPLES } from "./summarise-web-vitals.mjs";
