@@ -350,6 +350,13 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
   );
   // Recovery maths counts worked shifts only: leave and on-call-from-home are not duty hours.
   const workedShifts = useMemo(() => shifts.shifts.filter((shift) => isWorkedKind(kindOf(shift))), [shifts.shifts]);
+  // The rest ring judges the next worked shift by that team's own minimum break, not a fixed 10 h.
+  const minRestHours = useMemo(() => {
+    const next = [...workedShifts]
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .find((shift) => Date.parse(shift.startsAt) > now.getTime());
+    return next?.serviceId ? rulesByTeam.get(next.serviceId)?.minBreakHours : undefined;
+  }, [workedShifts, rulesByTeam, now]);
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
     [shifts.shifts],
@@ -458,7 +465,12 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                   />
                 </ModeGroupedList>
               ) : null}
-              <RosterFatigueRestRing shifts={workedShifts} now={now} sample={shifts.sample} />
+              <RosterFatigueRestRing
+                shifts={workedShifts}
+                now={now}
+                sample={shifts.sample}
+                minRestHours={minRestHours}
+              />
               <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
                 <>

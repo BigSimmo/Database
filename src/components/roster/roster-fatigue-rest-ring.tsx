@@ -14,11 +14,11 @@ import { formatDuration } from "./roster-format";
 const RADIUS = 38;
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS;
 const MIN_SAFE_REST_HOURS = 10;
-const MIN_SAFE_REST_MS = MIN_SAFE_REST_HOURS * 60 * 60 * 1000;
 
 export function calculateRestTurnaround(
   shifts: readonly Pick<OnCallShift, "id" | "startsAt" | "endsAt">[],
   now: Date,
+  minRestHours: number = MIN_SAFE_REST_HOURS,
 ): {
   readonly restRemainingMs: number | null;
   readonly totalTurnaroundMs: number | null;
@@ -50,7 +50,7 @@ export function calculateRestTurnaround(
   // Rest only begins when the preceding shift ends, so while it is still running its remainder
   // is duty time, not rest.
   const restRemainingMs = Math.max(0, nextStart - Math.max(at, previousEnd));
-  const isBreach = totalTurnaroundMs < MIN_SAFE_REST_MS;
+  const isBreach = totalTurnaroundMs < minRestHours * 60 * 60 * 1000;
 
   return { restRemainingMs, totalTurnaroundMs, isBreach, nextShift, previousShift };
 }
@@ -59,14 +59,17 @@ export function RosterFatigueRestRing({
   shifts,
   now,
   sample = false,
+  minRestHours = MIN_SAFE_REST_HOURS,
   testId = "roster-fatigue-rest-ring",
 }: {
   readonly shifts: readonly Pick<OnCallShift, "id" | "startsAt" | "endsAt">[];
   readonly now: Date;
   readonly sample?: boolean;
+  /** The team's own minimum break (`rules.minBreakHours`); 10 h when the team sets none. */
+  readonly minRestHours?: number;
   readonly testId?: string;
 }) {
-  const turnaround = useMemo(() => calculateRestTurnaround(shifts, now), [shifts, now]);
+  const turnaround = useMemo(() => calculateRestTurnaround(shifts, now, minRestHours), [shifts, now, minRestHours]);
 
   if (sample || turnaround.restRemainingMs === null) {
     return null;
@@ -108,12 +111,12 @@ export function RosterFatigueRestRing({
           {isBreach ? (
             <>
               <TriangleAlert className="size-3" aria-hidden="true" />
-              {"< 10 h turnaround"}
+              {`< ${minRestHours} h turnaround`}
             </>
           ) : (
             <>
               <ShieldCheck className="size-3" aria-hidden="true" />
-              10 h safe recovery interval
+              {`${minRestHours} h safe recovery interval`}
             </>
           )}
         </span>
@@ -151,7 +154,7 @@ export function RosterFatigueRestRing({
           </div>
           <p className="text-2xs text-[color:var(--text-muted)] leading-tight">
             {isBreach
-              ? "This shift turnaround is under the recommended 10-hour safe recovery window."
+              ? `This shift turnaround is under the ${minRestHours}-hour safe recovery window.`
               : "Circadian recovery interval before your next rostered shift starts."}
           </p>
 

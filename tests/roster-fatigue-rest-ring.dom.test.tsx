@@ -102,4 +102,16 @@ describe("RosterFatigueRestRing", () => {
     expect(result.restRemainingMs).toBe(8 * 60 * 60 * 1000);
     expect(result.totalTurnaroundMs).toBe(8 * 60 * 60 * 1000);
   });
+
+  it("judges turnaround against the team's own minimum break", () => {
+    const now = new Date("2026-10-04T22:00:00+08:00");
+    const shifts = [
+      { id: "s1", startsAt: "2026-10-04T13:00:00+08:00", endsAt: "2026-10-04T21:30:00+08:00" },
+      { id: "s2", startsAt: "2026-10-05T07:00:00+08:00", endsAt: "2026-10-05T15:30:00+08:00" },
+    ];
+    expect(calculateRestTurnaround(shifts, now, 8).isBreach).toBe(false);
+    expect(calculateRestTurnaround(shifts, now, 12).isBreach).toBe(true);
+    render(<RosterFatigueRestRing shifts={shifts} now={now} minRestHours={12} />);
+    expect(screen.getByText(/< 12 h turnaround/i)).toBeTruthy();
+  });
 });
