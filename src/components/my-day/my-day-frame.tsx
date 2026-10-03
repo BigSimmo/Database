@@ -7,7 +7,7 @@ import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setu
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { useMyDayNow } from "@/components/my-day/my-day-page";
+import { useMyDayNow } from "@/components/my-day/my-day-page-parts";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
 import { myDayEnabledForAuth, myDayNeedsSignIn } from "@/lib/my-day/model";

@@ -8,7 +8,7 @@ import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { MyDayFrame } from "@/components/my-day/my-day-frame";
-import { listNames, MyDayItemRow } from "@/components/my-day/my-day-page";
+import { listNames, MyDayItemRow } from "@/components/my-day/my-day-page-parts";
 import { cmeRoutineItemsThrough } from "@/components/my-day/sources/cme";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { formatShiftRange, kindOf } from "@/components/roster/roster-format";

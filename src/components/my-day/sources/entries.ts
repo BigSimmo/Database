@@ -5,12 +5,19 @@ import { useMemo } from "react";
 import { renewalsItemHref, renewalsShowHref } from "@/components/admin/today/today-hrefs";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";
 import { onCallEntryHref } from "@/components/on-call/on-call-entry-view";
-import { adminLoadState, selectAdminOwnEntries, type AdminLoadState } from "@/lib/admin/own-entries";
+import { buildAdminHelpItems, type AdminHelpItem } from "@/lib/admin/help-items";
+import {
+  adminLoadState,
+  selectAdminOwnEntries,
+  selectAdminSharedEntries,
+  type AdminLoadState,
+} from "@/lib/admin/own-entries";
 import { renewalStartOn } from "@/lib/admin/renewal-dates";
 import { selectComingUp, selectNeedsYou } from "@/lib/admin/today-selectors";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { myDaySeverityForDue } from "@/lib/my-day/merge";
-import type { MyDayItem, MyDaySourceResult, MyDaySourceStatus } from "@/lib/my-day/model";
+import type { RenewalRow } from "@/lib/my-day/figures";
+import type { MyDayItem, MyDayNextRenewal, MyDaySourceResult, MyDaySourceStatus } from "@/lib/my-day/model";
 import { isComplianceEntry } from "@/lib/on-call/compliance";
 import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { useOnCallEntries } from "@/lib/on-call/entry-store";
@@ -101,6 +108,47 @@ export function adminMyDayItems(
   return items;
 }
 
+/**
+ * The first recorded date still ahead (today or later) in Admin's own "Coming
+ * up" list, for the dashboard's "Next renewal" card. Passed dates are already
+ * "Needs you" rows, so they are not counted again here. Unlike the items, this
+ * is not gated on the reminder: it is a figure Admin's own pages always show.
+ */
+export function adminNextRenewal(own: readonly OnCallEntry[], now: Date, sample: boolean): MyDayNextRenewal | null {
+  const today = perthCalendarDate(now);
+  // Uncapped: the capped list fills with passed dates first, which would hide a future one.
+  for (const group of selectComingUp(own, now, { limit: Number.MAX_SAFE_INTEGER }).groups) {
+    if (group.kind === "passed") continue;
+    const row = group.rows.find((candidate) => candidate.expiresOn >= today);
+    if (row) {
+      return {
+        entryId: row.entryId,
+        title: row.title,
+        date: row.expiresOn,
+        href: renewalsItemHref(row.entryId),
+        sample,
+      };
+    }
+  }
+  return null;
+}
+
+/**
+ * Every recorded Admin date from passed to a year ahead, earliest first, for
+ * the renewals runway and the credentials wallet. Uncapped, unlike Admin's
+ * "Coming up" card, and not gated on the reminder (Admin always shows them).
+ */
+export function adminRenewalRows(own: readonly OnCallEntry[], now: Date): RenewalRow[] {
+  return selectComingUp(own, now, { limit: Number.MAX_SAFE_INTEGER }).groups.flatMap((group) =>
+    group.rows.map((row) => ({
+      entryId: row.entryId,
+      title: row.title,
+      date: row.expiresOn,
+      href: renewalsItemHref(row.entryId),
+    })),
+  );
+}
+
 export function onCallMyDayItems(entries: readonly OnCallEntry[], now: Date, reminders: ReminderSettings): MyDayItem[] {
   return visibleOnCallNotifications(deriveOnCallNotifications(entries, now), reminders, perthDateKey(now))
     .filter(
@@ -121,6 +169,9 @@ export function onCallMyDayItems(entries: readonly OnCallEntry[], now: Date, rem
     }));
 }
 
+const NO_RENEWALS: readonly RenewalRow[] = [];
+const NO_HELP_ITEMS: readonly AdminHelpItem[] = [];
+
 const STATUS_BY_LOAD: Record<AdminLoadState, MyDaySourceStatus> = {
   loading: "loading",
   failed: "failed",
@@ -131,6 +182,12 @@ const STATUS_BY_LOAD: Record<AdminLoadState, MyDaySourceStatus> = {
 export function useEntriesMyDaySources({ enabled, now }: { enabled: boolean; now: Date }): {
   admin: MyDaySourceResult;
   onCall: MyDaySourceResult;
+  /** Undefined until Admin's read is ready. */
+  nextRenewal: MyDayNextRenewal | null | undefined;
+  /** Every recorded Admin date (passed to a year ahead); empty until Admin's read is ready. */
+  renewals: readonly RenewalRow[];
+  /** Admin's Help items (the reader's own and shared numbers), for pinned numbers; empty until ready. */
+  helpItems: readonly AdminHelpItem[];
   retry: () => void;
 } {
   // `useOnCallEntries` fetches unconditionally and cannot be disabled; it is
@@ -163,5 +220,17 @@ export function useEntriesMyDaySources({ enabled, now }: { enabled: boolean; now
     }),
     [status, ready, entries, now, reminders, enabled, demoMode],
   );
-  return { admin, onCall, retry };
+  const nextRenewal = useMemo(
+    () => (ready ? adminNextRenewal(own, now, enabled && demoMode) : undefined),
+    [ready, own, now, enabled, demoMode],
+  );
+  const renewals = useMemo(() => (ready ? adminRenewalRows(own, now) : NO_RENEWALS), [ready, own, now]);
+  const helpItems = useMemo(
+    () =>
+      ready
+        ? buildAdminHelpItems({ own, shared: selectAdminSharedEntries({ entries, demoMode }), statewide: [] })
+        : NO_HELP_ITEMS,
+    [ready, own, entries, demoMode],
+  );
+  return { admin, onCall, nextRenewal, renewals, helpItems, retry };
 }

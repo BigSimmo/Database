@@ -62,5 +62,8 @@ export function useMyDayItems({ enabled, now }: { readonly enabled: boolean; rea
     demoMode: sources.some((source) => source.status === "ready" && source.sample === true),
     retry,
     cmeRoutines: cme.routines,
+    nextRenewal: signedOut ? null : entries.nextRenewal,
+    renewals: signedOut ? [] : entries.renewals,
+    helpItems: signedOut ? [] : entries.helpItems,
   };
 }

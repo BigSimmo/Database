@@ -822,6 +822,8 @@ async function openMobileClinicalGuideMenu(page: Page) {
       .getByRole("link")
       .evaluateAll((links) => links.map((link) => ({ name: link.textContent, href: link.getAttribute("href") }))),
   ).toEqual([
+    // Design review 2026-10-03, item 4: My Day leads the default shortcuts.
+    { name: "My Day", href: "/my-day" },
     { name: "Answer", href: "/?mode=answer" },
     // Owner decision 2026-08-27: Documents joins the other consolidated modes and
     // links at the shared home. `/documents` still exists and still paints its
@@ -2006,9 +2008,13 @@ test.describe("PsychSift UI smoke coverage", () => {
     // this one, which renders `phoneModeGroups` and drops any mode no group names.
     // `tests/phone-mode-groups.test.ts` guards the constant; this is the rendered proof.
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Sources\b/ })).toBeAttached();
+    // My Day leads the list (design review 2026-10-03, item 4), so the first
+    // option is My Day and the active Answer option is checked under Find.
     await expect(modeOptions.first()).toBeInViewport();
-    await expect(modeOptions.first()).toHaveAttribute("aria-checked", "true");
-    await expect(modeOptions.first()).toContainText("Source-backed clinical answer");
+    await expect(modeOptions.first()).toContainText("My Day");
+    const answerOption = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
+    await expect(answerOption).toHaveAttribute("aria-checked", "true");
+    await expect(answerOption).toContainText("Source-backed clinical answer");
 
     // Icon tiles and glyphs use one optical scale even though the canonical
     // Lucide drawings have different silhouettes.
@@ -4582,10 +4588,11 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(modeDialog).toBeVisible();
     await expect(appModeMenu).toBeVisible();
     await expect(modeSearch).toBeFocused();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(23);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(24);
     await expect(appModeMenu.getByRole("heading", { name: "Find" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Psychiatry" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Care" })).toBeAttached();
+    await expect(appModeMenu.getByRole("heading", { name: "My Day" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "On Call" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "Admin" })).toBeAttached();
     await expect(appModeMenu.getByRole("heading", { name: "First Nations" })).toBeAttached();
@@ -4595,8 +4602,8 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Roster\b/ })).toBeAttached();
 
     await modeSearch.fill("d");
-    await expect(modeDialog.getByRole("status")).toHaveText("7 matches");
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(7);
+    await expect(modeDialog.getByRole("status")).toHaveText("8 matches");
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(8);
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Documents\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Differentials\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^DSM-5 Diagnosis\b/ })).toBeAttached();
@@ -4605,8 +4612,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     // "CPD" carries a "d" too (the mode's label was "CME" before the RANZCP rename).
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^CPD\b/ })).toBeAttached();
     await expect(appModeMenu.getByRole("menuitemradio", { name: /^Admin\b/ })).toBeAttached();
+    // "My Day" carries a "d" too.
+    await expect(appModeMenu.getByRole("menuitemradio", { name: /^My Day\b/ })).toBeAttached();
     await modeDialog.getByRole("button", { name: "Clear mode search" }).click();
-    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(23);
+    await expect(appModeMenu.getByRole("menuitemradio")).toHaveCount(24);
 
     const answerMode = appModeMenu.getByRole("menuitemradio", { name: /^Answer\b/ });
     await answerMode.focus();
