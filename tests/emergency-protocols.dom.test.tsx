@@ -184,6 +184,24 @@ describe("threshold contract: doses and thresholds defer to local protocol", () 
   });
 });
 
+describe("reviewer-suggested wording (source pending)", () => {
+  const byId = (id: string) => EMERGENCY_CLINICAL_PROTOCOLS.find((p) => p.id === id)!;
+
+  it("clozapine card requires specialist review for re-challenge and never states an absolute ban", () => {
+    const text = JSON.stringify(byId("EMERG-CLOZAPINE-MYOCARDITIS"));
+    expect(text).toContain("Any re-challenge requires specialist review (cardiology).");
+    expect(text).toContain("Re-challenge Requires Specialist Review");
+    expect(text).not.toMatch(/absolute contraindication|Permanent contraindication/i);
+  });
+
+  it("catatonia card says imaging does not exclude anti-NMDAR encephalitis and names EEG, LP and CSF antibodies", () => {
+    const investigations = byId("EMERG-MALIGNANT-CATATONIA").urgentInvestigations.join(" | ");
+    expect(investigations).toContain("imaging does not exclude anti-NMDA receptor encephalitis");
+    expect(investigations).toContain("EEG, lumbar puncture and CSF antibody testing, under neurology guidance");
+    expect(investigations).not.toMatch(/to exclude intracranial/i);
+  });
+});
+
 describe("Poisons call action routing", () => {
   const byId = (id: string) => EMERGENCY_CLINICAL_PROTOCOLS.find((p) => p.id === id)!;
 

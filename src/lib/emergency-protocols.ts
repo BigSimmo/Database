@@ -260,7 +260,7 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     ],
     firstLineAction: "Cease clozapine immediately if myocarditis is confirmed or strongly suspected.",
     warningNotice:
-      "Potentially fatal IgE-mediated hypersensitivity myocarditis. Onset timing and the monitoring schedule are per local protocol. Permanent contraindication to clozapine re-challenge once confirmed.",
+      "Potentially fatal IgE-mediated hypersensitivity myocarditis. Onset timing and the monitoring schedule are per local protocol. Any re-challenge requires specialist review (cardiology).",
     diagnosticFeatures: [
       "Persistent unexplained resting tachycardia (rate per local protocol) or orthostatic hypotension",
       "Unexplained fever or flu-like symptoms during early clozapine titration",
@@ -288,9 +288,9 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
         isHighPriority: true,
       },
       {
-        title: "Permanent Contraindication to Re-challenge",
+        title: "Re-challenge Requires Specialist Review",
         detail:
-          "Confirmed clozapine-induced myocarditis is an absolute contraindication to re-trial. Record adverse drug reaction prominently in medical records.",
+          "Re-challenge after confirmed clozapine-induced myocarditis requires specialist review (cardiology). Record adverse drug reaction prominently in medical records.",
       },
     ],
     specialistContacts: [
@@ -323,7 +323,10 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     urgentInvestigations: [
       "Serum CK (Creatine Kinase): assess muscle breakdown and rhabdomyolysis",
       "EUC, FBC, Electrolytes, Coagulation profile, Blood gas",
-      "Urgent neuroimaging (CT/MRI brain) and septic screen to exclude intracranial or infective pathology (e.g. anti-NMDA receptor encephalitis)",
+      // Reviewer-suggested (PR #3230 thread); source to be added: the repo holds no source for these items.
+      "Neuroimaging (CT/MRI brain) and septic screen evaluate structural and infective mimics; imaging does not exclude anti-NMDA receptor encephalitis",
+      // Reviewer-suggested (PR #3230 thread); source to be added.
+      "EEG, lumbar puncture and CSF antibody testing, under neurology guidance",
     ],
     immediateManagement: [
       {
