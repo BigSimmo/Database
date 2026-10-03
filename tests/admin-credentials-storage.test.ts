@@ -44,6 +44,21 @@ describe("doctor credentials storage", () => {
     expect(DEFAULT_CREDENTIALS.providerNumbers).toEqual([]);
   });
 
+  it("drops untouched legacy default site rows on load but keeps rows with a number", () => {
+    stubWindow({
+      getItem: () =>
+        JSON.stringify({
+          providerNumbers: [
+            { id: "p1", site: "Royal Perth Hospital", number: "" },
+            { id: "p2", site: "Sir Charles Gairdner", number: "123456AB" },
+            { id: "x1", site: "My clinic", number: "" },
+          ],
+        }),
+      setItem: () => undefined,
+    });
+    expect(loadDoctorCredentials().providerNumbers.map((row) => row.id)).toEqual(["p2", "x1"]);
+  });
+
   it("falls back when the localStorage getter throws", () => {
     blockedGetterWindow();
     expect(loadDoctorCredentials()).toEqual(DEFAULT_CREDENTIALS);
