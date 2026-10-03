@@ -50,4 +50,13 @@ describe("EmergencyThumbArc", () => {
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByTestId("on-call-emergency-thumb-arc-tray")).toBeNull();
   });
+
+  it("omits contacts without verified numbers and does not dial fabricated placeholders", () => {
+    render(<EmergencyThumbArc switchboardNumber="08 9224 2244" />);
+    const trigger = screen.getByTestId("on-call-emergency-thumb-arc-trigger");
+    fireEvent.click(trigger);
+
+    expect(screen.queryByTestId("on-call-emergency-thumb-arc-action-on-call-consultant")).toBeNull();
+    expect(screen.queryByTestId("on-call-emergency-thumb-arc-action-med-reg")).toBeNull();
+  });
 });

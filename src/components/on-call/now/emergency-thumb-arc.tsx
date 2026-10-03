@@ -63,7 +63,8 @@ export function EmergencyThumbArc({
   const emergencyDial = pins[0]?.mobileDial ?? pins[0]?.dial;
   const emergencyNumber = (emergencyDial && "display" in emergencyDial ? emergencyDial.display : null) ?? "55";
 
-  // Priority contacts: Code Black / Emergency Pin -> Switchboard -> Consultant -> Med Reg -> Security
+  // Priority contacts: Code Black / Emergency Pin -> Switchboard -> Consultant -> Med Reg
+  // Contacts without a verified number are omitted to prevent dialing fabricated fallback numbers in emergencies.
   const defaultActions: EmergencyThumbAction[] = [
     {
       id: "emergency-code-black",
@@ -73,27 +74,39 @@ export function EmergencyThumbArc({
       icon: ShieldAlert,
       urgent: true,
     },
-    {
-      id: "switchboard",
-      label: "Switchboard",
-      role: "Hospital Operator",
-      number: switchboardNumber ?? "08 9224 2244",
-      icon: Phone,
-    },
-    {
-      id: "on-call-consultant",
-      label: "On-Call Consultant",
-      role: "Psychiatry Escalation",
-      number: consultantNumber ?? "08 9224 2244",
-      icon: UserCheck,
-    },
-    {
-      id: "med-reg",
-      label: "Medical Registrar",
-      role: "Medical Deterioration",
-      number: medRegNumber ?? "08 9224 2244",
-      icon: Stethoscope,
-    },
+    ...(switchboardNumber
+      ? [
+          {
+            id: "switchboard",
+            label: "Switchboard",
+            role: "Hospital Operator",
+            number: switchboardNumber,
+            icon: Phone,
+          },
+        ]
+      : []),
+    ...(consultantNumber
+      ? [
+          {
+            id: "on-call-consultant",
+            label: "On-Call Consultant",
+            role: "Psychiatry Escalation",
+            number: consultantNumber,
+            icon: UserCheck,
+          },
+        ]
+      : []),
+    ...(medRegNumber
+      ? [
+          {
+            id: "med-reg",
+            label: "Medical Registrar",
+            role: "Medical Deterioration",
+            number: medRegNumber,
+            icon: Stethoscope,
+          },
+        ]
+      : []),
   ];
 
   return (

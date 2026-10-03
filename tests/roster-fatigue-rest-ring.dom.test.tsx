@@ -56,4 +56,14 @@ describe("RosterFatigueRestRing", () => {
     const { container } = render(<RosterFatigueRestRing shifts={shifts} now={now} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("suppresses rendering when shifts are sample data", () => {
+    const now = new Date("2026-10-04T22:00:00+08:00");
+    const shifts = [
+      { id: "s1", startsAt: "2026-10-04T13:00:00+08:00", endsAt: "2026-10-04T21:30:00+08:00" },
+      { id: "s2", startsAt: "2026-10-05T07:00:00+08:00", endsAt: "2026-10-05T15:30:00+08:00" },
+    ];
+    const { container } = render(<RosterFatigueRestRing shifts={shifts} now={now} sample={true} />);
+    expect(container.firstChild).toBeNull();
+  });
 });

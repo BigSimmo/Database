@@ -446,7 +446,7 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onAddShift={() => setAddView("shift")}
                 cues={cues}
               />
-              <RosterFatigueRestRing shifts={shifts.shifts} now={now} />
+              <RosterFatigueRestRing shifts={shifts.shifts} now={now} sample={shifts.sample} />
               {coverShift?.serviceId && coverShift.assignmentId && actorId ? (
                 <ModeGroupedList testId="roster-today-cover">
                   <RosterWhoCanCover
