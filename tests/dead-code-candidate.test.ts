@@ -525,7 +525,7 @@ describe("dead-code candidate re-export deletions", () => {
     const { root, runGit: baseGit } = diffRemoving(["  protectedName,"]);
     writeFileSync(join(root, "src", "index.ts"), 'export {\n  retained,\n} from "./x";\n', "utf8");
     const runGit: GitRunner = (args) =>
-      args[0] === "show" ? 'export {\n  protectedName,\n  retained,\n} from "./x";\n' : baseGit(args);
+      args[0] === "show" ? 'export {\n  protectedName,\n  retained,\n} from "./x";\n' : baseGit(args, root);
     expect(removedDeclarationsInDiff("base", { root, runGit }).map((c) => c.symbol)).toEqual(["protectedName"]);
     writeFileSync(join(root, "tests", "uses.test.ts"), 'import { protectedName } from "../src";\n', "utf8");
     const output: string[] = [];
