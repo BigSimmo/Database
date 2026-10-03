@@ -147,6 +147,7 @@
     "src/lib/differentials.ts",
     "src/lib/document-cautions.ts",
     "src/lib/dsm.ts",
+    "src/lib/emergency-protocols.ts",
     "src/lib/factsheets-data.ts",
     "src/lib/first-nations/**",
     "src/lib/fixture-response-cache.ts",
