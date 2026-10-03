@@ -1,6 +1,7 @@
 import type { OnCallShiftChange, OnCallShiftImportSummary, OnCallShiftSnapshot } from "@/lib/roster/shifts/model";
-import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
+import { addDaysToDate, formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import type { RosterAssignment } from "@/lib/roster/team/model";
+import type { TodayItem } from "@/lib/today/today-item";
 
 /**
  * Roster "what changed": one line per change to the user's own shifts, for the
@@ -131,4 +132,22 @@ export function teamChangeNotices(changes: readonly TeamDayChange[], today: stri
       };
     })
     .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/**
+ * The same lines as shared Today items, for My Day and any mode's Today page.
+ * A change to today or tomorrow is due soon; a later one is for information.
+ * Dismissing stays with the caller's "Got it", exactly as for the rows.
+ */
+export function rosterChangeTodayItems(notices: readonly RosterChangeNotice[], today: string): TodayItem[] {
+  const tomorrow = addDaysToDate(today, 1);
+  return notices.map((notice) => ({
+    id: `roster:change:${notice.id}`,
+    mode: "roster",
+    title: `Your roster changed · ${notice.title}`,
+    detail: notice.detail,
+    due: notice.date,
+    severity: notice.date <= tomorrow ? "soon" : "info",
+    href: notice.href,
+  }));
 }

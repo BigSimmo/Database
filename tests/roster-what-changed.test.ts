@@ -5,6 +5,7 @@ import { formatPerthDay } from "@/lib/roster/shifts/perth-time";
 import {
   formatSnapshotTimes,
   importChangeNotices,
+  rosterChangeTodayItems,
   teamChangeNotices,
   type TeamDayChange,
 } from "@/lib/roster/what-changed";
@@ -185,5 +186,39 @@ describe("teamChangeNotices", () => {
       TODAY,
     );
     expect(notices.map((n) => n.date)).toEqual(["2026-10-06", "2026-10-09"]);
+  });
+});
+
+describe("rosterChangeTodayItems", () => {
+  const notice = (date: string, id = `team-${date}`) => ({
+    id,
+    source: "team" as const,
+    date,
+    title: `${day(date)}: changed`,
+    detail: "Was A. Now B",
+    href: "/roster/shifts",
+  });
+
+  it("maps each line onto the shared Today shape", () => {
+    expect(rosterChangeTodayItems([notice("2026-10-08")], TODAY)).toEqual([
+      {
+        id: "roster:change:team-2026-10-08",
+        mode: "roster",
+        title: `Your roster changed · ${day("2026-10-08")}: changed`,
+        detail: "Was A. Now B",
+        due: "2026-10-08",
+        severity: "info",
+        href: "/roster/shifts",
+      },
+    ]);
+  });
+
+  it("marks changes to today and tomorrow as due soon", () => {
+    const items = rosterChangeTodayItems([notice("2026-10-05"), notice("2026-10-06"), notice("2026-10-07")], TODAY);
+    expect(items.map((item) => item.severity)).toEqual(["soon", "soon", "info"]);
+  });
+
+  it("returns nothing when there are no lines", () => {
+    expect(rosterChangeTodayItems([], TODAY)).toEqual([]);
   });
 });
