@@ -63,7 +63,22 @@ export type SignOffRow = {
   requires: string;
   /** An in-app route that renders the record, or null when none exists. */
   href: string | null;
+  /**
+   * The local tool that signs this record off, or null when no tool can sign it
+   * yet. This only names the command; the tool itself refuses to write unless a
+   * person is typing at a real terminal, so nothing here can record a sign-off.
+   */
+  signOff: SignOffTool | null;
 };
+
+/**
+ * The two local sign-off tools and the arguments that pick out one record.
+ * `clinical:review` takes `--kind` plus `--code` (the record's own id field);
+ * `therapy:review` takes `--slug`. Both are owner-only, interactive and
+ * offline: see docs/clinical-sign-off-how-to.md.
+ */
+export type SignOffTool =
+  { script: "clinical:review"; kind: string; code: string } | { script: "therapy:review"; slug: string };
 
 export type SignOffFamily = {
   id: SignOffFamilyId;
@@ -108,6 +123,7 @@ function formsFamily(): SignOffFamily {
       // dead links to statutory forms — 3A, 4A, 4B and 4C — each landing on
       // "not in your registry" instead of the Mental Health Act guidance.
       href: formPageHref(details.form),
+      signOff: { script: "clinical:review", kind: "form", code: details.form },
     }));
   return {
     id: "wa-mha-forms",
@@ -145,6 +161,7 @@ function formulationFamily(): SignOffFamily {
       requires:
         "A clinician confirms the mechanism description, its fit indicators and its treatment implications against the cited sources.",
       href: `/formulation/${mechanism.id}`,
+      signOff: { script: "clinical:review", kind: "formulation-mechanism", code: mechanism.id },
     }));
   const recordRows = [
     ...formulationConcepts.map((record) => ({ record, kind: "concept" as const })),
@@ -164,6 +181,7 @@ function formulationFamily(): SignOffFamily {
           : "A named clinician checks the concept's summary, qualifications and warnings against the cited sources and records themselves as reviewer.",
       // A held record 404s at /formulation/<id>, so it is listed unlinked.
       href: record.release === "published" ? `/formulation/${record.id}` : null,
+      signOff: { script: "clinical:review", kind: `formulation-${kind}`, code: record.id },
     }));
   return {
     id: "formulation",
@@ -196,6 +214,13 @@ function differentialsFamily(): SignOffFamily {
       ? "A clinician verifies the exported record and, separately, the locally authored overlay in src/lib/differential-curated.ts that is shown on top of it."
       : "A clinician verifies the exported record against a named source before its validation_status can move off unverified.",
     href: `/differentials/diagnoses/${record.slug}`,
+    // Only the locally authored overlay has a sign-off tool. The exported record
+    // underneath has none, so a diagnosis with no overlay, or one whose overlay is
+    // already signed, has nothing the owner can sign today.
+    signOff:
+      authored.has(record.slug) && !curatedReviewFor(record.slug)
+        ? { script: "clinical:review", kind: "differential", code: record.slug }
+        : null,
   }));
 
   const presentations = snapshot.presentations.map<SignOffRow>((workflow) => ({
@@ -208,6 +233,7 @@ function differentialsFamily(): SignOffFamily {
     requires:
       "A clinician verifies the presentation workflow's candidates and review checklist against a named source.",
     href: `/differentials/presentations/${workflow.id}`,
+    signOff: null,
   }));
 
   return {
@@ -235,6 +261,7 @@ function dictionaryFamily(): SignOffFamily {
     requires:
       "A named reviewer signs the sense off record by record; promotion into the published dictionary is a clinical decision, not a data migration.",
     href: null,
+    signOff: null,
   }));
 
   // A definition review signed off by `npm run clinical:review` carries a complete
@@ -256,6 +283,7 @@ function dictionaryFamily(): SignOffFamily {
         ? "A clinician signs off the proposed wording after it is reconciled against the live definition by hash; nothing here applies automatically."
         : `A clinician confirms the verdict and the recorded disposition: ${review.disposition}`,
       href: `/dictionary/${review.entrySlug}`,
+      signOff: { script: "clinical:review", kind: "dictionary-rewrite", code: review.id },
     }));
 
   return {
@@ -287,6 +315,9 @@ function specifiersFamily(): SignOffFamily {
       requires:
         "A clinician confirms the specifier against current DSM-5-TR / ICD-11 materials; the auto-generated definition is withheld until then.",
       href: `/specifiers/${item.slug}`,
+      // The tool's `specifier` kind signs category definitions, keyed differently
+      // from these catalogue items, so no command is offered rather than a guessed one.
+      signOff: null,
     }));
   // The universal specifiers sit outside the per-disorder catalogue and carry
   // the same `clinician-review-pending` state on the same field. The family note
@@ -307,6 +338,7 @@ function specifiersFamily(): SignOffFamily {
       requires:
         "A clinician confirms the specifier against current DSM-5-TR / ICD-11 materials; it applies across disorders, so a wrong reading here carries further than a single catalogue entry.",
       href: null,
+      signOff: null,
     }));
   return {
     id: "specifiers",
@@ -330,6 +362,7 @@ function therapyFamily(): SignOffFamily {
     requires:
       "A qualified clinician signs the record off; until then every Therapy Compass surface shows the awaiting-review badge rather than hiding the record.",
     href: `/therapy-compass/${record.slug}`,
+    signOff: { script: "therapy:review", slug: record.slug },
   }));
   return {
     id: "therapy",
@@ -362,6 +395,7 @@ function sourcesFamily(): SignOffFamily {
     requires:
       "The owner verifies the source against the acquisition protocol before any clinical content may cite it; an adopted source with validationStatus unverified is already a ledger error.",
     href: null,
+    signOff: { script: "clinical:review", kind: "source", code: record.id },
   }));
   return {
     id: "sources",
