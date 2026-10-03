@@ -4,14 +4,9 @@ import { Check, ChevronRight } from "lucide-react";
 import { useId, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
-import {
-  onCallInsetHairline,
-  onCallModuleSurface,
-  onCallPressable,
-  onCallRowHeight,
-} from "@/components/on-call/kit/recipes";
+import { modeInsetHairline, modeModuleSurface, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
 import { OnCallStateLabel } from "@/components/on-call/kit/state-label";
-import { onCallNameText, onCallNumberText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeNameText, modeNumberText, modeSecondaryText } from "@/components/mode-kit/type";
 import { OnCallNextShift } from "@/components/on-call/on-call-next-shift";
 import type { RosterShiftsState } from "@/components/roster/use-roster-shifts";
 import { SegmentedControl } from "@/components/ui/segmented-control";
@@ -62,19 +57,19 @@ function TickList({
       <h3 id={headingId} className={cn(eyebrowText, "px-3")}>
         {list.label}
       </h3>
-      <ul role="list" className={onCallModuleSurface}>
+      <ul role="list" className={modeModuleSurface}>
         {list.items.map((item) => {
           const done = ticked.has(item.id);
           return (
-            <li key={item.id} className={onCallInsetHairline}>
+            <li key={item.id} className={modeInsetHairline}>
               <button
                 type="button"
                 aria-pressed={done}
                 onClick={() => onToggle(item.id)}
                 data-testid={`on-call-now-checklist-item-${item.id}`}
                 className={cn(
-                  onCallRowHeight.single,
-                  onCallPressable,
+                  modeRowHeight.single,
+                  modePressable,
                   focusRing,
                   "flex w-full min-w-0 items-center gap-3 px-3 text-left",
                 )}
@@ -93,7 +88,7 @@ function TickList({
                 </span>
                 <span
                   className={cn(
-                    onCallNameText,
+                    modeNameText,
                     "min-w-0 flex-1 break-words text-base-minus leading-5",
                     done ? "text-[color:var(--text-muted)] line-through" : "text-[color:var(--text-heading)]",
                   )}
@@ -155,27 +150,27 @@ export function NowShiftLists({
 
   return (
     <>
-      <li className={onCallInsetHairline}>
+      <li className={modeInsetHairline}>
         <button
           type="button"
           aria-haspopup="dialog"
           onClick={() => setOpen(true)}
           data-testid="on-call-now-checklists"
           className={cn(
-            onCallRowHeight.double,
-            onCallPressable,
+            modeRowHeight.double,
+            modePressable,
             focusRing,
             "flex w-full min-w-0 items-center gap-3 pl-3 pr-2 text-left",
           )}
         >
           <span className="grid min-w-0 flex-1 gap-0.5 py-1">
             <span
-              className={cn(onCallNameText, "break-words text-base-minus leading-5 text-[color:var(--text-heading)]")}
+              className={cn(modeNameText, "break-words text-base-minus leading-5 text-[color:var(--text-heading)]")}
             >
               Shift lists
             </span>
             {hasLists ? (
-              <span className={cn(onCallSecondaryText, onCallNumberText, "break-words leading-5")}>
+              <span className={cn(modeSecondaryText, modeNumberText, "break-words leading-5")}>
                 {`${current.label} · ${doneCount} of ${current.items.length} done`}
               </span>
             ) : (
@@ -205,7 +200,7 @@ export function NowShiftLists({
           ))}
           {hasLists ? (
             <div className="flex min-w-0 items-center justify-between gap-3 px-3">
-              <p className={onCallSecondaryText}>Nothing is saved</p>
+              <p className={modeSecondaryText}>Nothing is saved</p>
               {ticked.size > 0 ? (
                 <button
                   type="button"

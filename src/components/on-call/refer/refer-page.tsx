@@ -13,8 +13,8 @@ import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
 import { OnCallHandbookState } from "@/components/on-call/kit/handbook-state";
 import { OnCallHospitalLine } from "@/components/on-call/kit/hospital-line";
 import { OnCallHubPageFrame } from "@/components/on-call/kit/hub-page-frame";
-import { onCallInsetHairline, onCallPressable, onCallRowHeight } from "@/components/on-call/kit/recipes";
-import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
+import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mode-kit/recipes";
+import { modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
 import { OnCallFilterChips } from "@/components/on-call/on-call-filter-chips";
 import { onCallEntryAnchorId, onCallGroupAnchorId } from "@/components/on-call/on-call-page-anchors";
 import { ON_CALL_HUB_GROUPS, onCallHubPageSections } from "@/components/on-call/on-call-page-sections";
@@ -125,24 +125,22 @@ export function OnCallReferPage() {
         {signedOut
           ? null
           : mine.map((entry) => (
-              <li key={entry.id} className={cn(onCallInsetHairline, "min-w-0")}>
+              <li key={entry.id} className={cn(modeInsetHairline, "min-w-0")}>
                 <Link
                   href={`/on-call/referrals#${onCallEntryAnchorId(entry.id)}`}
                   className={cn(
-                    entry.subtitle ? onCallRowHeight.double : onCallRowHeight.single,
-                    onCallPressable,
+                    entry.subtitle ? modeRowHeight.double : modeRowHeight.single,
+                    modePressable,
                     focusRing,
                     "flex min-w-0 items-center gap-3 px-3 no-underline",
                   )}
                 >
                   <span className="grid min-w-0 flex-1 gap-0.5">
-                    <span
-                      className={cn(onCallNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}
-                    >
+                    <span className={cn(modeNameText, "break-words text-base-minus text-[color:var(--text-heading)]")}>
                       {entry.title}
                     </span>
                     {entry.subtitle ? (
-                      <span className={cn(onCallSecondaryText, "break-words")}>{entry.subtitle}</span>
+                      <span className={cn(modeSecondaryText, "break-words")}>{entry.subtitle}</span>
                     ) : null}
                   </span>
                   <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
@@ -150,23 +148,23 @@ export function OnCallReferPage() {
               </li>
             ))}
         {signedOut ? (
-          <li className={cn(onCallInsetHairline, onCallRowHeight.single, "flex min-w-0 items-center px-3")}>
-            <span className={cn(onCallSecondaryText, "break-words")}>Sign in to keep your own referrals.</span>
+          <li className={cn(modeInsetHairline, modeRowHeight.single, "flex min-w-0 items-center px-3")}>
+            <span className={cn(modeSecondaryText, "break-words")}>Sign in to keep your own referrals.</span>
           </li>
         ) : null}
-        <li className={cn(onCallInsetHairline, "min-w-0")}>
+        <li className={cn(modeInsetHairline, "min-w-0")}>
           {/* A literal next/link href: route-reachability counts only those. */}
           <Link
             href="/on-call/referrals"
             data-testid="on-call-refer-mine-link"
             className={cn(
-              onCallRowHeight.single,
-              onCallPressable,
+              modeRowHeight.single,
+              modePressable,
               focusRing,
               "flex min-w-0 items-center gap-3 px-3 text-[color:var(--text-heading)] no-underline",
             )}
           >
-            <span className={cn(onCallNameText, "min-w-0 flex-1 break-words text-base-minus")}>Your own referrals</span>
+            <span className={cn(modeNameText, "min-w-0 flex-1 break-words text-base-minus")}>Your own referrals</span>
             <ChevronRight aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--text-muted)]" />
           </Link>
         </li>
