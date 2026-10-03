@@ -6,9 +6,11 @@ import { FATIGUE_RULE_SET, FATIGUE_RULES_SIGN_OFF } from "@/lib/roster/fatigue-r
 import { addDaysToDate, perthWallToIso } from "@/lib/roster/shifts/perth-time";
 import type { ShiftKind } from "@/lib/roster/shift-kind";
 
+const signers = [{ userId: "11111111-1111-4111-8111-111111111111", name: "Dr Jane Example" }];
 const signOff: RuleSignOff = {
   enabled: true,
   signedBy: "Dr Jane Example",
+  signedByUserId: "11111111-1111-4111-8111-111111111111",
   signedAt: "2026-10-04T01:30:00.000Z",
   signedContentSha256: ruleContentSha256(FATIGUE_RULE_SET),
 };
@@ -60,7 +62,7 @@ describe("fatigue rule source", () => {
 
 describe("fatigueWarnings", () => {
   it("runs once a named clinician signs and switches it on", () => {
-    const result = fatigueWarnings([shift("2026-10-05", "08:00", "23:00")], signOff);
+    const result = fatigueWarnings([shift("2026-10-05", "08:00", "23:00")], signOff, signers);
     expect(result.gate).toEqual({ on: true });
     expect(result.warnings.map((warning) => warning.rule)).toEqual(["maxShiftHours"]);
   });
@@ -112,6 +114,20 @@ describe("fatigueWarnings", () => {
     });
     expect(warning!.citation.quote).toContain("24 hours following a single night, two or three consecutive nights");
     expect(rules([...nights, shift("2026-10-09", "08:00", "16:00")])).toEqual([]);
+  });
+
+  it("treats duty overlapping the end of the last night as no time free", () => {
+    const nights = run("2026-10-05", 3, "21:00", "07:00", "night");
+    const onCall = shift("2026-10-07", "17:00", "08:00", "on_call");
+    const warnings = fatigueWarningsUngated([...nights, onCall]).filter(
+      (warning) => warning.rule === "restAfterNights",
+    );
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        shiftId: onCall.id,
+        words: "0 hours free after 3 nights in a row before this on call.",
+      }),
+    ]);
   });
 
   it("asks for 48 hours free after four or five nights", () => {

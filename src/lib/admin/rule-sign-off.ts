@@ -5,9 +5,12 @@ import { sha256Hex } from "@/lib/mha-timeline";
  * warnings and CPD category coaching. A rule set is ON only when all of these hold:
  *
  * - `enabled` is true;
- * - it is signed by a named person (a backstop check that rejects "PsychSift", "system", common role
- *   and placeholder words and single names; it cannot prove a name is real, so the signer is still
- *   accountable for writing their own name);
+ * - it is signed by an APPROVED SIGNER: the sign-off carries the signer's Supabase auth user id and
+ *   that id is in `APPROVED_RULE_SIGNERS`, a committed record the owner edits (only ids of
+ *   administrator users, `isAdministratorUser` in `src/lib/authorization.ts`). The name must equal the
+ *   record's name; free text is never trusted. The registry ships EMPTY, so every rule set stays off
+ *   until the owner adds a signer; an unknown or unverifiable signer keeps it off. The name heuristic
+ *   `isNamedPerson` remains only as a second check on the registry name;
  * - the sign-off carries a real UTC time;
  * - the sign-off pin still matches the rule set's content, so any edit to a number, a quote or a
  *   citation after signing turns the engine off again until it is re-signed.
@@ -20,8 +23,10 @@ import { sha256Hex } from "@/lib/mha-timeline";
 export type RuleSignOff = {
   /** The owner's switch. Even a signed rule set stays off until this is true. */
   readonly enabled: boolean;
-  /** The clinician who checked every figure against its source, by name. */
+  /** The clinician who checked every figure against its source, by name. Must equal the approved record's name. */
   readonly signedBy: string | null;
+  /** The signer's Supabase auth user id (UUID); must be in `APPROVED_RULE_SIGNERS`. */
+  readonly signedByUserId: string | null;
   /** UTC ISO instant, e.g. "2026-10-04T01:30:00.000Z". */
   readonly signedAt: string | null;
   /** `ruleContentSha256(content)` at the moment of signing. */
@@ -29,13 +34,19 @@ export type RuleSignOff = {
 };
 
 export type RuleGateOffReason =
-  "unsigned" | "not-a-named-person" | "bad-sign-off-time" | "content-changed-since-sign-off" | "switched-off";
+  | "unsigned"
+  | "signer-not-approved"
+  | "not-a-named-person"
+  | "bad-sign-off-time"
+  | "content-changed-since-sign-off"
+  | "switched-off";
 
 export type RuleGate = { readonly on: true } | { readonly on: false; readonly reason: RuleGateOffReason };
 
 /** Plain words for each reason, for a screen or a log. */
 export const RULE_GATE_REASON_WORDS: Readonly<Record<RuleGateOffReason, string>> = {
   unsigned: "Not yet signed by a named clinician",
+  "signer-not-approved": "The signer is not on the approved signer list",
   "not-a-named-person": "Signed by a system or role name, not a named clinician",
   "bad-sign-off-time": "The sign-off has no proper UTC date and time",
   "content-changed-since-sign-off": "The rules changed after they were signed, so they need signing again",
@@ -128,9 +139,37 @@ export function isUtcIsoTimestamp(value: unknown): value is string {
   return new Date(milliseconds).toISOString() === normalised;
 }
 
+export type ApprovedRuleSigner = { readonly userId: string; readonly name: string };
+
+/**
+ * Verified identities allowed to sign rule sets. Ships EMPTY: agents never add entries. The owner adds
+ * the auth user id of an administrator-role user (see `isAdministratorUser`) and that clinician's name.
+ */
+export const APPROVED_RULE_SIGNERS: readonly ApprovedRuleSigner[] = Object.freeze([]);
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** True only when the id is a UUID listed as approved and the name matches that record exactly. */
+export function isApprovedSigner(
+  userId: string | null | undefined,
+  name: string | null | undefined,
+  approved: readonly ApprovedRuleSigner[],
+): boolean {
+  if (typeof userId !== "string" || typeof name !== "string" || !UUID.test(userId)) return false;
+  const record = approved.find((entry) => entry.userId.toLowerCase() === userId.toLowerCase());
+  return record !== undefined && record.name.trim() === name.trim();
+}
+
 /** Whether a rule set may run, and if not, the first reason it may not. Fails closed. */
-export function ruleGate(signOff: RuleSignOff, content: unknown): RuleGate {
+export function ruleGate(
+  signOff: RuleSignOff,
+  content: unknown,
+  approvedSigners: readonly ApprovedRuleSigner[] = APPROVED_RULE_SIGNERS,
+): RuleGate {
   if (signOff.signedBy === null || signOff.signedBy.trim() === "") return { on: false, reason: "unsigned" };
+  if (!isApprovedSigner(signOff.signedByUserId, signOff.signedBy, approvedSigners)) {
+    return { on: false, reason: "signer-not-approved" };
+  }
   if (!isNamedPerson(signOff.signedBy)) return { on: false, reason: "not-a-named-person" };
   if (!isUtcIsoTimestamp(signOff.signedAt)) return { on: false, reason: "bad-sign-off-time" };
   if (signOff.signedContentSha256 !== ruleContentSha256(content)) {
@@ -144,6 +183,7 @@ export function ruleGate(signOff: RuleSignOff, content: unknown): RuleGate {
 export const UNSIGNED: RuleSignOff = Object.freeze({
   enabled: false,
   signedBy: null,
+  signedByUserId: null,
   signedAt: null,
   signedContentSha256: null,
 });

@@ -1,4 +1,4 @@
-import { ruleGate, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
+import { ruleGate, type ApprovedRuleSigner, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
 import {
   FATIGUE_RULE_SET,
   FATIGUE_RULES_SIGN_OFF,
@@ -211,9 +211,11 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
     const band = rules.restAfterNights.bands.find((candidate) => length <= candidate.upToNights);
     if (!band) continue;
     const lastEnd = Math.max(...run.map((row) => Date.parse(row.endsAt)));
-    const next = duty.find((row) => Date.parse(row.startsAt) >= lastEnd && !run.includes(row));
+    // The first other duty still running at or after the run's end; one that began earlier and
+    // overlaps the end of the last night leaves no free time at all.
+    const next = duty.find((row) => Date.parse(row.endsAt) > lastEnd && !run.includes(row));
     if (!next) continue;
-    const free = (Date.parse(next.startsAt) - lastEnd) / HOUR_MS;
+    const free = Math.max(0, (Date.parse(next.startsAt) - lastEnd) / HOUR_MS);
     if (free < band.hours) {
       warnings.push({
         shiftId: next.id,
@@ -238,8 +240,9 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
 export function fatigueWarnings(
   shifts: readonly FatigueShift[],
   signOff: RuleSignOff = FATIGUE_RULES_SIGN_OFF,
+  approvedSigners?: readonly ApprovedRuleSigner[],
 ): FatigueResult {
-  const gate = ruleGate(signOff, FATIGUE_RULE_SET);
+  const gate = ruleGate(signOff, FATIGUE_RULE_SET, approvedSigners);
   if (!gate.on) return { gate, warnings: [] };
   return { gate, warnings: fatigueWarningsUngated(shifts) };
 }

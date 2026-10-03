@@ -6,9 +6,11 @@ import { CPD_CATEGORY_RULE_SET, CPD_CATEGORY_RULES_SIGN_OFF } from "@/lib/cme/ca
 import { createAustralianRanzcpPreset } from "@/lib/cme/presets";
 import type { CmeCategory, CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 
+const signers = [{ userId: "11111111-1111-4111-8111-111111111111", name: "Dr Jane Example" }];
 const signOff: RuleSignOff = {
   enabled: true,
   signedBy: "Dr Jane Example",
+  signedByUserId: "11111111-1111-4111-8111-111111111111",
   signedAt: "2026-10-04T01:30:00.000Z",
   signedContentSha256: ruleContentSha256(CPD_CATEGORY_RULE_SET),
 };
@@ -88,11 +90,28 @@ describe("cpdStandardMismatches", () => {
       expect.objectContaining({ id: "reviewing-and-measuring", yours: null, standard: 25 }),
     ]);
   });
+
+  it("does not accept a combined line that also includes another category", () => {
+    const widened = {
+      ...preset,
+      requirements: preset.requirements.map((requirement) =>
+        requirement.spec.shape === "hours-across-categories"
+          ? {
+              ...requirement,
+              spec: { ...requirement.spec, categories: [...requirement.spec.categories, "educational" as const] },
+            }
+          : requirement,
+      ),
+    };
+    expect(cpdStandardMismatches(widened)).toEqual([
+      expect.objectContaining({ id: "reviewing-and-measuring", yours: null, standard: 25 }),
+    ]);
+  });
 });
 
 describe("cpdCategoryCoaching", () => {
   it("runs once a named clinician signs and switches it on", () => {
-    const result = cpdCategoryCoaching(preset, [], signOff);
+    const result = cpdCategoryCoaching(preset, [], signOff, signers);
     expect(result.gate).toEqual({ on: true });
     expect(result.coaching?.lines.map((line) => [line.id, line.hoursShort])).toEqual([
       ["total", 50],

@@ -1,13 +1,25 @@
 import { describe, expect, it } from "vitest";
 
-import { isNamedPerson, ruleContentSha256, ruleGate, UNSIGNED, type RuleSignOff } from "@/lib/admin/rule-sign-off";
+import {
+  APPROVED_RULE_SIGNERS,
+  isApprovedSigner,
+  isNamedPerson,
+  ruleContentSha256,
+  ruleGate,
+  UNSIGNED,
+  type ApprovedRuleSigner,
+  type RuleSignOff,
+} from "@/lib/admin/rule-sign-off";
 
+const SIGNER_ID = "11111111-1111-4111-8111-111111111111";
+const approved: readonly ApprovedRuleSigner[] = [{ userId: SIGNER_ID, name: "Dr Jane Example" }];
 const content = { rules: { a: { hours: 10, quote: "at least a 10 hour break" } } };
 
 function signed(overrides: Partial<RuleSignOff> = {}): RuleSignOff {
   return {
     enabled: true,
     signedBy: "Dr Jane Example",
+    signedByUserId: SIGNER_ID,
     signedAt: "2026-10-04T01:30:00.000Z",
     signedContentSha256: ruleContentSha256(content),
     ...overrides,
@@ -47,26 +59,50 @@ describe("isNamedPerson", () => {
 
 describe("ruleGate", () => {
   it("ships off: the empty sign-off is unsigned", () => {
-    expect(ruleGate(UNSIGNED, content)).toEqual({ on: false, reason: "unsigned" });
+    expect(ruleGate(UNSIGNED, content, approved)).toEqual({ on: false, reason: "unsigned" });
   });
 
   it("is on only with a named signer, a UTC time, a matching pin and the switch on", () => {
-    expect(ruleGate(signed(), content)).toEqual({ on: true });
+    expect(ruleGate(signed(), content, approved)).toEqual({ on: true });
   });
 
   it("names the first reason it is off", () => {
-    expect(ruleGate(signed({ signedBy: "PsychSift" }), content)).toEqual({ on: false, reason: "not-a-named-person" });
-    expect(ruleGate(signed({ signedAt: "2026-10-04" }), content)).toEqual({ on: false, reason: "bad-sign-off-time" });
-    expect(ruleGate(signed({ signedAt: "2026-10-04T09:30:00+08:00" }), content)).toEqual({
+    expect(ruleGate(signed({ signedBy: "PsychSift" }), content, approved)).toEqual({
+      on: false,
+      reason: "signer-not-approved",
+    });
+    expect(ruleGate(signed({ signedAt: "2026-10-04" }), content, approved)).toEqual({
       on: false,
       reason: "bad-sign-off-time",
     });
-    expect(ruleGate(signed({ enabled: false }), content)).toEqual({ on: false, reason: "switched-off" });
+    expect(ruleGate(signed({ signedAt: "2026-10-04T09:30:00+08:00" }), content, approved)).toEqual({
+      on: false,
+      reason: "bad-sign-off-time",
+    });
+    expect(ruleGate(signed({ enabled: false }), content, approved)).toEqual({ on: false, reason: "switched-off" });
+  });
+
+  it("ships with no approved signers, so nothing can be switched on by default", () => {
+    expect(APPROVED_RULE_SIGNERS).toEqual([]);
+    expect(ruleGate(signed(), content)).toEqual({ on: false, reason: "signer-not-approved" });
+  });
+
+  it("fails closed unless the signer id is an approved UUID whose recorded name matches", () => {
+    const off = { on: false, reason: "signer-not-approved" };
+    expect(ruleGate(signed({ signedByUserId: null }), content, approved)).toEqual(off);
+    expect(ruleGate(signed({ signedByUserId: "not-a-uuid" }), content, approved)).toEqual(off);
+    expect(ruleGate(signed({ signedByUserId: "22222222-2222-4222-8222-222222222222" }), content, approved)).toEqual(
+      off,
+    );
+    expect(ruleGate(signed({ signedBy: "Medical Director" }), content, approved)).toEqual(off);
+    expect(ruleGate(signed({ signedBy: "Dr Someone Else" }), content, approved)).toEqual(off);
+    expect(ruleGate(signed(), content, [])).toEqual(off);
+    expect(isApprovedSigner(SIGNER_ID.toUpperCase(), "Dr Jane Example", approved)).toBe(true);
   });
 
   it("turns off when any figure changes after signing", () => {
     const edited = { rules: { a: { hours: 8, quote: "at least a 10 hour break" } } };
-    expect(ruleGate(signed(), edited)).toEqual({ on: false, reason: "content-changed-since-sign-off" });
+    expect(ruleGate(signed(), edited, approved)).toEqual({ on: false, reason: "content-changed-since-sign-off" });
   });
 
   it("pins content, not key order", () => {
