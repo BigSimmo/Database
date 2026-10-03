@@ -96,6 +96,8 @@ import {
   type TimedAnswerProgressUpdate,
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerCrisisBanner } from "@/components/clinical-dashboard/answer-crisis-banner";
+import { EmergencyProtocolBanner } from "@/components/clinical-dashboard/emergency-protocol-banner";
+import { matchEmergencyClinicalProtocol } from "@/lib/emergency-protocols";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -3182,6 +3184,11 @@ function ClinicalDashboardContent({
     void executeSearch(submittedUrlQuery || query, searchMode, scopeFilters, queryMode, false, undefined);
   }
 
+  const matchedEmergencyProtocol =
+    activeModeResultKind === "answer" && (loading || answer)
+      ? matchEmergencyClinicalProtocol(answerLifecycle.query ?? latestAnswerQuery ?? query)
+      : null;
+
   return (
     <div
       className={cn(
@@ -3565,6 +3572,8 @@ function ClinicalDashboardContent({
                 hasCrisisWording(answerLifecycle.query ?? latestAnswerQuery) ? (
                   <AnswerCrisisBanner />
                 ) : null}
+
+                {matchedEmergencyProtocol ? <EmergencyProtocolBanner protocol={matchedEmergencyProtocol} /> : null}
 
                 {searchMode !== "prescribing" &&
                   (activeModeResultKind === "answer" ? (

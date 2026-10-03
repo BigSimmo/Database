@@ -47,7 +47,6 @@ export function initWorkerErrorTracking(): boolean {
         urlQueryParams: false,
         databaseQueryData: false,
         genAI: { inputs: false, outputs: false },
-        queues: false,
         graphQL: { document: false, variables: false },
         stackFrameVariables: false,
         frameContextLines: 0,

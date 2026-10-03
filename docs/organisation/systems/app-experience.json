@@ -244,6 +244,7 @@
     "tests/documents-search-landmark.test.ts",
     "tests/dsm-*",
     "tests/email-auth-form.dom.test.tsx",
+    "tests/emergency-protocols.dom.test.tsx",
     "tests/empirical-challenger-m1.dom.test.tsx",
     "tests/evidence-*",
     "tests/factsheet-*",
