@@ -3,12 +3,11 @@
 import dynamic from "next/dynamic";
 
 import { useOptionalAccountData } from "@/components/account-data-provider";
-import { myDayEnabledForAuth } from "@/lib/my-day/model";
 import { useAuthSession } from "@/lib/supabase/client";
 
 /**
- * The home screen's My Day card, loaded only for a signed-in reader (or a
- * local demo build with no Supabase) and only in the browser: its reads are
+ * The home screen's My Day card, loaded only for a signed-in reader and only
+ * in the browser (a local demo build never shows it, so it makes no reads): its reads are
  * the reader's own records, so there is nothing to server-render, and a
  * signed-out visitor never downloads it at all.
  * The card itself renders nothing until it has items, so the home layout
@@ -20,7 +19,8 @@ const MyDayHomeCard = dynamic(
 );
 
 function EnabledMyDayHomeCard() {
-  return myDayEnabledForAuth(useAuthSession().status) ? <MyDayHomeCard /> : null;
+  // Not "unconfigured": the card hides demo data, so a demo home must not read.
+  return useAuthSession().status === "authenticated" ? <MyDayHomeCard /> : null;
 }
 
 export function LazyMyDayHomeCard() {
