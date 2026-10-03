@@ -22,7 +22,8 @@ import type { SessionSummary } from "@/lib/teaching/model";
  * Loaded on demand (the page imports this module dynamically, and only for a
  * signed-out visitor), so it adds nothing to a signed-in reader's first load.
  *
- * Nothing here is read from or sent to a server, and nothing is stored. Every
+ * Nothing here is read from or sent to a server, and nothing is stored: the
+ * quick note is hidden and "Later" lasts only while the page is open. Every
  * name, place and number is plainly invented ("Demo ..."); there are no
  * patients, no patient labels, and calls are counts only.
  */
@@ -81,7 +82,9 @@ function session(
   isPresenter: boolean,
 ): SessionSummary {
   return {
-    occurrenceId: `sample-${id}`,
+    // A well-formed id that no programme holds, so Teaching's session page answers
+    // a signed-out visitor with its own sign-in prompt rather than "no longer in the programme".
+    occurrenceId: `00000000-0000-4000-8000-${id}`,
     serviceId: "sample-teaching",
     title,
     startsAt: perthAt(date, start),
@@ -198,10 +201,10 @@ function sampleCpd(today: string): MyDayDashboardSources["cpd"] {
 export function buildMyDaySample(today: string, now: Date): MyDaySampleData {
   const day = (offset: number) => addDaysToDate(today, offset);
   const ahead = [
-    session("teach-today", today, "14:00", "15:00", "Registrar teaching: agitation", "Demo seminar room 3", false),
-    session("journal", day(5), "12:30", "13:30", "Demo journal club", "Demo library", false),
-    session("talk", day(12), "14:00", "15:00", "Lithium toxicity", "Demo seminar room 3", true),
-    session("grand-round", day(19), "12:30", "13:30", "Demo grand round", "Demo lecture theatre", false),
+    session("000000000001", today, "14:00", "15:00", "Registrar teaching: agitation", "Demo seminar room 3", false),
+    session("000000000002", day(5), "12:30", "13:30", "Demo journal club", "Demo library", false),
+    session("000000000003", day(12), "14:00", "15:00", "Lithium toxicity", "Demo seminar room 3", true),
+    session("000000000004", day(19), "12:30", "13:30", "Demo grand round", "Demo lecture theatre", false),
   ];
   const hoursFromNow = (hours: number) => new Date(now.getTime() + hours * 3_600_000).toISOString();
   return {

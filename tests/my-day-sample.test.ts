@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildMyDaySample } from "@/components/my-day/my-day-sample";
+import { isOccurrenceId } from "@/components/teaching/session-view-model";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 
 // 09:00 on Sat 3 Oct 2026 in Perth.
@@ -35,6 +36,12 @@ describe("buildMyDaySample", () => {
   it("keeps calls to counts and never offers a phone link", () => {
     expect(sample.extras.calls).toEqual({ total: 2, open: 1 });
     expect(sample.extras.pinnedNumbers.every((number) => number.tel === null)).toBe(true);
+  });
+
+  it("gives teaching sessions well-formed ids, so Teaching's session page asks a visitor to sign in", () => {
+    for (const session of sample.sources.teaching.ahead ?? []) {
+      expect(isOccurrenceId(session.occurrenceId)).toBe(true);
+    }
   });
 
   it("adds CPD hours up month by month to the logged total", () => {

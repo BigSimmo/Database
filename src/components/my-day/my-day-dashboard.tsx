@@ -55,6 +55,7 @@ import {
   weekOf,
   type MyDayCardId,
   type MyDayPageId,
+  type MyDaySnoozes,
   type MyDayTimedEvent,
 } from "@/lib/my-day/dashboard";
 import {
@@ -175,7 +176,18 @@ export function MyDayDashboard({
   onRetry,
   sample,
 }: MyDayDashboardProps) {
-  const device = useMyDayDeviceState(today);
+  const stored = useMyDayDeviceState(today);
+  // The signed-out sample keeps "Later" for this page only, so nothing one visitor does is kept for the next.
+  const [sampleSnoozes, setSampleSnoozes] = useState<MyDaySnoozes>({});
+  const device = sample
+    ? {
+        ...stored,
+        snoozes: sampleSnoozes,
+        snooze: (itemId: string, until: string) => setSampleSnoozes((current) => ({ ...current, [itemId]: until })),
+        unsnooze: (itemId: string) =>
+          setSampleSnoozes((current) => Object.fromEntries(Object.entries(current).filter(([id]) => id !== itemId))),
+      }
+    : stored;
   const onHide = (id: MyDayCardId) => (editing ? () => device.setHidden(id, true) : undefined);
   const [undo, setUndo] = useState<{ readonly id: string; readonly title: string } | null>(null);
 
@@ -390,7 +402,8 @@ export function MyDayDashboard({
     "month-glance": rosterReady && glance.totalHours > 0,
     credentials: renewals.length > 0,
     "cpd-month": cpdReady,
-    "quick-note": true,
+    // The note is kept on this device; a signed-out sample must not keep one visitor's note for the next.
+    "quick-note": !sample,
   };
 
   const partial = [
