@@ -26100,3 +26100,31 @@ grant execute on function public.roster_publish(uuid, uuid, text, jsonb) to serv
 
 revoke all on function public.roster_publication_replacement(uuid, uuid, uuid, date, date) from public, anon, authenticated;
 grant execute on function public.roster_publication_replacement(uuid, uuid, uuid, date, date) to service_role;
+
+-- "Who can cover?": any active member reads the names and grades of their own team's current
+-- members, nothing else (20261003013000_roster_team_members.sql).
+create function public.roster_team_members(p_actor_id uuid, p_service_id uuid)
+returns jsonb
+language plpgsql stable security invoker set search_path = public, pg_catalog, pg_temp as $$
+declare
+  v_service public.on_call_services;
+  v_result jsonb;
+begin
+  if p_actor_id is null then raise exception 'roster_auth_required'; end if;
+  select * into v_service from public.on_call_services where id = p_service_id;
+  if not found or not public.service_member_active(p_service_id, p_actor_id) then
+    raise exception 'roster_access_denied';
+  end if;
+  if v_service.verified_at is null and not v_service.is_demo then raise exception 'roster_team_not_verified'; end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+    'userId', m.user_id, 'name', coalesce(m.display_name, r.roster_name), 'grade', r.grade
+  ) order by coalesce(m.display_name, r.roster_name), m.user_id), '[]') into v_result
+  from public.on_call_service_members m
+  left join public.roster_member_roles r on r.service_id = m.service_id and r.user_id = m.user_id and r.revoked_at is null
+  where m.service_id = p_service_id and m.revoked_at is null;
+  return jsonb_build_object('members', v_result);
+end $$;
+
+revoke all on function public.roster_team_members(uuid, uuid) from public, anon, authenticated;
+grant execute on function public.roster_team_members(uuid, uuid) to service_role;
