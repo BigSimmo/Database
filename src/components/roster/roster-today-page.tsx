@@ -1,6 +1,18 @@
 "use client";
 
-import { CalendarDays, CalendarRange, Moon, MoonStar, Plane, Sun } from "lucide-react";
+import {
+  ArrowLeftRight,
+  CalendarDays,
+  CalendarOff,
+  CalendarRange,
+  FileUp,
+  Link2,
+  Moon,
+  MoonStar,
+  Plane,
+  Plus,
+  Sun,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -16,22 +28,30 @@ import {
 import { modeDisplayNumberText, modeNumberText } from "@/components/mode-kit/type";
 import { Button } from "@/components/ui/button";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
+import { isWorkedKind, SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { summariseToday, type TodaySummary } from "@/lib/roster/today";
 
+import { RosterSignInNotice } from "./invite/roster-sign-in-notice";
 import { RosterAddSheet, type RosterAddView } from "./roster-add-sheet";
+import { RosterNewButton } from "./roster-new-button";
 import { RosterSampleShiftsNotice } from "./team/roster-sample-notice";
 import { RosterTodayTeam } from "./team/roster-today-team";
 import { formatDateSpan, formatDuration, kindOf, shiftTimes, useRosterNow } from "./roster-format";
 import { RosterImportFlow } from "./roster-import-flow";
 import { RosterNightDial } from "./roster-night-dial";
+import { RosterFatigueRestRing } from "./roster-fatigue-rest-ring";
 import { RosterIdentityTile, RosterPageHeader, RosterSection, RosterStat, RosterStats } from "./roster-ui";
 import { RosterWeekStrip } from "./roster-week-strip";
 import { hasFreshLink, refreshDueRosterLinks, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
+import { useRosterTeamRules, useRosterTeams } from "./use-roster-team";
+import { RosterRestChip } from "./roster-rest-chip";
+import { RosterWhoCanCover } from "./roster-who-can-cover";
+import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
+import { restCuesByTeam, type RestCue } from "@/lib/roster/rest-cues";
 
 /**
  * Roster Today: where am I working, when, answered with no taps. The lead
@@ -41,6 +61,11 @@ import { useRosterShifts } from "./use-roster-shifts";
  */
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+
+/** A stat with nothing ahead says so in words, never a bare dash. */
+function NoneYet({ children }: { readonly children: string }) {
+  return <span className="text-[color:var(--text-muted)]">{children}</span>;
+}
 
 /**
  * "Up to date": a 6px green dot and the words, shown only while a calendar
@@ -123,7 +148,9 @@ function Hero({
   canEdit,
   onImport,
   onAddShift,
+  cues,
 }: {
+  readonly cues: ReadonlyMap<string, RestCue>;
   readonly summary: TodaySummary;
   readonly canEdit: boolean;
   readonly byId: ReadonlyMap<string, OnCallShift>;
@@ -230,6 +257,7 @@ function Hero({
             </span>
           ) : null}
           <ShiftTimes shift={leadShift} />
+          <RosterRestChip cue={cues.get(leadShift.id)} testId="roster-today-rest" />
           {when || place ? (
             <span className={cn(modeSummaryMutedText, "text-sm")}>{[when, place].filter(Boolean).join(" · ")}</span>
           ) : null}
@@ -261,6 +289,7 @@ function greetingFor(now: Date): { readonly text: string; readonly icon: typeof 
 export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}) {
   const now = useRosterNow(pinnedNow);
   const shifts = useRosterShifts();
+  const teams = useRosterTeams();
   const links = useRosterLinks();
   const settings = useRosterSettings();
   const [importing, setImporting] = useState(false);
@@ -283,6 +312,13 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
 
   const today = perthDateOf(now);
   const byId = useMemo(() => new Map(shifts.shifts.map((shift) => [shift.id, shift])), [shifts.shifts]);
+  // Each team's own rules judge its own shifts, the same cues the Shifts page shows. The default
+  // shift read already reaches 21 days back, the longest any team rule looks.
+  const rulesByTeam = useRosterTeamRules(shifts.shifts.flatMap((shift) => (shift.serviceId ? [shift.serviceId] : [])));
+  const cues = useMemo(
+    () => new Map(restCuesByTeam(shifts.shifts, rulesByTeam).map((cue) => [cue.shiftId, cue])),
+    [shifts.shifts, rulesByTeam],
+  );
   const summary = useMemo(
     () =>
       summariseToday(
@@ -296,6 +332,31 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
       ),
     [shifts.shifts, now],
   );
+  // "Who can cover?" is offered for the next team shift still to start, never one already under
+  // way, chosen on its own: the hero may be showing a shift on now or a personal shift.
+  const actorId = teams.data?.actorId ?? null;
+  const coverShift = useMemo(
+    () =>
+      shifts.shifts
+        .filter(
+          (shift) =>
+            shift.serviceId &&
+            shift.assignmentId &&
+            kindOf(shift) !== "leave" &&
+            Date.parse(shift.startsAt) > now.getTime(),
+        )
+        .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0],
+    [shifts.shifts, now],
+  );
+  // Recovery maths counts worked shifts only: leave and on-call-from-home are not duty hours.
+  const workedShifts = useMemo(() => shifts.shifts.filter((shift) => isWorkedKind(kindOf(shift))), [shifts.shifts]);
+  // The rest ring judges the next worked shift by that team's own minimum break, not a fixed 10 h.
+  const minRestHours = useMemo(() => {
+    const next = [...workedShifts]
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .find((shift) => Date.parse(shift.startsAt) > now.getTime());
+    return (next?.serviceId ? rulesByTeam.get(next.serviceId)?.minBreakHours : undefined) ?? undefined;
+  }, [workedShifts, rulesByTeam, now]);
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
     [shifts.shifts],
@@ -326,6 +387,32 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
             <RosterFreshness fresh={hasFreshLink(links.links, now)} />
           </div>
         }
+        actions={
+          !importing && canEdit ? (
+            <RosterNewButton
+              entries={[
+                { id: "shift", label: "Add a shift", icon: Plus, onSelect: () => setAddView("shift") },
+                {
+                  id: "import",
+                  label: "Import a file",
+                  description: "PDF, Excel, CSV or calendar file",
+                  icon: FileUp,
+                  onSelect: () => setImporting(true),
+                },
+                { id: "link", label: "Add a calendar link", icon: Link2, onSelect: () => setAddView("link") },
+                {
+                  id: "swap",
+                  label: "Swap or give away",
+                  description: "Pick the shift on the Team calendar",
+                  icon: ArrowLeftRight,
+                  href: "/roster/team?view=week",
+                },
+                { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+                { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
+              ]}
+            />
+          ) : null
+        }
         testId="roster-today-header"
       />
 
@@ -345,11 +432,14 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
           {shifts.status === "loading" ? (
             <ModeModuleSkeleton rows={4} testId="roster-today-loading" />
           ) : shifts.status === "signed-out" ? (
-            <ModeNotice testId="roster-today-signed-out">Sign in to see your roster.</ModeNotice>
+            <RosterSignInNotice testId="roster-today-signed-out">Sign in to see your roster.</RosterSignInNotice>
           ) : shifts.status === "error" ? (
-            <ModeNotice tone="warning" testId="roster-today-error">
-              Your shifts could not be loaded. Try again later.
-            </ModeNotice>
+            <div className="grid gap-2" data-testid="roster-today-error">
+              <ModeNotice tone="warning">Your shifts could not be loaded.</ModeNotice>
+              <Button className="justify-self-start" onClick={() => void shifts.reload()}>
+                Try again
+              </Button>
+            </div>
           ) : (
             <>
               {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
@@ -363,7 +453,24 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 canEdit={canEdit}
                 onImport={() => setImporting(true)}
                 onAddShift={() => setAddView("shift")}
+                cues={cues}
               />
+              <RosterFatigueRestRing
+                shifts={workedShifts}
+                now={now}
+                sample={shifts.sample}
+                minRestHours={minRestHours}
+              />
+              {coverShift?.serviceId && coverShift.assignmentId && actorId ? (
+                <ModeGroupedList testId="roster-today-cover">
+                  <RosterWhoCanCover
+                    serviceId={coverShift.serviceId}
+                    assignmentId={coverShift.assignmentId}
+                    actorId={actorId}
+                    startsAt={coverShift.startsAt}
+                  />
+                </ModeGroupedList>
+              ) : null}
               <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
               {summary.lead.state !== "empty" ? (
                 <>
@@ -385,13 +492,23 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                       icon={MoonStar}
                       label="Next nights"
                       value={
-                        summary.nextNights ? formatDateSpan(summary.nextNights.start, summary.nextNights.end) : "–"
+                        summary.nextNights ? (
+                          formatDateSpan(summary.nextNights.start, summary.nextNights.end)
+                        ) : (
+                          <NoneYet>None rostered</NoneYet>
+                        )
                       }
                     />
                     <RosterStat
                       icon={Plane}
                       label="Next leave"
-                      value={summary.nextLeave ? formatDateSpan(summary.nextLeave.start, summary.nextLeave.end) : "–"}
+                      value={
+                        summary.nextLeave ? (
+                          formatDateSpan(summary.nextLeave.start, summary.nextLeave.end)
+                        ) : (
+                          <NoneYet>None booked</NoneYet>
+                        )
+                      }
                     />
                   </RosterStats>
                 </>

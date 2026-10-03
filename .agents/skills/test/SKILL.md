@@ -1,6 +1,6 @@
 ---
 name: test
-description: Choose and run the smallest relevant local Database test, reproduce failures deterministically, and widen verification only when needed. Use for test requests, behavioral proofs, or focused regression coverage.
+description: Choose and run the smallest relevant local PsychSift test, reproduce failures deterministically, and widen verification only when needed. Use for test requests, behavioral proofs, or focused regression coverage.
 ---
 
 # Test

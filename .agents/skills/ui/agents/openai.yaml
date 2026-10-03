@@ -1,4 +1,4 @@
 interface:
   display_name: "UI"
-  short_description: "Sweep live Database UI and accessibility states"
-  default_prompt: "Use $ui to inspect and verify this Database interface across routes, breakpoints, interactions, and accessibility modes."
+  short_description: "Sweep live PsychSift UI and accessibility states"
+  default_prompt: "Use $ui to inspect and verify this PsychSift interface across routes, breakpoints, interactions, and accessibility modes."

@@ -1,6 +1,6 @@
 ---
 name: operations
-description: Turn pending Database operator, provisioning, configuration, and provider work into a deduplicated dependency-ordered batch with explicit approvals and evidence. Use for operator debt, manual runbooks, or deferred external actions.
+description: Turn pending PsychSift operator, provisioning, configuration, and provider work into a deduplicated dependency-ordered batch with explicit approvals and evidence. Use for operator debt, manual runbooks, or deferred external actions.
 ---
 
 # Operations

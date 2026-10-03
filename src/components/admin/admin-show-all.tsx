@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
-import { floatingControl } from "@/components/ui-primitives";
+import { cn, floatingControl } from "@/components/ui-primitives";
 
 /**
  * A long list shows a first batch, then "Show all". The shared standard's §4 says
@@ -32,34 +32,51 @@ export function AdminShowAll<T>({
   anchorIdOf,
   label,
   testId,
+  previewRows = ADMIN_LIST_PREVIEW_ROWS,
+  showCount = false,
+  expandAll = false,
+  listClassName,
 }: {
   items: readonly T[];
   renderItem: (item: T) => ReactNode;
   anchorIdOf?: (item: T) => string;
   label: string;
   testId: string;
+  /** Rows shown before "Show all". Defaults to the shared Admin number. */
+  previewRows?: number;
+  /** Name the full count on the control: "Show all 14". */
+  showCount?: boolean;
+  /** Open in full regardless of the reader (e.g. before printing). */
+  expandAll?: boolean;
+  /** Extra classes for the list itself, e.g. a card surface. */
+  listClassName?: string;
 }) {
   const [openedByReader, setExpanded] = useState(false);
   const hash = useSyncExternalStore(subscribeToHash, readHash, noHashOnServer);
   const anchoredRowHidden =
-    anchorIdOf !== undefined &&
-    hash !== "" &&
-    items.slice(ADMIN_LIST_PREVIEW_ROWS).some((item) => anchorIdOf(item) === hash);
-  const expanded = openedByReader || anchoredRowHidden;
-  const shown = expanded ? items : items.slice(0, ADMIN_LIST_PREVIEW_ROWS);
+    anchorIdOf !== undefined && hash !== "" && items.slice(previewRows).some((item) => anchorIdOf(item) === hash);
+  const expanded = openedByReader || anchoredRowHidden || expandAll;
+  const shown = expanded ? items : items.slice(0, previewRows);
+  // The browser tried the fragment scroll before the row existed and does not
+  // retry once it mounts, so a row this list revealed for the hash (a glance
+  // tile's jump, a redirected bookmark) is scrolled to here, after it renders.
+  useEffect(() => {
+    if (!anchoredRowHidden) return;
+    document.getElementById(hash)?.scrollIntoView?.({ block: "start" });
+  }, [anchoredRowHidden, hash]);
   return (
     <>
-      <ul className="grid" aria-label={label} data-testid={testId}>
+      <ul className={cn("grid", listClassName)} aria-label={label} data-testid={testId}>
         {shown.map(renderItem)}
       </ul>
-      {!expanded && items.length > ADMIN_LIST_PREVIEW_ROWS ? (
+      {!expanded && items.length > previewRows ? (
         <button
           type="button"
           className={floatingControl}
           onClick={() => setExpanded(true)}
           data-testid={`${testId}-show-all`}
         >
-          Show all
+          {showCount ? `Show all ${items.length}` : "Show all"}
         </button>
       ) : null}
     </>

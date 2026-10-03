@@ -1,0 +1,46 @@
+# Docker Buildx Configuration
+# Save as: ~/.docker/buildx/instances.json
+# Or use: docker buildx create --driver-opt image=moby/buildkit:latest
+
+[buildx]
+# Multi-platform builder for local development
+[[builders]]
+name = "multiplatform"
+driver = "docker-container"
+driver_options = {
+  "image" = "moby/buildkit:master"
+  "network" = "host"
+}
+gc_policy = [
+  {
+    "all" = true
+    "unused-for" = "168h"
+  }
+]
+
+[[builders.platforms]]
+native = false
+
+# Settings for both amd64 and arm64
+[[builders.settings]]
+name = "BUILDKIT_INLINE_CACHE"
+value = "1"
+
+[[builders.settings]]
+name = "BUILDKIT_COLORS"
+value = "1"
+
+# Builder for remote (registry-backed) cache
+[[builders]]
+name = "registry-cache"
+driver = "docker-container"
+driver_options = {
+  "image" = "moby/buildkit:latest"
+  "cache-polarity" = "max"
+}
+gc_policy = [
+  {
+    "all" = true
+    "unused-for" = "240h"
+  }
+]

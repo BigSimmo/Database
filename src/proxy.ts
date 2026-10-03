@@ -369,20 +369,22 @@ export async function proxy(request: NextRequest) {
     };
     const rawPayload = Buffer.from(JSON.stringify(userPayload), "utf8").toString("base64");
     userHeaderValue = signProxyAuthPayload(rawPayload);
-    const previousCookies = response.cookies.getAll();
-    const previousHeaders = new Headers(response.headers);
-    response = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });
+    const previousResponse = response as NextResponse | null;
+    const previousCookies = previousResponse?.cookies.getAll() ?? [];
+    const previousHeaders = previousResponse ? new Headers(previousResponse.headers) : new Headers();
+    const refreshedResponse = NextResponse.next({ request: { headers: requestHeadersWithNonce(userHeaderValue) } });
     for (const [k, v] of previousHeaders.entries()) {
       // `Headers.entries()` does not reliably preserve Set-Cookie attributes.
       // Re-apply cookies through the cookie store after this copy instead.
       if (k.toLowerCase() === "set-cookie") continue;
-      response.headers.set(k, v);
+      refreshedResponse.headers.set(k, v);
     }
     for (const cookie of previousCookies) {
-      response.cookies.set(cookie);
+      refreshedResponse.cookies.set(cookie);
     }
+    response = refreshedResponse;
   }
-  return withCsp(response);
+  return withCsp(response ?? NextResponse.next({ request: { headers: requestHeadersWithNonce() } }));
 }
 
 /**

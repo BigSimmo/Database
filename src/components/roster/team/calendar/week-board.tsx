@@ -75,6 +75,33 @@ export function WeekBoard({
               </th>
             ))}
           </tr>
+          {/* Cover sits just under the dates, so on a phone it is seen with the days
+              it counts; the row exists only when at least one day has a count. */}
+          {showCover ? (
+            <tr data-testid="week-cover">
+              <th scope="row" className={cn(rowHeader, HAIRLINE, "text-xs font-medium")}>
+                Cover
+              </th>
+              {days.map((date) => (
+                <td key={date} className={cn(HAIRLINE, "min-w-24 px-1 py-1 align-top")}>
+                  <ul className="grid gap-0.5 text-xs">
+                    {(cover.get(date) ?? []).map((count) => (
+                      <li
+                        key={count.kind}
+                        data-cover={count.state}
+                        className={cn("nums rounded border px-1", COVER_TONE[count.state])}
+                      >
+                        {coverText(count)}
+                        {count.state !== "met" ? (
+                          <span className="sr-only">{COVER_STATE_WORDS[count.state]}</span>
+                        ) : null}
+                      </li>
+                    ))}
+                  </ul>
+                </td>
+              ))}
+            </tr>
+          ) : null}
         </thead>
         <tbody>
           {rows.map((person) => {
@@ -118,7 +145,9 @@ export function WeekBoard({
                           >
                             <span aria-hidden="true" className="flex items-center gap-1 font-medium">
                               {SHIFT_LETTER[shift.kind]}
-                              {flagged.length ? <TriangleAlert aria-hidden="true" className="size-3" /> : null}
+                              {flagged.length ? (
+                                <TriangleAlert aria-hidden="true" className="size-icon-xs shrink-0" />
+                              ) : null}
                             </span>
                             <span aria-hidden="true" className="nums text-xs">
                               {formatShiftRange(shift)}
@@ -166,33 +195,6 @@ export function WeekBoard({
             </tr>
           ) : null}
         </tbody>
-        {showCover ? (
-          <tfoot>
-            <tr>
-              <th scope="row" className={cn(rowHeader, "font-medium")}>
-                Cover
-              </th>
-              {days.map((date) => (
-                <td key={date} className="min-w-24 px-1 py-1 align-top">
-                  <ul className="grid gap-0.5 text-xs">
-                    {(cover.get(date) ?? []).map((count) => (
-                      <li
-                        key={count.kind}
-                        data-cover={count.state}
-                        className={cn("nums rounded border px-1", COVER_TONE[count.state])}
-                      >
-                        {coverText(count)}
-                        {count.state !== "met" ? (
-                          <span className="sr-only">{COVER_STATE_WORDS[count.state]}</span>
-                        ) : null}
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-              ))}
-            </tr>
-          </tfoot>
-        ) : null}
       </table>
     </div>
   );

@@ -1,16 +1,19 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { WaitingOnControls, type WaitingOnValue } from "@/components/cme/cme-drafts-section";
 import { CmeEntryForm, type CmeEntryDraft } from "@/components/cme/cme-entry-form";
-import { cn, InlineNotice, textMuted } from "@/components/ui-primitives";
+import { cn, eyebrowText, InlineNotice, textMuted } from "@/components/ui-primitives";
 import { CME_NEW_ENTRY_DRAFT_KEY } from "@/lib/account-scoped-browser-state";
 import type { CmeDraft, CmeDraftPayload } from "@/lib/cme/drafts";
+import { recentRepeatableActivities } from "@/lib/cme/recent-activities";
 import type { CmeRoutine } from "@/lib/cme/routines";
 import type { CmeEntry, CmeRequirementSet } from "@/lib/cme/types";
 import { perthCalendarDate } from "@/lib/perth-time";
+import { cmePageTitle, cmePageWidth } from "@/components/cme/cme-page-frame";
 
 export { CME_NEW_ENTRY_DRAFT_KEY };
 
@@ -87,6 +90,11 @@ export function CmeNewEntryRoute({
       requirement.spec.shape === "activity-count" ? [...requirement.spec.buckets] : [],
     ) ?? [];
   const today = perthCalendarDate();
+  // Offered only on a blank form: a routine, repeat, draft, missed session or
+  // learning link has already chosen what is being logged.
+  const blankForm =
+    !routine && !repeatOf && !resumeDraft && !missedSessionId && !learningPrefill?.title && !learningPrefill?.sourceUrl;
+  const logAgain = blankForm ? recentRepeatableActivities(existingEntries) : [];
   const initialDate = set && !today.startsWith(`${set.year}-`) ? `${set.year}-01-01` : today;
   const initialEntry = resumeDraft
     ? {
@@ -167,8 +175,8 @@ export function CmeNewEntryRoute({
   }
 
   return (
-    <main className="mx-auto w-full max-w-2xl px-4 py-6 sm:px-6">
-      <h1 className="text-xl font-semibold text-[color:var(--text)]">Log an activity</h1>
+    <main className={cn(cmePageWidth, "px-4 py-6 sm:px-6")}>
+      <h1 className={cmePageTitle}>Log an activity</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         What it was, when, how long it ran for, and which category the hours count toward. Nothing is recorded until you
         save it.
@@ -195,6 +203,29 @@ export function CmeNewEntryRoute({
           Source details are prefilled. Confirm the time you actually spent and its allocation before saving. Opening
           this form does not record an activity.
         </p>
+      ) : null}
+      {logAgain.length ? (
+        // "Log again": one tap opens this form filled from that earlier entry,
+        // through the same repeat path as an activity's own Log it again.
+        // Nothing is recorded until Save.
+        <nav aria-labelledby="cme-log-again-label" className="mt-4" data-testid="cme-log-again">
+          <p id="cme-log-again-label" className={eyebrowText}>
+            Log again
+          </p>
+          <ul className="-mx-4 mt-2 flex gap-2 overflow-x-auto px-4 pb-1">
+            {logAgain.map((activity) => (
+              <li key={activity.id} className="shrink-0">
+                <Link
+                  href={`/cme/new?year=${activity.date.slice(0, 4)}&repeat=${encodeURIComponent(activity.id)}`}
+                  className="inline-flex min-h-tap max-w-64 items-center gap-1.5 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-4 text-sm text-[color:var(--text)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[color:var(--focus)]"
+                >
+                  <span className="truncate font-medium">{activity.title}</span>
+                  <span className={cn(textMuted, "nums shrink-0")}>· {activity.hours} h</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </nav>
       ) : null}
       {demoMode ? (
         <div className="mt-4" data-testid="cme-entry-demo-notice">

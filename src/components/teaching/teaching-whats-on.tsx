@@ -1,6 +1,6 @@
 "use client";
 
-import { Plus } from "lucide-react";
+import { Check, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -8,7 +8,6 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { mondayOf, perthDateKey, perthTime } from "@/components/teaching/teaching-dates";
 import { DayRail, SessionTimeline, TeachingModule, TeachingSwitch } from "@/components/teaching/teaching-modules";
 import { TeachingSignInNotice } from "@/components/teaching/teaching-sign-in";
@@ -186,7 +185,10 @@ function WeekToggle({ title, added, onToggle }: { title: string; added: boolean;
       )}
     >
       {added ? (
-        <ModeStateLabel tone="muted">In my week</ModeStateLabel>
+        <>
+          <Check aria-hidden="true" className="size-icon-md" />
+          <span className="sr-only">In my week</span>
+        </>
       ) : (
         <Plus aria-hidden="true" className="size-icon-md" />
       )}

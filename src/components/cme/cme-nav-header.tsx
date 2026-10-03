@@ -1,6 +1,17 @@
 "use client";
 
-import { CalendarDays, ClipboardList, GraduationCap, ListChecks, Repeat, ShieldCheck } from "lucide-react";
+import {
+  CalendarDays,
+  ClipboardList,
+  GraduationCap,
+  ListChecks,
+  Repeat,
+  ShieldCheck,
+  type LucideIcon,
+} from "lucide-react";
+import type { ReactNode } from "react";
+
+import { cmePageWidth } from "@/components/cme/cme-page-frame";
 
 import { InPageNavHeader } from "@/components/in-page-nav/in-page-nav-header";
 import type { PageSection } from "@/components/in-page-nav/page-section-index";
@@ -71,6 +82,52 @@ export function CmeNavHeader({ title }: { title: string }) {
         // `--clinical-accent` to CME's indigo inside it only (`globals.css`).
         modeIdentity: "cme",
       }}
+    />
+  );
+}
+
+/**
+ * The breadcrumb shape of the same template, for CPD's child pages: one
+ * activity (`/cme/log/[id]`) and Customise (`/cme/customise`). No sections, so
+ * `InPageNavHeader` draws back, title, an optional promoted action and the
+ * ellipsis — nothing else.
+ *
+ * It lives in this file, beside `CmeNavHeader`, so CPD keeps a single
+ * slot-claimant module (`tests/mode-nav-addon-slot.dom.test.tsx`); the two
+ * routes it serves are registered in `isHeaderAddonSlotOwnedRoute`. Neither
+ * route had a shell bar in the slot before, so it still holds one header.
+ *
+ * Unlike `CmeNavHeader` this one has a `back`, because both pages ARE children:
+ * an activity of the log, Customise of Today. `ContextualBackLink` needs an
+ * app router, which every test that renders these pages already mocks.
+ */
+export function CmeDetailNavHeader({
+  title,
+  back,
+  primaryAction,
+  actions,
+  actionsTitle,
+  actionsNoun,
+  testIdPrefix,
+}: {
+  title: string;
+  back: { href: string; label: string };
+  primaryAction?: { label: string; icon: LucideIcon; onClick: () => void };
+  actions?: (close: () => void) => ReactNode;
+  actionsTitle?: string;
+  actionsNoun?: string;
+  testIdPrefix: string;
+}) {
+  return (
+    <InPageNavHeader
+      back={back}
+      title={title}
+      primaryAction={primaryAction}
+      actions={actions}
+      actionsTitle={actionsTitle}
+      actionsNoun={actionsNoun}
+      testIdPrefix={testIdPrefix}
+      containerClassName={cmePageWidth}
     />
   );
 }

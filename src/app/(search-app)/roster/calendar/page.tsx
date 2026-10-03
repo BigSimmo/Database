@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { OnCallCalendarPage } from "@/components/on-call/on-call-calendar-page";
 
 export const metadata: Metadata = {
-  title: "Calendar | Roster | PsychSift",
+  title: "Teaching and expiry dates | Roster | PsychSift",
   description: "Teaching sessions and recorded expiry dates, which you can add to your own calendar.",
 };
 

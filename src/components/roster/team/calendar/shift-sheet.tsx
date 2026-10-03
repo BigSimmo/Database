@@ -51,8 +51,9 @@ export function ShiftSheet({
   flags?: readonly RuleFlag[];
   /**
    * Set for a manager: posts the shift as an open shift, shows any waiting swap
-   * that touches it with Approve and Decline in place, and reloads the
-   * calendar after either.
+   * that touches it with Approve and Decline in place (each rechecked live
+   * before it is sent, as in the Review sheet), and reloads the calendar after
+   * either.
    */
   manage?: {
     onChanged: () => void;
@@ -122,10 +123,11 @@ export function ShiftSheet({
               swap={swap}
               checks={manage.checks}
               busy={decision.busy}
-              onDecide={(action) => void decision.decide(action)}
+              onDecide={(item, approve) => void decision.decide(item, approve)}
             />
           ))}
           <DecisionAnswer message={decision.message} errors={decision.errors} />
+          {decision.reviewDialog}
         </div>
       ) : null}
       {offered ? (

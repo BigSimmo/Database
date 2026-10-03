@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 import { onCallTeachingDateParts } from "@/lib/on-call/teaching-schedule";
 
 const DAY_MS = 86_400_000;
@@ -19,7 +21,8 @@ function shortDate(date: string): string {
  *
  * `today` may fall before, on or after the window; the marker clamps to the
  * track so a passed date still draws (fully filled, today past the end)
- * rather than overflowing it.
+ * rather than overflowing it, and the "Today" label stays inside the bar's
+ * own bounds at either end.
  */
 export function TodayWindowBar({ start, end, today }: { start: string; end: string; today: string }) {
   const startIndex = dayIndex(start);
@@ -30,23 +33,28 @@ export function TodayWindowBar({ start, end, today }: { start: string; end: stri
 
   return (
     <div className="grid gap-1.5" data-testid="admin-today-renew-next-window">
-      <div className="relative pt-4">
+      {/* One measured value, `--today-at`, drives the label, the fill and the
+          marker, so the three can never disagree. */}
+      <div
+        className="relative pt-4"
+        style={{ "--today-at": `${percent}%` } as CSSProperties}
+        data-testid="admin-today-renew-next-window-track"
+      >
+        {/* The label slides along its own width as the marker moves: centred
+            at the middle, flush left at the start, flush right at the end
+            (`left: p%` + `translateX(-p%)`). So it can never spill past the
+            card's edge, and the marker always sits under the word. */}
         <span
-          className="absolute top-0 -translate-x-1/2 text-xs font-medium text-[color:var(--text-heading)]"
-          style={{ left: `${percent}%` }}
+          className="absolute left-[var(--today-at)] top-0 -translate-x-[var(--today-at)] whitespace-nowrap text-xs font-medium text-[color:var(--text-heading)]"
+          data-testid="admin-today-renew-next-window-today"
         >
           Today
         </span>
         <div className="relative h-1.5 w-full overflow-visible rounded-full bg-[color:var(--border)]">
-          <div
-            className="h-full rounded-full bg-[color:var(--text-muted)]"
-            style={{ width: `${percent}%` }}
-            aria-hidden="true"
-          />
+          <div className="h-full w-[var(--today-at)] rounded-full bg-[color:var(--text-muted)]" aria-hidden="true" />
           <span
             aria-hidden="true"
-            className="absolute top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--text-heading)]"
-            style={{ left: `${percent}%` }}
+            className="absolute left-[var(--today-at)] top-1/2 h-3 w-0.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[color:var(--text-heading)]"
           />
           <span
             aria-hidden="true"

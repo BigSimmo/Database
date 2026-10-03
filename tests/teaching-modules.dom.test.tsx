@@ -259,7 +259,7 @@ describe("ActionStrip", () => {
       <ActionStrip
         layout="stack"
         actions={[
-          { id: "scan", label: "Scan to check in", href: `/teaching/session/${OCC}?check-in=scan` },
+          { id: "scan", label: "Check in with code", href: `/teaching/session/${OCC}?check-in=scan` },
           {
             id: "self",
             label: "Check in without code",
@@ -271,7 +271,7 @@ describe("ActionStrip", () => {
         ]}
       />,
     );
-    expect(screen.getByRole("link", { name: "Scan to check in" })).toHaveAttribute(
+    expect(screen.getByRole("link", { name: "Check in with code" })).toHaveAttribute(
       "href",
       `/teaching/session/${OCC}?check-in=scan`,
     );
@@ -298,7 +298,7 @@ describe("TeachingHero", () => {
     const hero = screen.getByTestId("teaching-hero");
     expect(within(hero).getByText("12:30").className).toContain("font-normal");
     expect(within(hero).getByText("Next up")).toBeInTheDocument();
-    expect(within(hero).getByRole("link", { name: "Join on Teams" })).toHaveAttribute(
+    expect(within(hero).getByRole("link", { name: /^Join on Teams/ })).toHaveAttribute(
       "href",
       "https://teams.example.test/x",
     );
@@ -372,7 +372,11 @@ describe("TeachingStateNotice", () => {
     ["empty", "No sessions yet", "Nothing published by Demo service."],
     ["no-team", "You're not in a teaching service yet", "Ask your service's organiser to invite you."],
     ["signed-out", "Sign in to see your teaching", "Sessions, check-ins and your logbook."],
-    ["offline", "You're offline", "Missed check-ins can be added for 7 days."],
+    [
+      "offline",
+      "You're offline",
+      "Reconnect, then try again. A check-in you couldn't record can still be added for 7 days.",
+    ],
     ["error", "Teaching couldn't load", "Nothing changed. Your records are safe."],
     ["setup", "Teaching is being set up", "It will appear here when it's ready."],
   ] as const)("words the %s state as one module", (state, title, body) => {

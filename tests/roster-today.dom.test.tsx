@@ -74,7 +74,10 @@ function renderToday(now = "2026-10-13T02:00:00Z") {
 beforeEach(() => {
   routes.clear();
   fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const handler = routes.get(`${init?.method ?? "GET"} ${String(input)}`);
+    const url = String(input);
+    // A team's assignments are read for a window this test does not pin; one route answers any window.
+    const key = url.includes("?what=assignments&") ? url.slice(0, url.indexOf("&")) : url;
+    const handler = routes.get(`${init?.method ?? "GET"} ${key}`);
     return handler ? handler(init) : Response.json({});
   });
   vi.stubGlobal("fetch", fetchMock);
@@ -122,6 +125,58 @@ describe("Roster Today", () => {
     expect(strip.querySelectorAll("[data-kind]")).toHaveLength(2);
     expect(screen.getByLabelText("Thu 15 Oct: Night")).toBeInTheDocument();
     expect(screen.getByTestId("roster-today-next-night")).toHaveTextContent("Thu 15 Oct");
+  });
+
+  it("shows the rest before the next shift on the hero, the same cue as Shifts", async () => {
+    mockShifts([day("2026-10-12"), day("2026-10-13")]);
+    renderToday("2026-10-12T23:05:00Z"); // 07:05 Tuesday in Perth; Monday's shift ended 16:30
+    const rest = await screen.findByTestId("roster-today-rest");
+    expect(rest).toHaveTextContent("15 h 30 min rest");
+    // A shift with no team carries no team rule, so the cue is never a warning.
+    expect(rest).not.toHaveAttribute("data-warning");
+  });
+
+  it("offers Who can cover? for the next team shift even while another shift is on now", async () => {
+    const teamId = "22222222-2222-4222-8222-222222222222";
+    const actorId = "11111111-1111-4111-8111-111111111111";
+    mockShifts([day("2026-10-13")]);
+    routes.set("GET /api/roster/team", () =>
+      Response.json({
+        actorId,
+        teams: [{ serviceId: teamId, name: "General Medicine", enabled: true, role: "member", grade: "registrar" }],
+      }),
+    );
+    routes.set(`GET /api/roster/team/${teamId}?what=assignments`, () =>
+      Response.json({
+        assignments: [
+          {
+            id: "33333333-3333-4333-8333-000000000001",
+            userId: actorId,
+            name: "Dr Alex Example",
+            grade: "registrar",
+            siteId: null,
+            siteName: "Example Hospital",
+            startsAt: "2026-10-16T08:00:00+08:00",
+            endsAt: "2026-10-16T16:30:00+08:00",
+            shiftCode: "D",
+            kind: "day",
+          },
+        ],
+      }),
+    );
+    routes.set(`GET /api/roster/team/${teamId}?what=overview`, () =>
+      Response.json({
+        service: { id: teamId, name: "General Medicine" },
+        me: { role: "member", grade: "registrar", rotationEndsOn: null },
+        latestPublication: null,
+        seenLatest: true,
+        settings: { swapApproval: "auto_same_grade", rules: {}, rulesSource: null, payFortnightAnchor: null },
+        sites: [],
+      }),
+    );
+    renderToday("2026-10-13T02:00:00Z"); // 10:00 Tuesday in Perth: the imported day shift is on now
+    const cover = await screen.findByTestId("roster-today-cover");
+    expect(cover).toHaveTextContent("Who can cover?");
   });
 
   it("turns into the night dial between midnight and 06:00 on a night", async () => {

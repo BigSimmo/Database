@@ -1,0 +1,14 @@
+{
+  "version": 2,
+  "id": "84ee2e81-35fa-44a5-b152-3beaff6c37cc",
+  "createdOn": "2026-10-02",
+  "action": "add",
+  "payload": {
+    "pri": "P3",
+    "type": "rec",
+    "summary": "Teaching: organisers have no view of who did not attend (attendance-gap views)",
+    "detail": "Owner product decision needed (raised in the Teaching Mode polish, PR #3200). Organise shows the register and an attendance download, but nothing lists members with no check-in across sessions. Privacy-sensitive: decide who may see it (organiser only?), over what period, and the honest wording ('no check-in recorded', never 'missed'). Next action: owner decides scope and audience; then design on Organise using existing attendance reads, with personal-practice review before build.",
+    "source": "Session 2026-10-02, PR #3200",
+    "issueUlid": "01M3YR0BH6WVS32FQ4JDQB83V2"
+  }
+}

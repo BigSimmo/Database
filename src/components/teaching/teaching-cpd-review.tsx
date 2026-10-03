@@ -2,12 +2,21 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
+import { focusRing } from "@/components/card-recipes";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { TeachingAccountPage, TeachingDepthPage } from "@/components/teaching/teaching-depth-page";
-import { perthDateKey } from "@/components/teaching/teaching-dates";
+import { modeInsetHairline, modeModuleSurface } from "@/components/mode-kit/recipes";
+import {
+  TeachingAccountPage,
+  TeachingDepthPage,
+  teachingStickySubmit,
+} from "@/components/teaching/teaching-depth-page";
+import { perthDateKey, perthTime, shortDayLabel } from "@/components/teaching/teaching-dates";
 import { useTeachingNow } from "@/components/teaching/use-teaching-now";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/choice";
+import { TextField } from "@/components/ui/text-field";
+import { cn, textMuted } from "@/components/ui-primitives";
 import { teachingErrorMessage, teachingPost } from "@/lib/teaching/client";
 import { demoCpdReview } from "@/lib/teaching/depth-demo";
 import {
@@ -45,7 +54,7 @@ function ReviewPage({ demoMode }: { demoMode: boolean }) {
         Choose the sessions and hours you want to log. Attendance does not award CPD credit. These entries are private
         to you; your service cannot see your CPD figures.
       </ModeNotice>
-      {rows?.length === 0 ? <p>No attended sessions waiting to be logged.</p> : null}
+      {rows?.length === 0 ? <ModeNotice>No attended sessions waiting to be logged.</ModeNotice> : null}
       <form
         className="grid gap-3"
         onSubmit={async (event) => {
@@ -73,72 +82,89 @@ function ReviewPage({ demoMode }: { demoMode: boolean }) {
           }
         }}
       >
-        {rows?.map((row) => (
-          <div key={row.occurrenceId} className="grid gap-2 border-b border-[color:var(--border)] py-3">
-            <label className="flex min-h-12 items-center gap-3">
-              <input
-                type="checkbox"
-                disabled={busy || logged.has(row.occurrenceId)}
-                checked={!!chosen[row.occurrenceId]}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setChosen((previous) => {
-                    const next = { ...previous };
-                    if (checked) next[row.occurrenceId] = { hours: String(row.hours), requestId: crypto.randomUUID() };
-                    else delete next[row.occurrenceId];
-                    return next;
-                  });
-                }}
-              />
-              <span>
-                {row.title}
-                <span className="block text-sm">
-                  {row.serviceName} · {perthDateKey(new Date(row.startsAt))}
-                </span>
-              </span>
-            </label>
-            {chosen[row.occurrenceId] && !logged.has(row.occurrenceId) ? (
-              <label className="grid gap-1">
-                Hours for {row.title}
-                <input
-                  type="number"
-                  min="0.25"
-                  max="8"
-                  step="0.25"
-                  required
-                  disabled={busy}
-                  value={chosen[row.occurrenceId].hours}
-                  onChange={(event) => {
-                    const hours = event.target.value;
-                    setChosen((previous) => ({
-                      ...previous,
-                      [row.occurrenceId]: { ...previous[row.occurrenceId], hours },
-                    }));
-                  }}
-                  className="min-h-12 rounded border border-[color:var(--border)] bg-[color:var(--surface)] px-3"
-                />
-              </label>
-            ) : null}
-            {results
-              .filter((result) => result.occurrenceId === row.occurrenceId)
-              .map((result) => (
-                <p key={result.occurrenceId} role="status">
-                  {result.entryId ? "Saved to your private CPD log." : (result.message ?? "Not saved. Try again.")}
-                </p>
-              ))}
-          </div>
-        ))}
-        {selected.length > CPD_REVIEW_MAX_ROWS ? (
-          <p role="alert">Choose up to {CPD_REVIEW_MAX_ROWS} sessions at a time.</p>
+        {rows?.length ? (
+          <ul role="list" className={cn(modeModuleSurface, "grid")} data-testid="teaching-review-rows">
+            {rows.map((row) => {
+              const done = logged.has(row.occurrenceId);
+              return (
+                <li key={row.occurrenceId} className={cn(modeInsetHairline, "grid gap-2 px-3 py-1")}>
+                  <Checkbox
+                    label={row.title}
+                    description={`${row.serviceName} · ${shortDayLabel(perthDateKey(row.startsAt))} · ${perthTime(row.startsAt)}`}
+                    disabled={busy || done}
+                    checked={!!chosen[row.occurrenceId]}
+                    onChange={(event) => {
+                      const checked = event.target.checked;
+                      setChosen((previous) => {
+                        const next = { ...previous };
+                        if (checked)
+                          next[row.occurrenceId] = { hours: String(row.hours), requestId: crypto.randomUUID() };
+                        else delete next[row.occurrenceId];
+                        return next;
+                      });
+                    }}
+                  />
+                  {chosen[row.occurrenceId] && !done ? (
+                    <TextField
+                      label={`Hours for ${row.title}`}
+                      type="number"
+                      inputMode="decimal"
+                      min="0.25"
+                      max="8"
+                      step="0.25"
+                      required
+                      disabled={busy}
+                      value={chosen[row.occurrenceId].hours}
+                      onChange={(event) => {
+                        const hours = event.target.value;
+                        setChosen((previous) => ({
+                          ...previous,
+                          [row.occurrenceId]: { ...previous[row.occurrenceId], hours },
+                        }));
+                      }}
+                    />
+                  ) : null}
+                  {results
+                    .filter((result) => result.occurrenceId === row.occurrenceId)
+                    .map((result) => (
+                      <p key={result.occurrenceId} role="status" className={cn("pb-2 text-sm", textMuted)}>
+                        {result.entryId
+                          ? "Saved to your private CPD log."
+                          : (result.message ?? "Not saved. Try again.")}
+                      </p>
+                    ))}
+                </li>
+              );
+            })}
+          </ul>
         ) : null}
         {rows?.length ? (
-          <Button type="submit" variant="primary" disabled={busy || !parsed.success}>
-            {busy ? "Saving…" : "Log selected sessions to my CPD"}
-          </Button>
+          <div className={teachingStickySubmit}>
+            {selected.length > CPD_REVIEW_MAX_ROWS ? (
+              <p role="alert" className="text-sm text-[color:var(--text-heading)]">
+                Choose up to {CPD_REVIEW_MAX_ROWS} sessions at a time.
+              </p>
+            ) : null}
+            {error ? (
+              <p role="alert" className="text-sm text-[color:var(--text-heading)]">
+                {error}
+              </p>
+            ) : null}
+            <Button type="submit" variant="primary" block disabled={busy || !parsed.success}>
+              {busy ? "Saving…" : "Log selected sessions to my CPD"}
+            </Button>
+          </div>
+        ) : error ? (
+          <p role="alert">{error}</p>
         ) : null}
-        {error ? <p role="alert">{error}</p> : null}
       </form>
-      <Link href="/cme/log" className="inline-flex min-h-12 items-center underline">
+      <Link
+        href="/cme/log"
+        className={cn(
+          "inline-flex min-h-tap items-center self-start px-1 text-sm font-medium text-[color:var(--primary)]",
+          focusRing,
+        )}
+      >
         Open my private CPD log
       </Link>
     </TeachingDepthPage>

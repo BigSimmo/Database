@@ -20,6 +20,7 @@ function Probe({ url }: { url: string | null }) {
     <div>
       <span data-testid="status">{resource.status}</span>
       <span data-testid="count">{resource.data?.count ?? ""}</span>
+      <span data-testid="refreshing">{String(resource.refreshing)}</span>
       <button type="button" onClick={resource.retry}>
         retry
       </button>
@@ -45,6 +46,47 @@ describe("useTeachingResource", () => {
     await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("1"));
     act(() => screen.getByRole("button", { name: "retry" }).click());
     await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("2"));
+  });
+
+  it("keeps the last data on screen while a retry of the same read is in flight", async () => {
+    let release: (() => void) | null = null;
+    let count = 0;
+    serveFetch(() => {
+      count += 1;
+      if (count === 1) return json(200, { count: 1 });
+      return new Promise<Response>((resolve) => {
+        release = () => resolve(json(200, { count: 2 }));
+      });
+    });
+    render(<Probe url="/x" />);
+    await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("1"));
+    act(() => screen.getByRole("button", { name: "retry" }).click());
+    expect(screen.getByTestId("status")).toHaveTextContent("ready");
+    expect(screen.getByTestId("count")).toHaveTextContent("1");
+    expect(screen.getByTestId("refreshing")).toHaveTextContent("true");
+    await act(async () => release?.());
+    await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("2"));
+    expect(screen.getByTestId("refreshing")).toHaveTextContent("false");
+  });
+
+  it("never carries data across to another URL or account", async () => {
+    serveFetch((url) => (url === "/x" ? json(200, { count: 1 }) : new Promise<Response>(() => {})));
+    const { rerender } = render(<Probe url="/x" />);
+    await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("1"));
+    rerender(<Probe url="/y" />);
+    expect(screen.getByTestId("status")).toHaveTextContent("loading");
+    expect(screen.getByTestId("count")).toHaveTextContent("");
+  });
+
+  it("drops the last data when the account changes, even for the same URL", async () => {
+    let count = 0;
+    serveFetch(() => (++count === 1 ? json(200, { count: 1 }) : new Promise<Response>(() => {})));
+    const { rerender } = render(<Probe url="/x" />);
+    await waitFor(() => expect(screen.getByTestId("count")).toHaveTextContent("1"));
+    authState.authEpoch = 2;
+    rerender(<Probe url="/x" />);
+    expect(screen.getByTestId("status")).toHaveTextContent("loading");
+    expect(screen.getByTestId("count")).toHaveTextContent("");
   });
 
   it("reports signed out on 401 and set-up on teaching_setup_pending", async () => {

@@ -1,6 +1,6 @@
 interface:
   display_name: "Plan Alias"
-  short_description: "Compatibility alias for Database planning"
+  short_description: "Compatibility alias for PsychSift planning"
   default_prompt: "Use $database-flightplan only as a compatibility alias for $plan."
 policy:
   allow_implicit_invocation: false

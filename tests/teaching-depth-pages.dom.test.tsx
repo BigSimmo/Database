@@ -1,5 +1,5 @@
 /** @vitest-environment jsdom */
-import { act, cleanup, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const auth = vi.hoisted(() => ({ status: "authenticated", authEpoch: 1 }));
@@ -12,9 +12,10 @@ import { TeachingSupervision } from "@/components/teaching/teaching-supervision"
 import { TeachingTeach } from "@/components/teaching/teaching-teach";
 import { useDelayedPost } from "@/components/teaching/use-delayed-post";
 import { demoFeedbackOpen, demoSupervision, demoTeach } from "@/lib/teaching/depth-demo";
-import { IMPORT_TEMPLATE_HEADERS } from "@/lib/teaching/depth-model";
+import { IMPORT_TEMPLATE_HEADERS, readinessLabels } from "@/lib/teaching/depth-model";
 import { entry, pairingView, NOTE } from "./helpers/teaching-depth-fixtures";
 
+const NB = "\u00a0";
 const id = "11111111-1111-4111-8111-111111111111";
 const serviceId = "22222222-2222-4222-8222-222222222222";
 const row = {
@@ -98,13 +99,13 @@ describe("Teaching depth journeys", () => {
     ];
     vi.mocked(fetch).mockImplementation(async (_url, options) => reply(options?.method === "POST" ? {} : { pairings }));
     render(<TeachingSupervision demoMode={false} />);
-    const first = await screen.findByRole("button", { name: "Confirm 2026-09-25" });
+    const first = await screen.findByRole("button", { name: "Confirm Fri 25 Sep" });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     fireEvent.click(first);
-    expect(screen.getByRole("button", { name: "Confirm 2026-09-26" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Confirm Sat 26 Sep" })).toBeDisabled();
     await act(async () => vi.advanceTimersByTimeAsync(10000));
     expect(posts()).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Confirm 2026-09-26" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Confirm Sat 26 Sep" })).toBeEnabled();
   });
   it("requires explicit CPD selection and retains idempotency keys after an uncertain save", async () => {
     let writes = 0;
@@ -171,11 +172,12 @@ describe("Teaching depth journeys", () => {
     const pairing = demoSupervision("2026-09-27")[1];
     vi.mocked(fetch).mockImplementation(async () => reply({ pairings: [pairing] }));
     render(<TeachingSupervision demoMode={false} />);
-    const confirm = await screen.findByRole("button", { name: "Confirm 2026-09-26" });
+    const confirm = await screen.findByRole("button", { name: "Confirm Sat 26 Sep" });
     vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
     fireEvent.click(confirm);
     await act(async () => vi.advanceTimersByTime(9999));
     expect(posts()).toHaveLength(0);
+    expect(screen.getByTestId("teaching-supervision-pending")).toHaveClass("fixed");
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await act(async () => vi.advanceTimersByTime(10001));
     expect(posts()).toHaveLength(0);
@@ -194,7 +196,13 @@ describe("Teaching depth journeys", () => {
   });
 
   it("previews rows before importing and prevents a blind repeat after an uncertain commit", async () => {
-    const series = { title: "Demo session" };
+    const series = {
+      title: "Demo session",
+      repeat: "once",
+      firstDate: "2026-09-28",
+      startTime: "12:30",
+      venue: "Demo room",
+    };
     vi.mocked(fetch).mockImplementation(async (_url, options) => {
       if (options?.method !== "POST")
         return reply({ teams: [{ id: serviceId, name: "Demo service", role: "organiser" }] });
@@ -212,6 +220,9 @@ describe("Teaching depth journeys", () => {
     });
     fireEvent.change(input, { target: { files: [file] } });
     await screen.findByText("Preview — nothing imported yet");
+    expect(screen.getByTestId("teaching-import-preview-when")).toHaveTextContent(
+      "Mon 28 Sep · 12:30 Perth · Once · Demo room",
+    );
     expect(posts()).toHaveLength(1);
     expect(JSON.parse(String(posts()[0][1]?.body)).action).toBe("import.preview");
     fireEvent.click(screen.getByRole("button", { name: "Import these sessions" }));
@@ -226,5 +237,131 @@ describe("Teaching depth journeys", () => {
     fireEvent.click(screen.getByRole("button", { name: "Send feedback" }));
     await waitFor(() => expect(screen.getByText("Demo answer recorded on this page.")).toBeInTheDocument());
     expect(fetch).not.toHaveBeenCalled();
+  });
+
+  it("offers a template with one made-up example row, and a styled service picker", async () => {
+    vi.mocked(fetch).mockImplementation(async () =>
+      reply({
+        teams: [
+          { id: serviceId, name: "Demo service", role: "organiser" },
+          { id, name: "Demo second service", role: "admin" },
+        ],
+      }),
+    );
+    render(<TeachingImport demoMode={false} />);
+    const template = await screen.findByRole("link", { name: "Download CSV template" });
+    const csv = decodeURIComponent(template.getAttribute("href")!.replace("data:text/csv;charset=utf-8,", ""));
+    expect(csv.split("\r\n").filter(Boolean)).toEqual([
+      IMPORT_TEMPLATE_HEADERS.join(","),
+      expect.stringMatching(/^Demo journal club,/),
+    ]);
+    expect(screen.getByRole("combobox", { name: "Service" })).toBeInTheDocument();
+    expect(screen.getByLabelText(/Choose CSV/)).toHaveAttribute("type", "file");
+  });
+
+  it("ticks readiness at once and keeps the page on screen while it refetches after the save", async () => {
+    let reads = 0;
+    let finishPost: (response: Response) => void = () => {};
+    vi.mocked(fetch).mockImplementation(async (_url, options) => {
+      if (options?.method === "POST") return new Promise<Response>((resolve) => (finishPost = resolve));
+      // The refetch after the save never answers, so the page must keep its data on screen.
+      return ++reads === 1 ? reply(demoTeach("2026-09-27")) : new Promise<Response>(() => {});
+    });
+    const view = render(<TeachingTeach demoMode={false} />);
+    const aims = await screen.findByRole("checkbox", { name: "Aims written" });
+    expect(aims).not.toBeChecked();
+    fireEvent.click(aims);
+    expect(aims).toBeChecked();
+    await act(async () => finishPost(reply({ items: ["aims"], deidConfirmedAt: null })));
+    await waitFor(() => expect(reads).toBe(2));
+    expect(screen.getByRole("checkbox", { name: "Aims written" })).toBeChecked();
+    expect(view.container.querySelector("[data-skeleton-row]")).toBeNull();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("keeps the readiness list usable while a tick saves, and sends the ticks one at a time", async () => {
+    const finishPosts: Array<(response: Response) => void> = [];
+    vi.mocked(fetch).mockImplementation(async (_url, options) => {
+      if (options?.method === "POST") return new Promise<Response>((resolve) => finishPosts.push(resolve));
+      return reply(demoTeach("2026-09-27"));
+    });
+    render(<TeachingTeach demoMode={false} />);
+    const aims = await screen.findByRole("checkbox", { name: "Aims written" });
+    const reading = screen.getByRole("checkbox", { name: readinessLabels.reading_list });
+    aims.focus();
+    fireEvent.click(aims);
+    expect(aims).toBeEnabled();
+    expect(aims).toHaveFocus();
+    fireEvent.click(reading);
+    expect(aims).toBeChecked();
+    expect(reading).toBeChecked();
+    // The second tick waits for the first to finish, so the server sees them in order.
+    expect(posts()).toHaveLength(1);
+    await act(async () => finishPosts[0](reply({ items: ["room", "slides_link", "aims"], deidConfirmedAt: null })));
+    await waitFor(() => expect(posts()).toHaveLength(2));
+    // A server answer that predates a queued tick does not untick it.
+    expect(reading).toBeChecked();
+    await act(async () =>
+      finishPosts[1](reply({ items: ["room", "slides_link", "aims", "reading_list"], deidConfirmedAt: null })),
+    );
+    expect(aims).toBeChecked();
+    expect(reading).toBeChecked();
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("moves focus to the confirmation once de-identification is confirmed", async () => {
+    vi.mocked(fetch).mockImplementation(async () => reply(demoTeach("2026-09-27")));
+    render(<TeachingTeach demoMode />);
+    const confirm = await screen.findByRole("button", { name: "I have checked that my material is de-identified" });
+    confirm.focus();
+    fireEvent.click(confirm);
+    expect(await screen.findByText("De-identification confirmed.")).toHaveFocus();
+  });
+
+  it("rolls a failed readiness tick back and says so", async () => {
+    vi.mocked(fetch).mockImplementation(async (_url, options) =>
+      options?.method === "POST" ? reply({}, 503) : reply(demoTeach("2026-09-27")),
+    );
+    render(<TeachingTeach demoMode={false} />);
+    const aims = await screen.findByRole("checkbox", { name: "Aims written" });
+    fireEvent.click(aims);
+    expect(aims).toBeChecked();
+    expect(await screen.findByRole("alert")).toHaveTextContent(/^Not saved\./);
+    expect(aims).not.toBeChecked();
+  });
+
+  it("asks feedback with two tap rows of 48px radios, five for usefulness and three for pace", async () => {
+    render(<TeachingFeedback demoMode />);
+    const useful = await screen.findAllByRole("radiogroup", { name: "How useful was it? 1 (least) to 5 (most)" });
+    const pace = screen.getAllByRole("radiogroup", { name: "Pace" });
+    const radios = within(useful[0]).getAllByRole("radio");
+    expect(radios.map((radio) => radio.textContent)).toEqual(["1", "2", "3", "4", "5"]);
+    expect(
+      within(pace[0])
+        .getAllByRole("radio")
+        .map((radio) => radio.textContent),
+    ).toEqual(["Too slow", "About right", "Too fast"]);
+    for (const radio of radios) expect(radio).toHaveClass("min-h-tap");
+    fireEvent.click(radios[2]);
+    expect(radios[2]).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+  });
+
+  it("writes supervision in hours, labels and readable dates, with topics as chips capped at five", async () => {
+    vi.mocked(fetch).mockImplementation(async () => reply({ pairings: [pairingView()] }));
+    render(<TeachingSupervision demoMode={false} />);
+    expect(await screen.findByText(/Confirmed: 1\sh · Pending: 1\.5\sh/)).toBeInTheDocument();
+    const lines = Array.from(document.querySelectorAll("p"), (line) => line.textContent ?? "");
+    expect(lines).toContain(`Mon 28 Sep · 90${NB}min · Group · Awaiting confirmation`);
+    expect(lines).toContain(`Mon 21 Sep · 60${NB}min · Individual · Confirmed`);
+    expect(screen.queryByText(/2026-09-28/)).toBeNull();
+    expect(screen.getByRole("button", { name: "Correct Mon 28 Sep" })).toBeInTheDocument();
+    const topics = ["case review", "risk", "psychotherapy", "formulation", "medication"];
+    for (const topic of topics) fireEvent.click(screen.getByRole("button", { name: topic }));
+    for (const topic of topics)
+      expect(screen.getByRole("button", { name: topic })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "career" })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "risk" }));
+    expect(screen.getByRole("button", { name: "career" })).toBeEnabled();
   });
 });

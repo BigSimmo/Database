@@ -1,6 +1,6 @@
 "use client";
 import { Clipboard, MapPin, MessageCircle, ShieldCheck } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ContactActions } from "@/components/first-nations/number-button";
 import {
   FnButton,
@@ -61,19 +61,42 @@ function DialRow({ contact }: { contact: ContactView }) {
   );
 }
 
-function WaLineMap({ map, selectedId }: { map: WaMap; selectedId: string | null }) {
+function WaLineMap({
+  map,
+  selectedId,
+  onSelect,
+  regionLabels,
+}: {
+  map: WaMap;
+  selectedId: string | null;
+  onSelect?: (id: string) => void;
+  regionLabels?: Record<string, string>;
+}) {
   return (
-    <svg viewBox={map.viewBox} aria-hidden="true" className="mx-auto h-48 w-full">
+    <svg viewBox={map.viewBox} aria-label="Western Australia regions map" className="mx-auto h-48 w-full">
       {map.regions.map((r: WaMap["regions"][number]) => (
         <path
           key={r.id}
           d={r.path}
           vectorEffect="non-scaling-stroke"
           strokeWidth={1}
+          role="button"
+          tabIndex={0}
+          aria-label={`${regionLabels?.[r.id] ?? r.id} on map`}
+          aria-pressed={r.id === selectedId}
+          data-testid={`fn-map-region-${r.id}`}
+          onClick={() => onSelect?.(r.id)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              onSelect?.(r.id);
+            }
+          }}
           className={cn(
+            "cursor-pointer transition-colors duration-[var(--duration-quick)] outline-none focus-visible:stroke-[color:var(--clinical-accent)] focus-visible:stroke-2",
             r.id === selectedId
               ? "fill-[color:var(--clinical-accent-soft)] stroke-[color:var(--clinical-accent)]"
-              : "fill-[color:var(--surface-subtle)] stroke-[color:var(--border-strong)]",
+              : "fill-[color:var(--surface-subtle)] stroke-[color:var(--border-strong)] hover:fill-[color:var(--clinical-accent-soft)]/50",
           )}
         />
       ))}
@@ -102,6 +125,7 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
       () => setNote("Copied"),
       () => setNote("Copying isn't available on this phone"),
     );
+  const regionLabels = useMemo(() => Object.fromEntries(regions.map((r) => [r.id, r.label])), [regions]);
   return (
     <div className="grid gap-3">
       <section
@@ -117,7 +141,7 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
             Never saved or sent
           </p>
         </div>
-        <WaLineMap map={map} selectedId={regionId} />
+        <WaLineMap map={map} selectedId={regionId} onSelect={setRegionId} regionLabels={regionLabels} />
         <div role="group" aria-label="Home region" className="grid grid-cols-2 gap-x-2 gap-y-3">
           {regions.map((r) => (
             <button

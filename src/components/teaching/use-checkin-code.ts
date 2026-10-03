@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 
 import { ApiClientError } from "@/lib/api-client-error";
 import { TeachingSignedOutError, teachingErrorMessage, teachingGet } from "@/lib/teaching/client";
@@ -47,13 +47,60 @@ function live<T extends CodePayload>(payload: T): LiveCode<T> {
   return { payload, windowStartMs, showUntilMs: windowStartMs + CHECKIN_WINDOW_MS + SHOW_PAST_WINDOW_MS };
 }
 
+/*
+ * Polling and the 1-second clock both rest while the page is hidden (a phone
+ * in a pocket, another tab): nothing on screen to update, and no battery spent.
+ * Back in view, the code is fetched at once.
+ */
+function subscribeVisibility(onChange: () => void): () => void {
+  document.addEventListener("visibilitychange", onChange);
+  return () => document.removeEventListener("visibilitychange", onChange);
+}
+
+export function usePageVisible(): boolean {
+  return useSyncExternalStore(
+    subscribeVisibility,
+    () => document.visibilityState !== "hidden",
+    () => true,
+  );
+}
+
+/** The time on a 1-second tick that stops while the page is hidden. Null on the server and during hydration. */
+export function useCheckinClock(intervalMs = 1000): Date | null {
+  const subscribe = useCallback(
+    (onChange: () => void) => {
+      let timer: number | undefined;
+      const sync = () => {
+        window.clearInterval(timer);
+        timer = undefined;
+        if (document.visibilityState !== "hidden") timer = window.setInterval(onChange, intervalMs);
+        onChange();
+      };
+      sync();
+      document.addEventListener("visibilitychange", sync);
+      return () => {
+        window.clearInterval(timer);
+        document.removeEventListener("visibilitychange", sync);
+      };
+    },
+    [intervalMs],
+  );
+  const tick = useSyncExternalStore(
+    subscribe,
+    () => Math.floor(Date.now() / intervalMs) * intervalMs,
+    () => null,
+  );
+  return useMemo(() => (tick === null ? null : new Date(tick)), [tick]);
+}
+
 type Held<T extends CodePayload> = { url: string; code: LiveCode<T> | null; message: string | null; ended: boolean };
 
 export function useCheckinCode<T extends CodePayload>(url: string | null, nowMs: number | null): CheckinCodeView<T> {
   const [held, setHeld] = useState<Held<T> | null>(null);
+  const visible = usePageVisible();
 
   useEffect(() => {
-    if (!url) return;
+    if (!url || !visible) return;
     let stopped = false;
     let timer: number | undefined;
     const controller = new AbortController();
@@ -83,7 +130,7 @@ export function useCheckinCode<T extends CodePayload>(url: string | null, nowMs:
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [url]);
+  }, [url, visible]);
 
   const mine = url && held?.url === url ? held : null;
   if (!mine) return { phase: "loading", code: null, message: null };
@@ -121,9 +168,10 @@ export function attendanceTiles(
 /** Counts every 10 seconds. A failed poll keeps the last counts: they are a comfort, not a record. */
 export function useRegisterCounts(url: string | null): AttendanceCounts | null {
   const [held, setHeld] = useState<{ url: string; counts: AttendanceCounts } | null>(null);
+  const visible = usePageVisible();
 
   useEffect(() => {
-    if (!url) return;
+    if (!url || !visible) return;
     let stopped = false;
     let timer: number | undefined;
     const controller = new AbortController();
@@ -142,7 +190,7 @@ export function useRegisterCounts(url: string | null): AttendanceCounts | null {
       controller.abort();
       window.clearTimeout(timer);
     };
-  }, [url]);
+  }, [url, visible]);
 
   return held && held.url === url ? held.counts : null;
 }

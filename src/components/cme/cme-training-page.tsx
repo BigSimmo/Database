@@ -29,6 +29,7 @@ import {
   type TrainingPeriodKind,
   type TrainingPeriodProblem,
 } from "@/lib/cme/training-timeline";
+import { cmePageTitle } from "@/components/cme/cme-page-frame";
 
 /**
  * TRAINING — the trainee's own record of their training: stages, rotations
@@ -552,7 +553,7 @@ export function CmeTrainingPage({
 
   return (
     <main data-testid="cme-training" className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
-      <h1 className="text-xl font-semibold text-[color:var(--text)]">Training</h1>
+      <h1 className={cmePageTitle}>Training</h1>
       <p className={cn(textMuted, "mt-1 text-sm")}>
         Your own record of your training. It is not the college&apos;s record, and nothing here changes your CPD
         targets.

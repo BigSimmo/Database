@@ -48,6 +48,7 @@ plugins/          plugins/clinical-kb/ Codex plugin manifest and workflow skill
 .cursor/          Cursor project rules and local-agent configuration
 .design-sync/     Generated design-system package metadata and validation notes
 .githooks/        Installed by `npm install`; pre-push runs scripts/guard-push.mjs
+.docker/           Buildx configuration for reproducible container builds
 .vscode/          Shared VS Code workspace recommendations and settings
 ```
 
@@ -138,6 +139,7 @@ Smaller top-level directories that are easy to miss:
 | `.cursor/`      | Cursor project rules and local-agent configuration                                                                                                                                                                                                                                                                  |
 | `.design-sync/` | Generated design-system package metadata, validation notes, and project-sync artifacts                                                                                                                                                                                                                              |
 | `.githooks/`    | Installed by `npm install`; `pre-push` runs `scripts/guard-push.mjs` (user-owned auto-merge preservation, format, drift staleness, static lint+typecheck, ledger write discipline)                                                                                                                                  |
+| `.docker/`      | Buildx configuration for reproducible container builds                                                                                                                                                                                                                                                              |
 | `.vscode/`      | Shared VS Code workspace recommendations and settings                                                                                                                                                                                                                                                               |
 
 Local task coordination lives in `.superpowers/`: ignored task briefs, review packets, and verification logs.

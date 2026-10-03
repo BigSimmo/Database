@@ -180,6 +180,9 @@ describe("Swaps page swaps", () => {
     await user.click(screen.getByRole("tab", { name: /Sent/ }));
     expect(screen.getByText("Waiting on Sam, expires Thu 1 Jan")).toBeTruthy();
     await user.click(screen.getByRole("button", { name: "Withdraw" }));
+    // Withdrawing asks first; nothing is sent until it is confirmed.
+    expect(mocks.post).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Withdraw swap" }));
     expect(mocks.post).toHaveBeenCalledWith(SERVICE, { action: "swap.cancel", swapId: swap.id });
   });
 
@@ -260,6 +263,8 @@ describe("Swaps page open shifts", () => {
     render(<RosterSwapsPage />);
     await user.click(screen.getByRole("tab", { name: /Open shifts/ }));
     await user.click(screen.getByRole("button", { name: "Take it" }));
+    expect(mocks.post).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Take shift" }));
     expect(mocks.post).toHaveBeenCalledWith(SERVICE, { action: "open.claim", openShiftId: OPEN });
     expect(await screen.findByText("Someone else took this shift first.")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Take it" })).toBeNull();

@@ -13,6 +13,7 @@ import { modeModuleSurface } from "@/components/mode-kit/recipes";
 import { modeNumberText } from "@/components/mode-kit/type";
 import { filterResources, RESOURCE_KIND_WORDS, resourceWriteError } from "@/components/teaching/resources-model";
 import { addDays, mondayOf, perthDateKey } from "@/components/teaching/teaching-dates";
+import { TeachingCatchUp } from "@/components/teaching/teaching-catch-up";
 import { TeachingContextBar } from "@/components/teaching/teaching-modules";
 import { withUnit } from "@/components/teaching/teaching-number";
 import { ResourceRows } from "@/components/teaching/teaching-resource-list";
@@ -36,8 +37,8 @@ type WeekItem = ResourcesForWeek["forThisWeek"][number];
 const itemCount = (n: number) => withUnit(n, n === 1 ? "item" : "items");
 
 /**
- * Resources (spec §5a): this week's materials first, with catch-up for a session the reader missed, then
- * the collections as tiles (organiser-made and Saved), then the way to CPD's learning
+ * Resources (spec §5a): this week's materials first, after the catch-up list of ended sessions with no check-in recorded, then
+ * the collections as tiles (organiser-made, Recordings and Saved), then the way to CPD's learning
  * directory, which lives there and is never copied here. The filter box looks only through what is
  * already on screen: no request, no search, no AI, no mic (standard §13).
  */
@@ -80,11 +81,19 @@ export function TeachingResources({ demoMode, sampleData }: { demoMode: boolean;
           name: collection.name,
           count: collection.count,
         })),
+      { key: "recordings", href: "/teaching/resources/recordings", name: "Recordings", count: data.recordingsCount },
       { key: "saved", href: "/teaching/resources/saved", name: "Saved", count: data.savedCount },
     ].filter((tile) => !needle || tile.name.toLowerCase().includes(needle));
 
+    const catchUpWeek = week.week
+      ? {
+          sessions: week.week.sessions.filter((session) => inTeam(session.serviceId)),
+          attendance: week.week.attendance,
+        }
+      : null;
     body = (
       <>
+        <TeachingCatchUp status={week.status} week={catchUpWeek} resources={data.forThisWeek} now={now} />
         <TextField
           label="Filter resources"
           hideLabel
