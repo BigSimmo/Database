@@ -133,6 +133,11 @@ describe("Now: the safety order", () => {
     handbook.state = readyHandbook(handbookItems([{ id: "sw", title: "Switchboard", phone: "9000 0000" }]));
     const { container } = render(<OnCallHome now={IN_HOURS} />);
     expect(screen.queryByTestId("on-call-now-emergency")).toBeNull();
+    // It says so instead, with a way to set it up and no number to dial.
+    const notSetUp = screen.getByTestId("on-call-now-emergency-not-set-up");
+    expect(notSetUp).toHaveTextContent("Emergency number not set up for this hospital");
+    expect(screen.getByTestId("on-call-now-emergency-set-up-link")).toHaveAttribute("href", "/on-call/service");
+    expect(notSetUp.querySelector('a[href^="tel:"]')).toBeNull();
     // The hospital's numbers are on screen, so the public crisis lines step back too.
     expect(container.querySelector('a[href="tel:000"]')).toBeNull();
   });

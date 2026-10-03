@@ -1,7 +1,7 @@
 "use client";
 
 import { OnCallDialRow } from "@/components/on-call/kit/dial-row";
-import { OnCallGroupedList } from "@/components/on-call/kit/grouped-list";
+import { OnCallGroupedList, OnCallRow } from "@/components/on-call/kit/grouped-list";
 import { OnCallModuleSkeleton } from "@/components/on-call/kit/module-skeleton";
 import { OnCallUpdatedLine } from "@/components/on-call/kit/updated-line";
 import type { HospitalHandbookState } from "@/components/on-call/use-hospital-handbook";
@@ -14,9 +14,10 @@ import type { HandbookItem } from "@/lib/on-call/handbook-items";
  * Only site-named, `clinical` `Emergency:` entries qualify (at most three,
  * `pinnedEmergencyEntries`), each with the quiet red dot and disc. A short code
  * is desk-only and shows "From a hospital phone"; the mobile route recorded
- * beside it is the row's only call link. With nothing qualifying, nothing
- * renders: the app never invents an emergency number, and never 000 in its
- * place.
+ * beside it is the row's only call link. With nothing qualifying, one quiet
+ * row says so ("not set up for this hospital") and links to Service, where an
+ * editor records it: the app never invents an emergency number, and never 000
+ * in its place, so the row carries no call link at all.
  *
  * While the hospital loads, the slot is held as a static outline only when the
  * device remembers that this hospital HAS a pinned row (a yes or no, never the
@@ -36,7 +37,19 @@ export function NowEmergencyPin({
       <OnCallModuleSkeleton rows={1} twoLine testId="on-call-now-emergency-outlines" />
     ) : null;
   }
-  if (handbook.status !== "ready" || pins.length === 0) return null;
+  if (handbook.status !== "ready") return null;
+  if (pins.length === 0) {
+    return (
+      <OnCallGroupedList testId="on-call-now-emergency-not-set-up">
+        <OnCallRow
+          title="Emergency number not set up for this hospital"
+          subtitle="Add it in Service. Until then, use your hospital's own emergency process."
+          href="/on-call/service"
+          testId="on-call-now-emergency-set-up-link"
+        />
+      </OnCallGroupedList>
+    );
+  }
   const hospitalName = handbook.siteName ?? handbook.serviceName;
   const first = pins[0];
   return (
