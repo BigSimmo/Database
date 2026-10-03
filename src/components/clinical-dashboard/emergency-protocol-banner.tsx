@@ -34,11 +34,10 @@ export function EmergencyProtocolBanner({
   return (
     <aside
       role="alert"
-      aria-live="assertive"
       aria-label={`Emergency clinical protocol: ${protocol.name}`}
       data-testid="emergency-protocol-banner"
       className={cn(
-        "relative mb-4 overflow-hidden rounded-xl border-2 border-[color:var(--danger)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)] transition-all motion-safe:animate-fade-up",
+        "relative mb-4 overflow-hidden rounded-xl border-2 border-[color:var(--danger)] bg-[color:var(--surface-raised)] p-4 shadow-[var(--e2)] motion-safe:animate-fade-up",
         className,
       )}
     >

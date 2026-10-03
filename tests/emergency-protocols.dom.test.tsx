@@ -252,10 +252,9 @@ describe("selectEmergencyProtocolsForSurface (degraded setup)", () => {
 describe("EmergencyProtocolBanner DOM rendering", () => {
   const nmsProtocol = EMERGENCY_CLINICAL_PROTOCOLS.find((p) => p.id === "EMERG-NMS")!;
 
-  it("renders with role='alert' and aria-live='assertive'", () => {
+  it("renders with an alert role (implicitly assertive)", () => {
     const html = renderToStaticMarkup(<EmergencyProtocolBanner protocol={nmsProtocol} />);
     expect(html).toContain('role="alert"');
-    expect(html).toContain('aria-live="assertive"');
     expect(html).toContain('data-testid="emergency-protocol-banner"');
   });
 
