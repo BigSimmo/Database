@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import {
   ON_CALL_CALL_LOG_FULL_MESSAGE,
-  ON_CALL_CALL_LOG_IDENTIFIER_MESSAGE,
   ON_CALL_CALL_LOG_LIMIT,
   ON_CALL_CALL_LOG_NAME_MESSAGE,
   addOnCallCallLogEntry,
@@ -53,11 +52,13 @@ describe("onCallCallLogProblem", () => {
 
   it.each([
     ["a record number", { note: "URN: 1234567" }],
+    ["a bare seven-digit number", { note: "1234567 settled" }],
     ["a date of birth", { note: "DOB: 01/02/1980" }],
+    ["a bare date of birth", { note: "01/02/1980" }],
     ["a phone number", { followUp: "ring family on 0412 345 678" }],
     ["an email", { caller: "someone@example.com" }],
-  ])("refuses %s anywhere in the note", (_name, overrides) => {
-    expect(onCallCallLogProblem(draft(overrides))).toBe(ON_CALL_CALL_LOG_IDENTIFIER_MESSAGE);
+  ])("allows %s in the note, by owner decision", (_name, overrides) => {
+    expect(onCallCallLogProblem(draft(overrides))).toBeNull();
   });
 
   it.each(["Jane Smith", "Smith", "JANE SMITH", "Zoë Ng"])("refuses %s as a bed-or-initials label", (label) => {
@@ -71,7 +72,7 @@ describe("onCallCallLogProblem", () => {
 
 describe("the call log store", () => {
   it("never writes a refused note", () => {
-    const result = addOnCallCallLogEntry(draft({ note: "MRN: 998877" }), twoAm);
+    const result = addOnCallCallLogEntry(draft({ label: "Jane Smith" }), twoAm);
     expect(result.ok).toBe(false);
     expect(window.localStorage.getItem(onCallCallLogStorageKey)).toBeNull();
   });
@@ -108,6 +109,18 @@ describe("the call log store", () => {
     const ended = new Date(twoAm.getTime() + 12 * 3_600_000);
     expect(visibleOnCallCallLog(rawLog, rawStamp, ended)).toEqual({ entries: [], expiresAt: null });
     expect(visibleOnCallCallLog(rawLog, null, halfThree).entries).toEqual([]);
+  });
+
+  it.each([
+    ["no version", { startedAt: 1, expiresAt: 1893456000000 }],
+    ["no start", { v: 1, expiresAt: 1893456000000 }],
+    ["a reversed stamp", { v: 1, startedAt: 1893456000000, expiresAt: 1 }],
+    ["a lifetime over 24 hours", { v: 1, startedAt: 1, expiresAt: 1893456000000 }],
+    ["a bare expiry", { expiresAt: 1893456000000 }],
+  ])("shows nothing for a stamp with %s", (_name, stamp) => {
+    addOnCallCallLogEntry(draft(), twoAm);
+    const rawLog = window.localStorage.getItem(onCallCallLogStorageKey);
+    expect(visibleOnCallCallLog(rawLog, JSON.stringify(stamp), halfThree)).toEqual({ entries: [], expiresAt: null });
   });
 
   it("treats a foreign payload as an empty log", () => {
@@ -172,6 +185,27 @@ describe("the handover", () => {
         "  Settled",
       ].join("\n"),
     );
+  });
+
+  it("carries identifiers only from open notes and writes them nowhere but the label store", () => {
+    addOnCallCallLogEntry(draft({ note: "URN 7654321 open" }), twoAm);
+    const closed = addOnCallCallLogEntry(
+      draft({ label: "5A-3", note: "DOB 01/02/1980 closed", followUp: "" }),
+      halfThree,
+    );
+    if (!closed.ok) throw new Error("setup failed");
+    setOnCallCallLogDone(closed.entry.id, true, halfThree);
+    const text = onCallHandoverText(readOnCallCallLog(halfThree), halfThree);
+    expect(text).toContain("URN 7654321 open");
+    expect(text).not.toContain("01/02/1980");
+    const holders: string[] = [];
+    for (let i = 0; i < window.localStorage.length; i += 1) {
+      const key = window.localStorage.key(i) ?? "";
+      if ((window.localStorage.getItem(key) ?? "").includes("7654321")) holders.push(key);
+    }
+    expect(holders).toEqual([onCallCallLogStorageKey]);
+    expect(window.sessionStorage.length).toBe(0);
+    expect(window.location.href).not.toContain("7654321");
   });
 
   it("is empty when nothing is open", () => {

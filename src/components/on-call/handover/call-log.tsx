@@ -159,8 +159,19 @@ export function OnCallCallLogCard() {
       setProblem(null);
       setSaved("");
     };
+    // Another tab's wipe reaches this one only as a `storage` event: a full clear
+    // (key null) or the shift's expiry stamp being removed.
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === null || (event.key === PATIENT_LABEL_EXPIRY_STORAGE_KEY && event.newValue === null)) {
+        onCleared();
+      }
+    };
     window.addEventListener(PATIENT_LABELS_CLEARED_EVENT, onCleared);
-    return () => window.removeEventListener(PATIENT_LABELS_CLEARED_EVENT, onCleared);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener(PATIENT_LABELS_CLEARED_EVENT, onCleared);
+      window.removeEventListener("storage", onStorage);
+    };
   }, []);
 
   const update = (key: keyof OnCallCallLogDraft) => (value: string) => {
@@ -196,7 +207,7 @@ export function OnCallCallLogCard() {
         <p className={onCallSecondaryText}>
           Kept on this phone only, and cleared when your shift ends
           {view?.expiresAt ? ` (at ${clockTime(view.expiresAt)})` : " (at most 12 hours after the first note)"} or you
-          sign out. Use a bed number or initials, never a name or record number.
+          sign out. Identifiers stay on this phone and are never sent anywhere.
         </p>
         <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           <TextField

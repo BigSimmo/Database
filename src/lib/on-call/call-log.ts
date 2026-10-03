@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-import { identifierShapeWarning } from "@/lib/clinical-ask/context";
 import { onCallDeviceStoreChangedEvent } from "@/lib/on-call/device-state-keys";
 import {
+  parsePatientLabelExpiryStamp,
   patientLabelStorageKey,
   readPatientLabels,
   removePatientLabels,
@@ -20,10 +20,13 @@ import {
  * Privacy, because these notes are about patients:
  *  - **On this device only.** Nothing here is sent to a server or written to a
  *    database. The handover leaves the device only when the reader copies it.
- *  - **A label, never an identity.** A note carries a bed number or initials.
- *    `onCallCallLogProblem` refuses record numbers, dates of birth, phone
- *    numbers and emails (the app's one identifier pattern), and a label that
- *    reads like a full name.
+ *  - **Identifiers allowed, by owner decision (3 Oct 2026).** The registrar
+ *    may type a record number, date of birth or similar into a note. That is
+ *    why everything above and below holds: the text lives only in the private
+ *    patient-label store, and is never sent to a provider, a log, analytics or
+ *    a URL. The bed-or-initials label field still refuses a full name.
+ *  - **Only open notes leave the device.** The handover carries notes not
+ *    marked done, and only when the reader copies it.
  *  - **Gone after the shift.** The notes are kept only through the shared
  *    patient-label store (`src/lib/patient-label-storage.ts`), which wipes
  *    every label at the end of the shift and at every sign-out or account
@@ -77,8 +80,6 @@ function labelLooksLikeName(label: string): boolean {
   return !/^[\p{L}.\s]{1,4}$/u.test(trimmed) || trimmed.replace(/[.\s]/g, "").length > 4;
 }
 
-export const ON_CALL_CALL_LOG_IDENTIFIER_MESSAGE =
-  "Leave out record numbers, dates of birth, phone numbers and emails. A bed number or initials is enough.";
 export const ON_CALL_CALL_LOG_NAME_MESSAGE = "Use a bed number or up to four initials here, not a name.";
 export const ON_CALL_CALL_LOG_FULL_MESSAGE = `The log holds ${ON_CALL_CALL_LOG_LIMIT} calls. Delete or clear some before adding more.`;
 
@@ -89,7 +90,6 @@ export const ON_CALL_CALL_LOG_FULL_MESSAGE = `The log holds ${ON_CALL_CALL_LOG_L
 export function onCallCallLogProblem(draft: OnCallCallLogDraft): string | null {
   const fields = [draft.label, draft.caller, draft.note, draft.followUp];
   if (fields.every((field) => field.trim() === "")) return "Write something about the call first.";
-  if (fields.some((field) => identifierShapeWarning(field))) return ON_CALL_CALL_LOG_IDENTIFIER_MESSAGE;
   if (labelLooksLikeName(draft.label)) return ON_CALL_CALL_LOG_NAME_MESSAGE;
   for (const key of Object.keys(ON_CALL_CALL_LOG_FIELD_LIMITS) as (keyof OnCallCallLogDraft)[]) {
     if (draft[key].trim().length > ON_CALL_CALL_LOG_FIELD_LIMITS[key]) return "That note is too long to keep.";
@@ -147,13 +147,7 @@ export function liveOnCallCallLog(
  * usable stamp, which the screen treats as no notes (fail closed).
  */
 export function parsePatientLabelExpiry(rawStamp: string | null): number | null {
-  if (!rawStamp) return null;
-  try {
-    const value = JSON.parse(rawStamp) as { expiresAt?: unknown } | null;
-    return value && typeof value.expiresAt === "number" && Number.isFinite(value.expiresAt) ? value.expiresAt : null;
-  } catch {
-    return null;
-  }
+  return parsePatientLabelExpiryStamp(rawStamp)?.expiresAt ?? null;
 }
 
 /** What the screen shows: nothing at all once the shift's labels have expired, even before the watcher wipes them. */
