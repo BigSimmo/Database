@@ -11,6 +11,7 @@ import { onCallInsetHairline } from "@/components/on-call/kit/recipes";
 import { onCallNameText, onCallSecondaryText } from "@/components/on-call/kit/type";
 import { Button } from "@/components/ui/button";
 import { FormField } from "@/components/ui/form-field";
+import { announce } from "@/components/ui/live-announcer";
 import { TextField } from "@/components/ui/text-field";
 import { cn, eyebrowText, fieldControlPlain } from "@/components/ui-primitives";
 import { copyTextToClipboard } from "@/lib/copy-to-clipboard";
@@ -176,7 +177,9 @@ export function OnCallCallLogCard() {
       return;
     }
     setDraft(emptyDraft);
-    setSaved(`Noted at ${onCallCallLogTime(result.entry.at)}.`);
+    const message = `Noted at ${onCallCallLogTime(result.entry.at)}.`;
+    setSaved(message);
+    announce(message);
   };
 
   return (
@@ -239,9 +242,7 @@ export function OnCallCallLogCard() {
           <Button type="submit" variant="primary" testId="on-call-call-log-save">
             Note this call
           </Button>
-          <p role="status" aria-live="polite" className={onCallSecondaryText}>
-            {saved}
-          </p>
+          <p className={onCallSecondaryText}>{saved}</p>
         </div>
       </form>
       {entries && entries.length > 0 ? (
@@ -320,6 +321,7 @@ export function OnCallHandoverBuilder({ withIsobarCard = false }: { readonly wit
       setCopy("copied");
     } catch {
       setCopy("failed");
+      announce("Not copied. Select the handover text and copy it by hand.");
     }
     if (resetTimer.current !== null) window.clearTimeout(resetTimer.current);
     resetTimer.current = window.setTimeout(() => setCopy("idle"), 4000);
@@ -358,7 +360,7 @@ export function OnCallHandoverBuilder({ withIsobarCard = false }: { readonly wit
             >
               {copy === "copied" ? "Copied" : "Copy handover"}
             </Button>
-            <p role="status" aria-live="polite" className={onCallSecondaryText}>
+            <p className={onCallSecondaryText}>
               {copy === "failed" ? "Not copied. Select the text above and copy it by hand." : ""}
             </p>
           </div>
