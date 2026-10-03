@@ -109,16 +109,13 @@ function hasAnyLabelKeys(): boolean {
   return false;
 }
 
-function readStamp(): ExpiryStamp | "missing" | "invalid" {
-  const storage = storageFor("local");
-  if (!storage) return "missing";
-  let raw: string | null;
-  try {
-    raw = storage.getItem(PATIENT_LABEL_EXPIRY_STORAGE_KEY);
-  } catch {
-    return "invalid";
-  }
-  if (raw === null) return "missing";
+/**
+ * Strict parse of a raw expiry stamp: `{ v: 1, startedAt, expiresAt }` with a
+ * forward, at most 24-hour lifetime. Null for anything else. Pure, so a render
+ * path can apply the same validation the store does.
+ */
+export function parsePatientLabelExpiryStamp(raw: string | null): ExpiryStamp | null {
+  if (raw === null) return null;
   try {
     const value = JSON.parse(raw) as Partial<ExpiryStamp> | null;
     if (
@@ -132,12 +129,25 @@ function readStamp(): ExpiryStamp | "missing" | "invalid" {
       value.expiresAt <= value.startedAt ||
       value.expiresAt - value.startedAt > PATIENT_LABEL_MAX_LIFETIME_MS
     ) {
-      return "invalid";
+      return null;
     }
     return { v: 1, startedAt: value.startedAt, expiresAt: value.expiresAt };
   } catch {
+    return null;
+  }
+}
+
+function readStamp(): ExpiryStamp | "missing" | "invalid" {
+  const storage = storageFor("local");
+  if (!storage) return "missing";
+  let raw: string | null;
+  try {
+    raw = storage.getItem(PATIENT_LABEL_EXPIRY_STORAGE_KEY);
+  } catch {
     return "invalid";
   }
+  if (raw === null) return "missing";
+  return parsePatientLabelExpiryStamp(raw) ?? "invalid";
 }
 
 /**
