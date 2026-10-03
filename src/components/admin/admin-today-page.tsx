@@ -1,6 +1,5 @@
 "use client";
 
-import { LogIn } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 
@@ -18,9 +17,7 @@ import { TodayRequirementsModule } from "@/components/admin/today/today-requirem
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { modeModuleSurface } from "@/components/mode-kit/recipes";
-import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { AdminLoadFailed } from "@/components/admin/admin-load-failed";
-import { Button } from "@/components/ui/button";
+import { TodayShell, type TodaySharedState } from "@/components/mode-kit/today/today-shell";
 import { cn } from "@/components/ui-primitives";
 import { adminLoadState, selectAdminOwnEntries, selectAdminSharedEntries } from "@/lib/admin/own-entries";
 import { buildAdminHelpItems } from "@/lib/admin/help-items";
@@ -41,21 +38,20 @@ import type { OnCallEntry } from "@/lib/on-call/entry-model";
 import { msUntilNextOnCallLocalDay } from "@/lib/on-call/local-date";
 
 /**
- * Today (mode id `my-work`), the owner-approved order (plan-update-1, plus
- * the approved Admin proposal's features 2 and 3): a quiet greeting, the
- * "Renew next" answer card, "At a glance" counts, "Needs you", "Coming up",
- * "Requirements" in words, and — only once the owner has set a start date —
- * New job progress. Nothing else renders here: no Pay, no Help block, no ask
- * box (those live on their own Admin pages). Today has no tabs.
+ * Today (mode id `my-work`) on the shared Today shell. Slots: the greeting is
+ * the status line; Now is the "Renew next" answer card (the mode's own hero,
+ * nothing when there is nothing to renew); Needs you is the existing module;
+ * Coming up is the dated list then New job progress (once a start date is
+ * set); At a glance is the counts, credentials wallet, pinned numbers and
+ * Requirements in words. Nothing else renders here: no Pay, no Help block, no
+ * ask box. Today has no tabs.
  *
- * Phone is one column in exactly that order. From `lg` the page splits into
- * two columns — what to act on (Renew next, At a glance, Needs you) on the
- * left, what is ahead (Coming up, Requirements, New job) on the right — and
- * the content is capped so cards never stretch across a wide screen. The
- * left column followed by the right column IS the phone order, so the two
- * layouts can never disagree about sequence.
+ * Phone is one column in the shell's slot order. From `lg` the shell splits
+ * into what to act on (Renew next, Needs you) and what is ahead; the left
+ * column followed by the right column IS the phone order. The content is
+ * capped so cards never stretch across a wide screen.
  */
-const TODAY_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6 lg:max-w-5xl";
+const TODAY_WIDTH = "mx-auto w-full max-w-2xl lg:max-w-5xl";
 const TODAY_COLUMNS = "grid grid-cols-1 gap-5 lg:grid-cols-2 lg:items-start";
 const TODAY_COLUMN = "grid min-w-0 content-start gap-5";
 
@@ -69,6 +65,10 @@ function TodayLoadingSkeleton() {
     <div className={TODAY_COLUMNS} data-testid="admin-today-loading" aria-hidden="true">
       <div className={TODAY_COLUMN}>
         <ModeModuleSkeleton rows={3} twoLine eyebrow testId="admin-today-loading-renew-next" />
+        <ModeModuleSkeleton rows={2} twoLine eyebrow testId="admin-today-loading-needs-you" />
+      </div>
+      <div className={TODAY_COLUMN}>
+        <ModeModuleSkeleton rows={4} twoLine eyebrow testId="admin-today-loading-coming-up" />
         <div className="grid grid-cols-3 gap-2" data-testid="admin-today-loading-at-a-glance">
           {[0, 1, 2].map((index) => (
             <div key={index} className={cn(modeModuleSurface, "grid h-17 content-between px-3 py-2")}>
@@ -77,10 +77,6 @@ function TodayLoadingSkeleton() {
             </div>
           ))}
         </div>
-        <ModeModuleSkeleton rows={2} twoLine eyebrow testId="admin-today-loading-needs-you" />
-      </div>
-      <div className={TODAY_COLUMN}>
-        <ModeModuleSkeleton rows={4} twoLine eyebrow testId="admin-today-loading-coming-up" />
       </div>
     </div>
   );
@@ -126,58 +122,60 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
     cacheOnCallEntries([...latest.filter((existing) => existing.id !== entry.id), entry]);
   }
 
+  const todayState: TodaySharedState | null =
+    load === "loading"
+      ? { kind: "loading" }
+      : load === "failed"
+        ? { kind: "failed", onRetry: state.retry, reason: state.loadError === "offline" ? "offline" : null }
+        : load === "signed-out"
+          ? { kind: "signed-out", onSignIn: () => setSignInOpen(true) }
+          : null;
+
   return (
     <InformationPageShell testId="admin-today-main">
       <div className={TODAY_WIDTH}>
-        <header data-testid="admin-today-greeting" className="grid gap-0.5">
-          <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">{greetingFor(now)}</h1>
-          <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(today)}</p>
-        </header>
-
-        {load === "loading" ? <TodayLoadingSkeleton /> : null}
-
-        {load === "failed" ? (
-          <AdminLoadFailed reason={state.loadError} onRetry={state.retry} testId="admin-today-load-failed" />
-        ) : null}
-
-        {load === "signed-out" ? (
-          <div className="grid gap-3" data-testid="admin-today-signed-out">
-            <EmptyState
-              icon={LogIn}
-              title="Sign in to see your records"
-              body="Linked to your account only, not shared with your health service."
-              actions={
-                <Button variant="primary" onClick={() => setSignInOpen(true)}>
-                  Sign in
-                </Button>
-              }
-            />
-            <Link
-              href="/admin/help"
-              className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-heading)] no-underline"
-            >
-              Help — Crisis lines and contacts
-            </Link>
-            <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} />
-          </div>
-        ) : null}
-
-        {load === "ready" ? (
-          <div className={TODAY_COLUMNS} data-testid="admin-today-ready">
-            <div className={TODAY_COLUMN} data-testid="admin-today-column-act">
-              {renewNext ? <TodayRenewNextCard item={renewNext} ownEntries={own} today={today} /> : null}
-              {isAuthenticated && !state.demoMode ? <AdminCredentialsWallet /> : null}
-              <TodayAtAGlance counts={showCounts} />
-              <AdminPinnedNumbers items={helpItems} testId="admin-today-pinned" />
-              {needsYou ? <TodayNeedsYouModule needsYou={needsYou} today={today} /> : null}
-            </div>
-            <div className={TODAY_COLUMN} data-testid="admin-today-column-ahead">
+        <TodayShell
+          mode="my-work"
+          modeName="Admin"
+          testId="admin-today-ready"
+          columns="two"
+          status={
+            <header data-testid="admin-today-greeting" className="grid gap-0.5">
+              <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">{greetingFor(now)}</h1>
+              <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(today)}</p>
+            </header>
+          }
+          nowSurface="own"
+          now={renewNext ? <TodayRenewNextCard item={renewNext} ownEntries={own} today={today} /> : null}
+          needsYouNode={needsYou ? <TodayNeedsYouModule needsYou={needsYou} today={today} /> : null}
+          comingUp={
+            <>
               <TodayComingUpModule comingUp={comingUp} today={today} />
-              <TodayRequirementsModule summary={requirementsSummary} />
               {newJobProgress ? <TodayNewJobModule progress={newJobProgress} today={today} /> : null}
-            </div>
-          </div>
-        ) : null}
+            </>
+          }
+          atAGlance={
+            <>
+              <TodayAtAGlance counts={showCounts} />
+              {isAuthenticated && !state.demoMode ? <AdminCredentialsWallet /> : null}
+              <AdminPinnedNumbers items={helpItems} testId="admin-today-pinned" />
+              <TodayRequirementsModule summary={requirementsSummary} />
+            </>
+          }
+          state={todayState}
+          loadingFallback={<TodayLoadingSkeleton />}
+          stateExtra={
+            load === "signed-out" ? (
+              <Link
+                href="/admin/help"
+                className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-3 py-2 text-sm font-medium text-[color:var(--text-heading)] no-underline"
+              >
+                Help — Crisis lines and contacts
+              </Link>
+            ) : undefined
+          }
+        />
+        {load === "signed-out" ? <AccountSetupDialog open={signInOpen} onClose={() => setSignInOpen(false)} /> : null}
       </div>
 
       <AdminSetupSheet
