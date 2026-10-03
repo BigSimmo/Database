@@ -34,7 +34,7 @@ afterEach(() => setTeachingRoles([]));
 
 describe("Teaching mode registration", () => {
   it("sits right after CPD with no results surface and titles-only search", () => {
-    expect(appModeIds).toHaveLength(23);
+    expect(appModeIds).toHaveLength(24);
     expect(appModeIds.indexOf("teaching")).toBe(appModeIds.indexOf("cme") + 1);
     expect(appModeDefinition("teaching")).toMatchObject({ label: "Teaching", href: "/teaching" });
     const search = appModeSearchConfig("teaching");
@@ -121,6 +121,9 @@ describe("Teaching mode registration", () => {
       label: "CPD and teaching",
       modeIds: ["cme", "teaching"],
     });
-    expect(siteContentModeExclusions.at(-1)).toMatchObject({ modeId: "teaching", reason: "private_user_state" });
+    expect(siteContentModeExclusions.find((entry) => entry.modeId === "teaching")).toMatchObject({
+      modeId: "teaching",
+      reason: "private_user_state",
+    });
   });
 });
