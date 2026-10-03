@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from "react";
 
-import { nextPresentedSession, presenterPrep } from "@/components/teaching/teaching-needs-you";
+import { nextPresentedSession, presenterPrep } from "@/components/teaching/teaching-presenter-prep";
 import { withUnit } from "@/components/teaching/teaching-number";
 import { useTeachingResource, type TeachingResourceStatus } from "@/components/teaching/use-teaching-resource";
 import { useAppPreferences } from "@/components/clinical-dashboard/use-app-preferences";

@@ -4,7 +4,7 @@ import { Sunrise } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
-import { listNames, MyDayItemRow, useMyDayNow } from "@/components/my-day/my-day-page";
+import { listNames, MyDayItemRow, useMyDayNow } from "@/components/my-day/my-day-rows";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { appModeDefinition } from "@/lib/app-modes";
 import { summariseMyDay } from "@/lib/my-day/merge";

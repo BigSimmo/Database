@@ -1,88 +1,23 @@
 "use client";
 
 import { LogIn, Sunrise } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
-import { ModeGroupedList, ModeRow } from "@/components/mode-kit/grouped-list";
+import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
-import { ModeStateLabel } from "@/components/mode-kit/state-label";
-import { modeSecondaryText } from "@/components/mode-kit/type";
+import { listNames, modeLabel, MyDayItemRow, useMyDayNow } from "@/components/my-day/my-day-rows";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/components/ui-primitives";
 import { formatDateEcho } from "@/lib/admin/renewal-dates";
-import { appModeDefinition } from "@/lib/app-modes";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
-import { formatMyDayDue } from "@/lib/my-day/merge";
-import {
-  myDayEnabledForAuth,
-  myDayNeedsSignIn,
-  myDaySourceModes,
-  type MyDayItem,
-  type MyDaySourceMode,
-} from "@/lib/my-day/model";
+import { myDayEnabledForAuth, myDayNeedsSignIn, myDaySourceModes } from "@/lib/my-day/model";
 import { useAuthSession } from "@/lib/supabase/client";
 
 const PAGE_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6";
-const TICK_MS = 60_000;
-
-/** The reader's clock, re-read every minute so "Today · 14:30" stays honest and the day rolls over. */
-export function useMyDayNow(nowProp?: Date): Date {
-  const [tick, setTick] = useState(() => new Date());
-  useEffect(() => {
-    if (nowProp) return;
-    const timer = setInterval(() => setTick(new Date()), TICK_MS);
-    return () => clearInterval(timer);
-  }, [nowProp]);
-  return nowProp ?? tick;
-}
-
-function modeLabel(mode: MyDaySourceMode): string {
-  return appModeDefinition(mode).label;
-}
-
-/** One My Day row, shared by the page and the home card. */
-export function MyDayItemRow({ item, now }: { readonly item: MyDayItem; readonly now: Date }) {
-  const due = formatMyDayDue(item.due, now);
-  // The state word is part of the link's own text, so it never relies on colour or a dot.
-  const stateWord =
-    item.severity === "overdue"
-      ? item.mode === "my-work"
-        ? "Date passed"
-        : "Overdue"
-      : item.severity === "soon"
-        ? "Due soon"
-        : "";
-  const subtitle = [modeLabel(item.mode), stateWord, due].filter(Boolean).join(" · ");
-  return (
-    <ModeRow
-      title={item.title}
-      subtitle={subtitle}
-      meta={
-        item.detail ? <span className={cn(modeSecondaryText, "break-words leading-5")}>{item.detail}</span> : undefined
-      }
-      href={item.href}
-      testId={`my-day-item-${item.id}`}
-      trailing={
-        stateWord ? (
-          <span aria-hidden="true">
-            <ModeStateLabel tone={item.severity === "overdue" ? "warning" : "muted"}>{stateWord}</ModeStateLabel>
-          </span>
-        ) : undefined
-      }
-    />
-  );
-}
-
-export function listNames(names: readonly string[]): string {
-  if (names.length <= 1) return names.join("");
-  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
-}
-
 export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
   const { status: authStatus } = useAuthSession();
   const enabled = myDayEnabledForAuth(authStatus);
