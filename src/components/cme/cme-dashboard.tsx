@@ -26,6 +26,7 @@ import { CmeWhatsLeft } from "@/components/cme/cme-dashboard-whats-left";
 import { CmeHeroSummary } from "@/components/cme/cme-hero-summary";
 import { CmePaceChart } from "@/components/cme/cme-progress-visuals";
 import { CmeYearInWeeks } from "@/components/cme/cme-year-in-weeks";
+import { TodayShell } from "@/components/mode-kit/today/today-shell";
 import { Button } from "@/components/ui/button";
 import { cn, eyebrowText, textMuted } from "@/components/ui-primitives";
 import { addDays, expandEvents } from "@/lib/calendar/calendar-event";
@@ -324,8 +325,29 @@ export function CmeDashboard({
     ),
   };
 
-  return (
-    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)] pt-6 sm:px-6">
+  const renderModules = (ids: readonly CmeDashboardModuleId[]) => {
+    const shown = moduleIds.filter((moduleId) => ids.includes(moduleId) && moduleContent[moduleId] !== null);
+    if (shown.length === 0) return null;
+    return (
+      <div className="space-y-6">
+        {shown.map((moduleId) => {
+          const Icon = MODULE_ICONS[moduleId];
+          return (
+            <section key={moduleId} aria-labelledby={`cme-module-${moduleId}-heading`} data-testid={`cme-${moduleId}`}>
+              <h2 id={`cme-module-${moduleId}-heading`} className={cn(eyebrowText, "flex items-center gap-1.5")}>
+                <Icon aria-hidden="true" className="size-icon-sm" />
+                {cmeDashboardModuleLabels[moduleId]}
+              </h2>
+              <div className="mt-2">{moduleContent[moduleId]}</div>
+            </section>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const status = (
+    <>
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className={cmePageTitle}>Today</h1>
@@ -351,7 +373,7 @@ export function CmeDashboard({
           data-testid="cme-training-position-link"
           className={cn(
             cardSurface,
-            "mt-3 flex min-h-tap items-center justify-between gap-3 p-3 text-sm text-[color:var(--text)]",
+            "flex min-h-tap items-center justify-between gap-3 p-3 text-sm text-[color:var(--text)]",
           )}
         >
           <span>
@@ -367,9 +389,52 @@ export function CmeDashboard({
           <span className={textMuted}>Plan › Training</span>
         </Link>
       ) : null}
+    </>
+  );
 
+  const nowHero = (
+    <div className={cn("grid gap-3", catchUp.status === "plan" && "md:grid-cols-2")}>
+      <CmeHeroSummary
+        year={set.year}
+        today={today}
+        loggedHours={totalHours}
+        targetHours={set.totalHours}
+        entries={entries}
+        closed={Boolean(set.closedAt)}
+        onOpenDetail={() => setDetail("hours")}
+      />
+      <CmeCatchUpCard
+        plan={catchUp}
+        showWeekly={weeklyPace !== null && weeklyPace.weeksLeft >= 1}
+        onOpenDetail={() => setDetail("gap")}
+      />
+    </div>
+  );
+
+  const needsYouModules = renderModules(["requirements"]);
+  const needsYouNode =
+    !nextStepInList || needsYouModules ? (
+      <>
+        {!nextStepInList ? (
+          <CmeNextStepRow
+            step={nextStep}
+            offerYearEnd={offerYearEnd}
+            set={set}
+            entries={entries}
+            goals={goals}
+            now={now}
+            nextYearConfirmed={nextYearConfirmed}
+            nextYearGoals={nextYearGoals}
+          />
+        ) : null}
+        {needsYouModules}
+      </>
+    ) : null;
+
+  const comingUp = (
+    <>
       {showReportingReminder && reportingReminder ? (
-        <div className="mt-4 grid gap-1">
+        <div className="grid gap-1">
           <Link
             href={`/cme/log?year=${reportingReminder.year}&copy=todo`}
             data-testid="cme-reporting-reminder"
@@ -388,87 +453,30 @@ export function CmeDashboard({
           {onSnoozeReminder ? <div>{snoozeButton("cpd-year-end")}</div> : null}
         </div>
       ) : null}
-
-      <div className={cn("mt-4 grid gap-3", catchUp.status === "plan" && "md:grid-cols-2")}>
-        <CmeHeroSummary
-          year={set.year}
-          today={today}
-          loggedHours={totalHours}
-          targetHours={set.totalHours}
-          entries={entries}
-          closed={Boolean(set.closedAt)}
-          onOpenDetail={() => setDetail("hours")}
-        />
-        <CmeCatchUpCard
-          plan={catchUp}
-          showWeekly={weeklyPace !== null && weeklyPace.weeksLeft >= 1}
-          onOpenDetail={() => setDetail("gap")}
-        />
-      </div>
-
-      <div className="mt-3">
-        <CmeYearInWeeks entries={entries} year={set.year} now={now} />
-      </div>
-
-      {!nextStepInList ? (
-        <div className="mt-3">
-          <CmeNextStepRow
-            step={nextStep}
-            offerYearEnd={offerYearEnd}
-            set={set}
-            entries={entries}
-            goals={goals}
-            now={now}
-            nextYearConfirmed={nextYearConfirmed}
-            nextYearGoals={nextYearGoals}
-          />
-        </div>
-      ) : null}
-
-      <div className="mt-3">
-        <CmeTodayShortcuts
-          toFinish={toFinish}
-          yearCheck={{
-            href: `/cme/check?year=${set.year}`,
-            readyCount: yearCheck.readyCount,
-            rowCount: yearCheck.rows.length,
-          }}
-        />
-      </div>
-
-      {culturallySafePracticeToLog ? (
-        <Link
-          href="/first-nations/talking"
-          data-testid="cme-first-nations-learning-link"
-          className={cn(cardSurface, "mt-3 flex min-h-tap items-center justify-between gap-3 p-4")}
-        >
-          <span className="min-w-0 text-sm text-[color:var(--text)]">
-            <span className="block font-medium">Optional learning: First Nations Talking</span>
-            <span className={cn(textMuted, "block")}>Opening this resource does not log a CPD activity.</span>
+      {renderModules(["routines-due"])}
+      <Link
+        href={`/cme/calendar?year=${set.year}`}
+        data-testid="cme-calendar-link"
+        className={cn(cardSurface, "flex min-h-tap items-center gap-3 px-4 py-3")}
+      >
+        <CalendarRange aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+        <span className="min-w-0 flex-1">
+          <span className="block text-sm font-medium text-[color:var(--text)]">Calendar</span>
+          <span className={cn(textMuted, "line-clamp-2 block text-sm")}>
+            {nextDate ? `${formatRoutineDueDate(nextDate.date)}: ${nextDate.title}` : "Nothing coming up"}
           </span>
-          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
-        </Link>
-      ) : null}
+        </span>
+        <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+      </Link>
+    </>
+  );
 
-      <div className="mt-6 space-y-6">
-        {moduleIds.map((moduleId) => {
-          const content = moduleContent[moduleId];
-          if (content === null) return null;
-          const Icon = MODULE_ICONS[moduleId];
-          return (
-            <section key={moduleId} aria-labelledby={`cme-module-${moduleId}-heading`} data-testid={`cme-${moduleId}`}>
-              <h2 id={`cme-module-${moduleId}-heading`} className={cn(eyebrowText, "flex items-center gap-1.5")}>
-                <Icon aria-hidden="true" className="size-icon-sm" />
-                {cmeDashboardModuleLabels[moduleId]}
-              </h2>
-              <div className="mt-2">{content}</div>
-            </section>
-          );
-        })}
-      </div>
-
+  const atAGlance = (
+    <>
+      <CmeYearInWeeks entries={entries} year={set.year} now={now} />
+      {renderModules(["audited-today", "year-dates", "provenance"])}
       {pace && entries.length > 0 ? (
-        <section className={cn(cardSurface, "mt-6 p-4")} aria-label={`Hours against an even pace, ${set.year}`}>
+        <section className={cn(cardSurface, "p-4")} aria-label={`Hours against an even pace, ${set.year}`}>
           <CmePaceChart
             entries={entries}
             year={set.year}
@@ -477,32 +485,57 @@ export function CmeDashboard({
           />
         </section>
       ) : null}
+    </>
+  );
 
-      <div className="mt-3 grid gap-3 sm:grid-cols-2">
+  const shortcuts = (
+    <>
+      <CmeTodayShortcuts
+        toFinish={toFinish}
+        yearCheck={{
+          href: `/cme/check?year=${set.year}`,
+          readyCount: yearCheck.readyCount,
+          rowCount: yearCheck.rows.length,
+        }}
+      />
+      {culturallySafePracticeToLog ? (
         <Link
-          href={`/cme/calendar?year=${set.year}`}
-          data-testid="cme-calendar-link"
-          className={cn(cardSurface, "flex min-h-tap items-center gap-3 px-4 py-3")}
+          href="/first-nations/talking"
+          data-testid="cme-first-nations-learning-link"
+          className={cn(cardSurface, "flex min-h-tap items-center justify-between gap-3 p-4")}
         >
-          <CalendarRange aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-medium text-[color:var(--text)]">Calendar</span>
-            <span className={cn(textMuted, "line-clamp-2 block text-sm")}>
-              {nextDate ? `${formatRoutineDueDate(nextDate.date)}: ${nextDate.title}` : "Nothing coming up"}
-            </span>
+          <span className="min-w-0 text-sm text-[color:var(--text)]">
+            <span className="block font-medium">Optional learning: First Nations Talking</span>
+            <span className={cn(textMuted, "block")}>Opening this resource does not log a CPD activity.</span>
           </span>
           <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
         </Link>
-        <Link
-          href="/teaching"
-          data-testid="cme-teaching-link"
-          className={cn(cardSurface, "flex min-h-tap items-center gap-3 px-4 py-3")}
-        >
-          <GraduationCap aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
-          <span className="min-w-0 flex-1 text-sm font-medium text-[color:var(--text)]">Teaching sessions</span>
-          <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
-        </Link>
-      </div>
+      ) : null}
+      <Link
+        href="/teaching"
+        data-testid="cme-teaching-link"
+        className={cn(cardSurface, "flex min-h-tap items-center gap-3 px-4 py-3")}
+      >
+        <GraduationCap aria-hidden="true" className="size-icon-md shrink-0 text-[color:var(--clinical-accent)]" />
+        <span className="min-w-0 flex-1 text-sm font-medium text-[color:var(--text)]">Teaching sessions</span>
+        <ChevronRight aria-hidden="true" className={cn("size-icon-sm shrink-0", textMuted)} />
+      </Link>
+    </>
+  );
+
+  return (
+    <main className="mx-auto w-full max-w-3xl px-4 pb-[calc(max(1rem,var(--safe-area-bottom))+6rem)] pt-6 sm:px-6">
+      <TodayShell
+        mode="cme"
+        modeName="CPD"
+        status={status}
+        now={nowHero}
+        nowSurface="own"
+        needsYouNode={needsYouNode}
+        comingUp={comingUp}
+        atAGlance={atAGlance}
+        shortcuts={shortcuts}
+      />
 
       <CmeTodayDetailSheet
         detail={detail}
