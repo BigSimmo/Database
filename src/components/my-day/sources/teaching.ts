@@ -18,8 +18,9 @@ import type { SessionRef, TeachRead } from "@/lib/teaching/depth-model";
 
 /**
  * Teaching's "Needs you" rows, read the way `teaching-needs-you.tsx` reads them
- * (three counts-only GETs) and worded by the same code. Demo mode is handled by
- * the API routes themselves; the signed-out sample path is deliberately unused.
+ * (three counts-only GETs) and worded by the same code. In the synthetic demo the
+ * depth routes refuse with `demo_mode_unavailable`, which reads as unavailable;
+ * the signed-out sample path is deliberately unused.
  *
  * Deliberate decision: My Day gates Teaching items on the "teaching" reminder,
  * unlike Teaching's own page, which always shows its "Needs you" rows. My Day
@@ -84,7 +85,12 @@ export function teachingMyDayItems(
   return items;
 }
 
-function combine(statuses: readonly TeachingResourceStatus[]): MyDaySourceStatus {
+// The depth routes refuse the synthetic demo build with this code. That is "not
+// available here", not a failed read, so it must not raise "Couldn't load".
+const DEMO_UNAVAILABLE = "demo_mode_unavailable";
+
+function combine(resources: readonly { status: TeachingResourceStatus; code: string | null }[]): MyDaySourceStatus {
+  const statuses = resources.map((resource) => (resource.code === DEMO_UNAVAILABLE ? "setup" : resource.status));
   if (statuses.includes("signed-out")) return "signed-out";
   if (statuses.some((status) => status === "offline" || status === "error")) return "failed";
   if (statuses.includes("setup")) return "unavailable";
@@ -104,7 +110,7 @@ export function useTeachingMyDaySource({ enabled, now }: { enabled: boolean; now
   const { preferences } = useAppPreferences();
   const reminders = preferences.reminders;
 
-  const status: MyDaySourceStatus = enabled ? combine([unlogged.status, teach.status, feedback.status]) : "signed-out";
+  const status: MyDaySourceStatus = enabled ? combine([unlogged, teach, feedback]) : "signed-out";
   const unloggedCount = unlogged.data?.count ?? null;
   const teachData = teach.data;
   const feedbackData = feedback.data;

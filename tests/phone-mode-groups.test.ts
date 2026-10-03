@@ -45,11 +45,13 @@ describe("phone mode groups", () => {
     });
     expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD and teaching", modeIds: ["cme", "teaching"] });
     expect(groupOf("my-day")).toMatchObject({ id: "my-day", label: "My Day", modeIds: ["my-day"] });
+    // My Day leads the whole list (design review 2026-10-03, item 4); the
+    // other operational areas still follow the clinical groups.
     expect(phoneModeGroups.map((group) => group.id)).toEqual([
+      "my-day",
       "find",
       "psychiatry",
       "care",
-      "my-day",
       "on-call",
       "roster",
       "my-work",

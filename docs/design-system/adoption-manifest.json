@@ -328,7 +328,9 @@
         "src/components/developer-area/hub/roster-teams-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/mode-kit/today/today-shell.tsx",
+        "src/components/my-day/my-day-dashboard.tsx",
         "src/components/my-day/my-day-page.tsx",
+        "src/components/my-day/my-day-today-cards.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/handover/call-log.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
@@ -462,7 +464,9 @@
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
         "src/components/mode-kit/today/today-shell.tsx",
+        "src/components/my-day/my-day-dashboard.tsx",
         "src/components/my-day/my-day-page.tsx",
+        "src/components/my-day/my-day-today-cards.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/handover/call-log.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
@@ -3810,7 +3814,7 @@
           "literalCkbV2": false,
           "dynamicCkbV2": false,
           "v2MountMode": "inherited-global-root",
-          "sanctionedPatternsPresent": []
+          "sanctionedPatternsPresent": ["ModeHome"]
         },
         {
           "file": "src/app/(search-app)/my-work/page.tsx",
