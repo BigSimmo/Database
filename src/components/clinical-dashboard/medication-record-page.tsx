@@ -62,6 +62,8 @@ import {
 import { InformationPageFooter, InformationPageShell } from "@/components/information-page-shell";
 import { RouteNotFoundPanel } from "@/components/route-not-found-panel";
 import { appModeHomeHref } from "@/lib/app-modes";
+import type { MedicationSourceLink } from "@/lib/medication-source-links";
+import { ExternalTextLink } from "@/components/ui/link";
 import { Sheet } from "@/components/ui/sheet";
 
 const sectionIcons: Record<string, LucideIcon> = {
@@ -306,15 +308,39 @@ function MedicationAccessPanel({ record }: { record: MedicationRecord }) {
   );
 }
 
+/**
+ * Owner-confirmed source links for this medication (ledger #05WXHX). The server
+ * passes only links whose register record is signed off against its current
+ * content, so an empty list — the state until the owner signs — renders nothing.
+ */
+function MedicationSourceLinks({ links }: { links: readonly MedicationSourceLink[] }) {
+  if (!links.length) return null;
+  return (
+    <div className="border-t border-[color:var(--border)] px-3 py-3" data-testid="medication-source-links">
+      <h3 className="text-sm-minus font-semibold text-[color:var(--text-heading)]">Sources</h3>
+      <ul className="mt-2 space-y-1.5">
+        {links.map((link) => (
+          <li key={link.id} className="text-xs leading-5">
+            <ExternalTextLink href={link.href}>{link.title}</ExternalTextLink>
+            <span className="ml-1.5 text-[color:var(--text-muted)]">{link.publisher}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function MedicationRecordDetail({
   record,
   governance,
   activeTab,
+  sourceLinks = [],
 }: {
   record: MedicationRecord;
   governance?: MedicationGovernance;
   /** Owned by `MedicationRecordPage` so the shared header can drive it. */
   activeTab: MedicationTabId;
+  sourceLinks?: readonly MedicationSourceLink[];
 }) {
   const metrics = useMemo(() => medicationHeroMetrics(record), [record]);
   const badges = useMemo(() => medicationIdentityBadges(record, governance), [record, governance]);
@@ -398,6 +424,8 @@ function MedicationRecordDetail({
                 />
               </div>
             )}
+            {/* The record's provenance ("src") sections live on this tab, so its confirmed source links do too. */}
+            {activeTab === "more" ? <MedicationSourceLinks links={sourceLinks} /> : null}
           </section>
         </div>
 
@@ -428,10 +456,13 @@ export function MedicationRecordPage({
   slug,
   fallbackRecord,
   fallbackGovernance,
+  sourceLinks = [],
 }: {
   slug: string;
   fallbackRecord?: MedicationRecord;
   fallbackGovernance?: MedicationGovernance;
+  /** Owner-confirmed source links, resolved server-side (`medicationSourceLinks`). */
+  sourceLinks?: readonly MedicationSourceLink[];
 }) {
   const { data, loading, error, notFound } = useMedicationDetail(slug);
   // Content-first: render the SSR fallback immediately, then swap in the live
@@ -491,7 +522,12 @@ export function MedicationRecordPage({
             />
           ) : null}
           {record ? (
-            <MedicationRecordDetail record={record} governance={governance} activeTab={activeTab} />
+            <MedicationRecordDetail
+              record={record}
+              governance={governance}
+              activeTab={activeTab}
+              sourceLinks={sourceLinks}
+            />
           ) : loading ? (
             <LoadingPanel label="Loading medication reference…" variant="skeleton" lines={6} />
           ) : notFound ? (
