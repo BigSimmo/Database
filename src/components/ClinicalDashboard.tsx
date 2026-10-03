@@ -3479,6 +3479,7 @@ function ClinicalDashboardContent({
                   compactMobileModeHome,
                   hasAnswer: Boolean(answer),
                   showSharedHome,
+                  topAlignSharedHome: authStatus === "authenticated",
                 })}
               >
                 <h2 data-testid="answer-section-heading" className="sr-only">

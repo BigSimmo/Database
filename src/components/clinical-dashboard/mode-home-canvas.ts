@@ -7,6 +7,14 @@ type ModeHomeCanvasClassInput = {
   compactMobileModeHome: boolean;
   hasAnswer: boolean;
   showSharedHome: boolean;
+  /**
+   * Top-align the shared home instead of centring it. Set for a signed-in
+   * reader, whose home can grow a My Day card below the composer after load:
+   * in a centred column that late card would lift the hero and composer
+   * (layout shift, a mis-tap risk). Top-aligned, the card only adds space
+   * below. Owner decision 2026-10-03.
+   */
+  topAlignSharedHome?: boolean;
 };
 
 /**
@@ -31,12 +39,15 @@ export function resolveModeHomeCanvasClass({
   compactMobileModeHome,
   hasAnswer,
   showSharedHome,
+  topAlignSharedHome = false,
 }: ModeHomeCanvasClassInput): string {
+  const topAligned = topAlignSharedHome && showSharedHome;
   return cn(
     compactMobileModeHome
       ? cn(
           "max-sm:flex max-sm:grow max-sm:shrink-0 max-sm:flex-col sm:grow sm:shrink-0",
-          centeredModeHome && "max-sm:items-center max-sm:justify-center",
+          centeredModeHome && !topAligned && "max-sm:items-center max-sm:justify-center",
+          topAligned && "max-sm:items-center max-sm:justify-start",
         )
       : activeModeResultKind === "answer" && hasAnswer
         ? "sm:grow sm:shrink-0"
@@ -44,9 +55,13 @@ export function resolveModeHomeCanvasClass({
           // scrolling and this canvas has no bounded scrollport to fill.
           "min-h-[calc(100dvh-12.5rem)] sm:grow sm:shrink-0",
     centeredModeHome || showSharedHome
-      ? compactMobileModeHome
-        ? "w-full sm:grid sm:place-items-center"
-        : "grid w-full place-items-center max-sm:pt-2"
+      ? topAligned
+        ? compactMobileModeHome
+          ? "w-full sm:grid sm:content-start sm:justify-items-center"
+          : "grid w-full content-start justify-items-center max-sm:pt-2"
+        : compactMobileModeHome
+          ? "w-full sm:grid sm:place-items-center"
+          : "grid w-full place-items-center max-sm:pt-2"
       : activeModeResultKind === "tools" ||
           activeModeResultKind === "favourites" ||
           activeModeResultKind === "differentials"

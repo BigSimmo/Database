@@ -16,6 +16,22 @@ describe("resolveModeHomeCanvasClass", () => {
     expect(className).not.toContain("max-sm:min-h-[calc(100dvh-12.5rem)]");
   });
 
+  it("top-aligns the shared home for a signed-in reader so a late My Day card never lifts the composer", () => {
+    for (const compactMobileModeHome of [true, false]) {
+      const className = resolveModeHomeCanvasClass({
+        activeModeResultKind: "answer",
+        centeredModeHome: true,
+        compactMobileModeHome,
+        hasAnswer: false,
+        showSharedHome: true,
+        topAlignSharedHome: true,
+      });
+      expect(className).not.toContain("place-items-center");
+      expect(className).not.toContain("max-sm:justify-center");
+      expect(className).toContain("content-start");
+    }
+  });
+
   it("keeps compact registry homes top-aligned", () => {
     const className = resolveModeHomeCanvasClass({
       activeModeResultKind: "services",
