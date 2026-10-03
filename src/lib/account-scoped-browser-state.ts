@@ -53,6 +53,19 @@ export const CME_NEW_ENTRY_DRAFT_KEY = "cme-entry-draft:new";
 export const FIRST_NATIONS_HOSPITAL_STORAGE_KEY = "first-nations:hospital-v1";
 /** localStorage — personal doctor credentials (Ahpra, prescriber, provider numbers) saved on-device. */
 export const DOCTOR_CREDENTIALS_STORAGE_KEY = "psychsift:admin:doctor-credentials";
+/** localStorage — which My Day dashboard cards the reader hid (card ids only). */
+export const MY_DAY_HIDDEN_CARDS_STORAGE_KEY = "psychsift:my-day:hidden-cards-v1";
+/**
+ * localStorage — My Day items the reader moved to tomorrow: item id to the Perth
+ * date it comes back. Ids are `<mode>:<kind>:<record id>`; no title, no patient detail.
+ */
+export const MY_DAY_SNOOZED_ITEMS_STORAGE_KEY = "psychsift:my-day:snoozed-v1";
+/**
+ * localStorage — My Day's quick note: free text the reader types, kept on this
+ * device for this account only. The card says "No patient names or details
+ * here"; it is cleared at sign-out, session expiry and account switch.
+ */
+export const MY_DAY_QUICK_NOTE_STORAGE_KEY = "psychsift:my-day:quick-note-v1";
 
 function removeQuietly(storage: () => Storage, key: string): void {
   try {
@@ -94,6 +107,9 @@ export function clearAccountScopedBrowserStorage(): void {
 
   removeQuietly(() => window.localStorage, FIRST_NATIONS_HOSPITAL_STORAGE_KEY);
   removeQuietly(() => window.localStorage, DOCTOR_CREDENTIALS_STORAGE_KEY);
+  removeQuietly(() => window.localStorage, MY_DAY_HIDDEN_CARDS_STORAGE_KEY);
+  removeQuietly(() => window.localStorage, MY_DAY_SNOOZED_ITEMS_STORAGE_KEY);
+  removeQuietly(() => window.localStorage, MY_DAY_QUICK_NOTE_STORAGE_KEY);
   window.dispatchEvent(new Event(ACCOUNT_TRANSITION_EVENT));
 }
 
