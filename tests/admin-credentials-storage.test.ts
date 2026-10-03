@@ -33,6 +33,17 @@ describe("doctor credentials storage", () => {
     expect(loadDoctorCredentials().ahpraNumber).toBe("MED0000000000");
   });
 
+  it("ignores a removed radiation licence value and ships no hard-coded sites", () => {
+    stubWindow({
+      getItem: () => JSON.stringify({ ahpraNumber: "MED1", radiationLicense: "RL-9", providerNumbers: [] }),
+      setItem: () => undefined,
+    });
+    const loaded = loadDoctorCredentials();
+    expect(loaded.ahpraNumber).toBe("MED1");
+    expect("radiationLicense" in loaded).toBe(false);
+    expect(DEFAULT_CREDENTIALS.providerNumbers).toEqual([]);
+  });
+
   it("falls back when the localStorage getter throws", () => {
     blockedGetterWindow();
     expect(loadDoctorCredentials()).toEqual(DEFAULT_CREDENTIALS);

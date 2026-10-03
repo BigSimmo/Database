@@ -11,18 +11,13 @@ export type DoctorCredentials = {
   readonly prescriberNumber: string;
   readonly providerNumbers: readonly SiteProviderNumber[];
   readonly wwccNumber: string;
-  readonly radiationLicense: string;
 };
 
 export const DEFAULT_CREDENTIALS: DoctorCredentials = {
   ahpraNumber: "",
   prescriberNumber: "",
-  providerNumbers: [
-    { id: "p1", site: "Royal Perth Hospital", number: "" },
-    { id: "p2", site: "Sir Charles Gairdner", number: "" },
-  ],
+  providerNumbers: [],
   wwccNumber: "",
-  radiationLicense: "",
 };
 
 import { DOCTOR_CREDENTIALS_STORAGE_KEY } from "@/lib/account-scoped-browser-state";
@@ -45,7 +40,6 @@ export function loadDoctorCredentials(): DoctorCredentials {
         ? parsed.providerNumbers
         : DEFAULT_CREDENTIALS.providerNumbers,
       wwccNumber: parsed.wwccNumber ?? "",
-      radiationLicense: parsed.radiationLicense ?? "",
     };
   } catch {
     return DEFAULT_CREDENTIALS;
