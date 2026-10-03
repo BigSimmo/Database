@@ -110,10 +110,11 @@ see deliberate deferral without mistaking it for completed passing verification.
 
 ## The browser gate is narrowed, not deferred
 
-`npm run verify:ui` is the most expensive run here — 646 Chromium tests, ~25 minutes —
-and CI repeats it wholesale: `Production UI critical` and the three `Production UI`
-shards are guarded on `ui_changed`, so any change touching a browser surface gets the
-full suite on GitHub whether or not it ran locally first.
+`npm run verify:ui` is the most expensive run here - 646 Chromium tests, ~25 minutes.
+Eligible non-draft CI runs select production browser jobs when `ui_changed` is true.
+Each lane also requires its event conditions and successful prerequisites; drafts or
+blocked prerequisites can leave browser scope unrun. Selected browser proof remains
+pending until successful execution is observed, even when local focused proof passed.
 
 Deferring it wholesale is not a safe lever — pushing a UI change with **no** browser
 evidence is not a bet this repository takes. The lever here is a different one: run the
