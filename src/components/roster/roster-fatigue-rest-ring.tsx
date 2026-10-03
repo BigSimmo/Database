@@ -55,15 +55,17 @@ export function calculateRestTurnaround(
 export function RosterFatigueRestRing({
   shifts,
   now,
+  sample = false,
   testId = "roster-fatigue-rest-ring",
 }: {
   readonly shifts: readonly Pick<OnCallShift, "id" | "startsAt" | "endsAt">[];
   readonly now: Date;
+  readonly sample?: boolean;
   readonly testId?: string;
 }) {
   const turnaround = useMemo(() => calculateRestTurnaround(shifts, now), [shifts, now]);
 
-  if (turnaround.restRemainingMs === null) {
+  if (sample || turnaround.restRemainingMs === null) {
     return null;
   }
 
