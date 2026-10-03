@@ -1,85 +1,115 @@
 "use client";
 
-import { BookPlus, Phone, Plus, Sunrise, Users, X, type LucideIcon } from "lucide-react";
-import Link from "next/link";
-import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
+import { Plus } from "lucide-react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 
+import { pinnedHelpItems } from "@/components/admin/admin-pinned-numbers";
+import { ADMIN_PAGE_HREFS } from "@/components/admin/admin-page-sections";
 import { focusRing } from "@/components/card-recipes";
-import {
-  modeModuleSurface,
-  modePressable,
-  modeSummaryHairline,
-  modeSummaryMutedText,
-  modeTapArea,
-} from "@/components/mode-kit/recipes";
-import { modeDisplayNumberText, modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
-import { listNames, MyDayItemRow } from "@/components/my-day/my-day-page-parts";
+import { dashMuted } from "@/components/dashboard-kit/recipes";
 import { useMyDayDeviceState } from "@/components/my-day/my-day-device-state";
-import type { MyDayDashboardSources } from "@/components/my-day/use-my-day-dashboard-sources";
-import { kindOf } from "@/components/roster/roster-format";
-import { ActionStrip } from "@/components/teaching/teaching-actions";
-import { sessionHref } from "@/components/teaching/teaching-view-model";
-import { EmptyState } from "@/components/primitive-recipes/feedback";
-import { Button } from "@/components/ui/button";
-import { TextLink } from "@/components/ui/link";
-import { cn, eyebrowText } from "@/components/ui-primitives";
+import { listNames } from "@/components/my-day/my-day-page-parts";
 import {
-  daysUntil,
+  CpdRingsCard,
+  FlagCard,
+  HeroCard,
+  MODE_CHIP,
+  NeedsYouCard,
+  QuickActionsCard,
+  RenewalsRunwayCard,
+  shiftName,
+  ThisWeekCard,
+  type AgendaLine,
+  type DayDetail,
+} from "@/components/my-day/my-day-today-cards";
+import {
+  CallsCard,
+  CpdMonthCard,
+  CredentialsCard,
+  HoursCard,
+  MonthGlanceCard,
+  NextTalkCard,
+  PinnedNumbersCard,
+  QuickNoteCard,
+  WhosOnCard,
+  type PinnedNumber,
+} from "@/components/my-day/my-day-work-me-cards";
+import type { MyDayDashboardSources } from "@/components/my-day/use-my-day-dashboard-sources";
+import { useOnCallCallLog } from "@/components/on-call/handover/call-log";
+import { onCallEntryAnchorId } from "@/components/on-call/on-call-page-anchors";
+import { kindOf } from "@/components/roster/roster-format";
+import { sessionHref } from "@/components/teaching/teaching-view-model";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/components/ui-primitives";
+import type { AdminHelpItem } from "@/lib/admin/help-items";
+import { displayPhoneNumber } from "@/lib/admin/phone-display";
+import { useAdminPins } from "@/lib/admin/pins";
+import {
   dueCountsByDate,
-  formatCountdown,
-  formatRingFigure,
+  isSnoozed,
   MY_DAY_CARD_LABELS,
-  MY_DAY_CARD_SPAN,
-  myDayCardIds,
+  MY_DAY_PAGE_CARDS,
   selectNeedsYou,
   selectUpNext,
   snoozeUntil,
   weekOf,
   type MyDayCardId,
+  type MyDayPageId,
   type MyDayTimedEvent,
-  type MyDayUpNext,
 } from "@/lib/my-day/dashboard";
+import {
+  buildDayRibbon,
+  cpdProjectedHours,
+  hoursBars,
+  kindsByDate as kindsByDateOf,
+  monthGlance,
+  myDayActionLabel,
+  renewalsRunway,
+  selectFlagItems,
+  type RenewalRow,
+} from "@/lib/my-day/figures";
 import { duePerthDate } from "@/lib/my-day/merge";
-import type { MyDayItem, MyDayNextRenewal } from "@/lib/my-day/model";
-import { withMyDayReturn } from "@/lib/my-day/return-link";
-import { SHIFT_KIND_LABEL, type ShiftKind } from "@/lib/roster/shift-kind";
-import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
+import type { MyDayItem } from "@/lib/my-day/model";
+import { onCallTelHref } from "@/lib/on-call/home-modules";
+import type { ShiftKind } from "@/lib/roster/shift-kind";
+import { perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { summariseToday } from "@/lib/roster/today";
 import type { RosterDisplayShift } from "@/lib/roster/team/team-view";
 import type { SessionSummary } from "@/lib/teaching/model";
 
 /**
- * My Day as a dashboard of cards (the owner's chosen "modular dashboard").
- * Phone first: full cards span both columns and half cards sit in pairs; from
- * `lg` the grid has four columns. Every card reads an existing source and
- * hides itself when that source has nothing to show. "Edit" hides or restores
- * cards; the choice stays on this device for this account only.
+ * My Day as a modular dashboard in three pages, Today, Work and Me (design
+ * review v13, concept D), in the dashboard style
+ * (`src/components/dashboard-kit/`, TOKENS.md §7.2).
  *
- * Read-only towards the server: the only action here that changes anything is
- * "Later", which moves a row to tomorrow on this device and can be undone.
+ * Every card reads a real source and hides itself when that source has
+ * nothing, or does not exist in this build. "Edit" hides or restores cards;
+ * the choice stays on this device for this account only.
+ *
+ * Read-only towards the server: the only things here that change anything
+ * are "Later" (moves a row to tomorrow on this device, with Undo) and the
+ * quick note (this device only).
  */
 
-const SPAN_CLASS = { full: "col-span-2", half: "col-span-1" } as const;
-const HOUR_MS = 60 * 60 * 1000;
-
-// "Handover" waits for a handover page of its own: until then it would only
-// open the On Call service handbook (design review 2026-10-03, item 3).
-const QUICK_ACTIONS: readonly { readonly label: string; readonly href: string; readonly icon: LucideIcon }[] = [
-  { label: "Call", href: "/on-call/call", icon: Phone },
-  { label: "Log CPD", href: "/cme/new", icon: BookPlus },
-  { label: "Who's on", href: "/on-call/whos-on", icon: Users },
-];
+const NO_RENEWALS: readonly RenewalRow[] = [];
+const NO_HELP: readonly AdminHelpItem[] = [];
+const NO_SESSIONS: readonly SessionSummary[] = [];
 
 export interface MyDayDashboardProps {
   readonly now: Date;
   readonly today: string;
   /** The merged items, with any invented ones already removed for a signed-in reader. */
   readonly items: readonly MyDayItem[];
-  readonly nextRenewal: MyDayNextRenewal | null;
+  /** Admin's recorded dates, passed to a year ahead (runway and wallet). */
+  readonly renewals?: readonly RenewalRow[];
+  /** Admin's Help items, for pinned numbers. */
+  readonly helpItems?: readonly AdminHelpItem[];
   readonly sources: MyDayDashboardSources;
   /** Names of the My Day sources that were checked, for the empty "Needs you" line. */
   readonly checked: readonly string[];
   readonly editing: boolean;
+  /** Which page (tab) to draw. */
+  readonly page?: MyDayPageId;
   readonly onShowAll: () => void;
   readonly onRetry: () => void;
 }
@@ -91,7 +121,7 @@ function shiftEvent(shift: RosterDisplayShift): MyDayTimedEvent {
     source: "shift",
     startsAt: shift.startsAt,
     endsAt: shift.endsAt,
-    title: kind === "on_call" ? "On call" : `${SHIFT_KIND_LABEL[kind]} shift`,
+    title: shiftName(kind),
     where: [shift.workplace ?? shift.location ?? shift.teamName, `until ${perthTimeOf(shift.endsAt)}`]
       .filter(Boolean)
       .join(" · "),
@@ -113,667 +143,35 @@ function teachingEvent(session: SessionSummary): MyDayTimedEvent {
   };
 }
 
-/** The card frame: a heading, an optional aside, and in edit mode a Hide button. */
-function DashboardCard({
-  id,
-  editing,
-  onHide,
-  aside,
-  hero = false,
-  className,
-  children,
-}: {
-  readonly id: MyDayCardId;
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-  readonly aside?: ReactNode;
-  /** The "Up next" hero: the My Day blue in both themes, with the summary ink roles re-pointed at it. */
-  readonly hero?: boolean;
-  readonly className?: string;
-  readonly children: ReactNode;
-}) {
-  const headingId = useId();
-  const label = MY_DAY_CARD_LABELS[id];
-  return (
-    <section
-      aria-labelledby={headingId}
-      data-testid={`my-day-card-${id}`}
-      className={cn(
-        SPAN_CLASS[MY_DAY_CARD_SPAN[id]],
-        "grid min-w-0 content-start gap-2 p-3",
-        hero
-          ? "my-day-hero rounded-lg border shadow-[var(--e2)] forced-colors:border"
-          : cn(modeModuleSurface, "overflow-visible"),
-        className,
-      )}
-    >
-      <div className="flex min-h-6 min-w-0 items-center justify-between gap-2">
-        <h2 id={headingId} className={cn(eyebrowText, hero && modeSummaryMutedText)}>
-          {label}
-        </h2>
-        <div className="flex shrink-0 items-center gap-1">
-          {aside}
-          {editing ? (
-            <button
-              type="button"
-              onClick={() => onHide(id)}
-              aria-label={`Hide ${label}`}
-              data-testid={`my-day-hide-${id}`}
-              className={cn(
-                modeTapArea,
-                focusRing,
-                "-my-3 -mr-3 rounded-md",
-                hero ? "text-[color:var(--surface-summary-ink)]" : "text-[color:var(--text-muted)]",
-              )}
-            >
-              <X aria-hidden="true" className="size-icon-md" />
-            </button>
-          ) : null}
-        </div>
-      </div>
-      {children}
-    </section>
-  );
-}
-
-const RING_RADIUS = 27;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
-
-/** The countdown ring, drawn in the hero's own ink so it reads on the My Day blue in both themes. */
-function CountdownRing({ fraction, figure }: { readonly fraction: number; readonly figure: string }) {
-  const clamped = Math.min(1, Math.max(0, fraction));
-  return (
-    <span className="relative grid size-20 shrink-0 place-items-center" aria-hidden="true">
-      <svg viewBox="0 0 64 64" className="absolute inset-0 size-full -rotate-90">
-        <circle
-          cx="32"
-          cy="32"
-          r={RING_RADIUS}
-          fill="none"
-          strokeWidth="6"
-          className="stroke-[color:var(--surface-summary-line)]"
-        />
-        <circle
-          cx="32"
-          cy="32"
-          r={RING_RADIUS}
-          fill="none"
-          strokeWidth="6"
-          strokeLinecap="round"
-          strokeDasharray={RING_CIRCUMFERENCE}
-          strokeDashoffset={RING_CIRCUMFERENCE * (1 - clamped)}
-          data-testid="my-day-shift-ring"
-          className="stroke-[color:var(--surface-summary-ink)]"
-        />
-      </svg>
-      <span className={cn(modeDisplayNumberText, "relative text-lg text-[color:var(--surface-summary-ink)]")}>
-        {figure}
-      </span>
-    </span>
-  );
-}
-
-/** The hero's shift half: the ring (time to the shift, or time left once it runs) and the shift's name and place. */
-function HeroShift({
-  shift,
-  running,
-  now,
-}: {
-  readonly shift: RosterDisplayShift;
-  readonly running: boolean;
-  readonly now: Date;
-}) {
-  const kind: ShiftKind = kindOf(shift);
-  const name = kind === "on_call" ? "On call" : `${SHIFT_KIND_LABEL[kind]} shift`;
-  const start = Date.parse(shift.startsAt);
-  const end = Date.parse(shift.endsAt);
-  const at = now.getTime();
-  const remaining = running ? end - at : start - at;
-  // Running: the ring empties as the shift runs down. Before: it fills over the last 12 hours.
-  const fraction = running ? remaining / Math.max(1, end - start) : 1 - Math.min(1, remaining / (12 * HOUR_MS));
-  const countdown = formatCountdown(remaining);
-  const startDay = perthDateOf(shift.startsAt);
-  const endDay = perthDateOf(shift.endsAt);
-  const today = perthDateOf(now);
-  const startLine = running
-    ? "On now"
-    : `Starts ${startDay === today ? "" : `${formatPerthDay(startDay)} `}${perthTimeOf(shift.startsAt)}`;
-  const endLine = `Ends ${perthTimeOf(shift.endsAt)}${endDay === startDay ? "" : ` ${formatPerthDay(endDay)}`}`;
-  const place = shift.workplace ?? shift.location ?? shift.teamName ?? null;
-  const spoken = running
-    ? `${name} on now, ${countdown.spoken} left. ${endLine}.`
-    : `${countdown.spoken} until your ${name.toLowerCase()} starts, ${formatPerthDay(startDay)} at ${perthTimeOf(shift.startsAt)}. ${endLine}.`;
-  return (
-    <Link
-      href={withMyDayReturn("/roster")}
-      data-testid="my-day-shift"
-      className={cn(focusRing, "-m-1 flex min-h-12 min-w-0 items-center gap-3 rounded-md p-1 no-underline")}
-    >
-      <span className="sr-only">{`${spoken}${place ? ` ${place}.` : ""}`}</span>
-      <CountdownRing fraction={fraction} figure={formatRingFigure(remaining)} />
-      <span aria-hidden="true" className="grid min-w-0 gap-0.5">
-        <span className={cn(modeNameText, "break-words text-base-minus text-[color:var(--surface-summary-ink)]")}>
-          {name}
-        </span>
-        {place ? <span className={cn("break-words text-sm", modeSummaryMutedText)}>{place}</span> : null}
-        <span className={cn("nums break-words text-sm", modeSummaryMutedText)}>{`${startLine} · ${endLine}`}</span>
-      </span>
-    </Link>
-  );
-}
-
-/** The hero's "up next" half: the next timed session or event today. */
-function HeroUpNext({
-  event,
-  state,
-  now,
-  divided,
-}: {
-  readonly event: MyDayTimedEvent;
-  readonly state: "upcoming" | "on-now";
-  readonly now: Date;
-  /** True under the shift half, which then needs a hairline between the two. */
-  readonly divided: boolean;
-}) {
-  const countdown =
-    state === "upcoming"
-      ? formatCountdown(Date.parse(event.startsAt) - now.getTime())
-      : formatCountdown(Date.parse(event.endsAt) - now.getTime());
-  const visible = state === "upcoming" ? `in ${countdown.short}` : `On now · ${countdown.short} left`;
-  const spoken =
-    state === "upcoming"
-      ? `Starts in ${countdown.spoken}, at ${perthTimeOf(event.startsAt)}.`
-      : `On now, ends in ${countdown.spoken}.`;
-  return (
-    <div className={cn("grid gap-2", divided && cn("border-t pt-2", modeSummaryHairline))}>
-      <div className="grid gap-0.5" data-testid="my-day-up-next">
-        <p className="sr-only">{spoken}</p>
-        <p className="flex flex-wrap items-baseline gap-x-2" aria-hidden="true">
-          <span className={cn(modeDisplayNumberText, "text-hero text-[color:var(--surface-summary-ink)]")}>
-            {perthTimeOf(event.startsAt)}
-          </span>
-          <span className={cn("nums text-base-minus", modeSummaryMutedText)}>{`–${perthTimeOf(event.endsAt)}`}</span>
-          <span className={cn("nums ml-auto text-sm", modeSummaryMutedText)}>{visible}</span>
-        </p>
-        <p className={cn(modeNameText, "break-words text-base-minus text-[color:var(--surface-summary-ink)]")}>
-          {event.title}
-        </p>
-        {event.where ? <p className={cn("break-words text-sm", modeSummaryMutedText)}>{event.where}</p> : null}
-      </div>
-      <ActionStrip
-        surface="summary"
-        actions={[
-          {
-            id: "open",
-            label: event.actionLabel,
-            href: withMyDayReturn(event.href),
-            emphasis: "primary",
-            testId: "my-day-up-next-open",
-          },
-        ]}
-      />
-    </div>
-  );
-}
-
-/**
- * The hero (design review 2026-10-03, items 6, 7 and 11): one card in the My
- * Day blue holding the shift ring and, under it, what is up next. With no
- * shift ahead it shows only Up next; with neither it is not drawn at all.
- */
-function HeroCard({
-  shift,
-  shiftRunning,
-  upNext,
-  now,
-  editing,
-  onHide,
-}: {
-  readonly shift: RosterDisplayShift | null;
-  readonly shiftRunning: boolean;
-  readonly upNext: MyDayUpNext | null;
-  readonly now: Date;
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-}) {
-  return (
-    <DashboardCard id="up-next" editing={editing} onHide={onHide} hero>
-      {shift ? <HeroShift shift={shift} running={shiftRunning} now={now} /> : null}
-      {upNext ? <HeroUpNext event={upNext.event} state={upNext.state} now={now} divided={shift !== null} /> : null}
-    </DashboardCard>
-  );
-}
-
-function QuickActionsCard({
-  editing,
-  onHide,
-}: {
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-}) {
-  return (
-    <DashboardCard id="quick-actions" editing={editing} onHide={onHide}>
-      <ul role="list" className="grid grid-cols-3 gap-2">
-        {QUICK_ACTIONS.map(({ label, href, icon: ActionIcon }) => (
-          <li key={label} className="min-w-0">
-            <Link
-              href={withMyDayReturn(href)}
-              className={cn(
-                focusRing,
-                modePressable,
-                "grid min-h-16 place-items-center gap-1 rounded-md border border-[color:var(--border)] bg-[color:var(--surface-subtle)] px-1 py-2 text-center text-xs font-medium text-[color:var(--text-heading)] no-underline",
-              )}
-            >
-              <ActionIcon aria-hidden="true" className="size-icon-md text-[color:var(--text-muted)]" />
-              <span className="break-words">{label}</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </DashboardCard>
-  );
-}
-
-const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"] as const;
-
-/** The week tile's short code. On call is "OC", never a bare "C" (design review item 9). */
-const DAY_TILE_CODE: Readonly<Record<ShiftKind, string>> = {
-  day: "D",
-  evening: "E",
-  night: "N",
-  on_call: "OC",
-  leave: "L",
-  other: "W",
-};
-
-/** Filled for a worked day, solid for a night, dashed for leave; a rest day is a faded "off". */
-function DayTile({ kind }: { readonly kind: ShiftKind | null }) {
-  if (!kind) {
-    return (
-      <span
-        aria-hidden="true"
-        data-kind="off"
-        className="grid h-8 w-full max-w-10 place-items-center rounded-md text-xs text-[color:var(--text-muted)] opacity-70"
-      >
-        off
-      </span>
-    );
-  }
-  return (
-    <span
-      aria-hidden="true"
-      data-kind={kind}
-      className={cn(
-        "grid h-8 w-full max-w-10 place-items-center rounded-md border text-xs font-semibold forced-colors:border",
-        kind === "night"
-          ? "border-[color:var(--my-day-accent)] bg-[color:var(--my-day-accent)] text-[color:var(--my-day-accent-contrast)]"
-          : kind === "leave"
-            ? "border-dashed border-[color:var(--border-strong)] bg-transparent text-[color:var(--text)]"
-            : "border-transparent bg-[color:var(--my-day-tile)] text-[color:var(--my-day-tile-ink)]",
-      )}
-    >
-      {DAY_TILE_CODE[kind]}
-    </span>
-  );
-}
-
-interface AgendaLine {
-  readonly key: string;
-  readonly at: number;
-  readonly time: string;
-  readonly text: string;
-  readonly past: boolean;
-}
-
-function ThisWeekCard({
-  week,
-  today,
-  kindsByDate,
-  dueByDate,
-  agenda,
-  editing,
-  onHide,
-}: {
-  readonly week: readonly string[];
-  readonly today: string;
-  /** Null when no roster is available: then no tile is drawn, rather than a false "off". */
-  readonly kindsByDate: ReadonlyMap<string, readonly ShiftKind[]> | null;
-  readonly dueByDate: ReadonlyMap<string, number>;
-  readonly agenda: readonly AgendaLine[];
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-}) {
-  return (
-    <DashboardCard
-      id="this-week"
-      editing={editing}
-      onHide={onHide}
-      // On a wide screen the card keeps its own height rather than stretching to its neighbour's.
-      className="lg:self-start"
-      aside={
-        <TextLink href={withMyDayReturn("/roster/shifts")} className="inline-flex min-h-12 items-center px-1 text-sm">
-          Calendar
-        </TextLink>
-      }
-    >
-      <ol className="grid grid-cols-7 gap-1" data-testid="my-day-week">
-        {week.map((date) => {
-          const kinds = kindsByDate?.get(date) ?? [];
-          const due = dueByDate.get(date) ?? 0;
-          const isToday = date === today;
-          const words = [
-            kindsByDate ? (kinds.length ? kinds.map((kind) => SHIFT_KIND_LABEL[kind]).join(" and ") : "Off") : "",
-            due ? `${due} due` : "",
-          ]
-            .filter(Boolean)
-            .join(", ");
-          return (
-            <li
-              key={date}
-              aria-current={isToday ? "date" : undefined}
-              aria-label={words ? `${formatPerthDay(date)}: ${words}` : formatPerthDay(date)}
-              className="grid justify-items-center gap-1"
-            >
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "nums text-xs leading-4",
-                  isToday ? "font-semibold text-[color:var(--text-heading)]" : "text-[color:var(--text-muted)]",
-                )}
-              >
-                {WEEKDAY_LETTER[new Date(`${date}T00:00:00Z`).getUTCDay()]}
-              </span>
-              <span
-                aria-hidden="true"
-                className={cn(
-                  "nums grid size-6 place-items-center rounded-full text-xs",
-                  isToday
-                    ? "bg-[color:var(--my-day-accent)] font-semibold text-[color:var(--my-day-accent-contrast)] forced-colors:border"
-                    : "text-[color:var(--text-muted)]",
-                )}
-              >
-                {Number(date.slice(8, 10))}
-              </span>
-              {kindsByDate ? <DayTile kind={kinds[0] ?? null} /> : null}
-              <span
-                aria-hidden="true"
-                data-testid={due ? `my-day-week-due-${date}` : undefined}
-                className={cn(
-                  "size-1.5 rounded-full",
-                  due ? "bg-[color:var(--warning)] forced-colors:bg-[CanvasText]" : "bg-transparent",
-                )}
-              />
-            </li>
-          );
-        })}
-      </ol>
-      {agenda.length > 0 ? (
-        <div className="grid gap-1 border-t border-[color:var(--border)] pt-2">
-          <h3 className={eyebrowText}>Today</h3>
-          <ul role="list" className="grid gap-1" data-testid="my-day-agenda">
-            {agenda.map((line) => (
-              <li
-                key={line.key}
-                className={cn(
-                  "grid grid-cols-[3rem_minmax(0,1fr)] gap-2 text-sm",
-                  line.past ? "text-[color:var(--text-muted)]" : "text-[color:var(--text)]",
-                )}
-              >
-                <span className="nums font-medium">{line.time}</span>
-                <span className="break-words">
-                  {line.text}
-                  {line.past ? <span className="sr-only"> (finished)</span> : null}
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </DashboardCard>
-  );
-}
-
-function NeedsYouCard({
-  items,
-  now,
-  today,
-  checked,
-  editing,
-  onHide,
-  onShowAll,
-  onRetry,
-}: {
-  readonly items: readonly MyDayItem[];
-  readonly now: Date;
-  readonly today: string;
-  readonly checked: readonly string[];
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-  readonly onShowAll: () => void;
-  readonly onRetry: () => void;
-}) {
-  const device = useMyDayDeviceState(today);
-  const [undo, setUndo] = useState<{ readonly id: string; readonly title: string } | null>(null);
-  const { shown, waiting, total } = selectNeedsYou(items, device.snoozes, today);
-  const later = (item: MyDayItem) => {
-    device.snooze(item.id, snoozeUntil(now));
-    setUndo({ id: item.id, title: item.title });
-  };
-  const moved = total - waiting;
-
-  let body: ReactNode;
-  if (total === 0) {
-    body = (
-      <div data-testid="my-day-empty">
-        {checked.length > 0 ? (
-          <EmptyState icon={Sunrise} title="Nothing needs you right now" body={`Checked ${listNames(checked)}.`} />
-        ) : (
-          <EmptyState
-            icon={Sunrise}
-            title="Couldn't check your day"
-            body="No source could be checked just now."
-            actions={
-              <Button variant="secondary" onClick={onRetry}>
-                Retry
-              </Button>
-            }
-          />
-        )}
-      </div>
-    );
-  } else if (shown.length === 0) {
-    body = (
-      <p className={modeSecondaryText} data-testid="my-day-needs-you-snoozed">
-        {`Nothing else needs you today. ${moved} moved to tomorrow.`}
-      </p>
-    );
-  } else {
-    body = (
-      <ul role="list" className="-mx-3 grid">
-        {shown.map((item) => (
-          <MyDayItemRow
-            key={item.id}
-            item={item}
-            now={now}
-            compact
-            action={
-              <button
-                type="button"
-                onClick={() => later(item)}
-                aria-label={`Later: ${item.title}`}
-                data-testid={`my-day-later-${item.id}`}
-                className={cn(
-                  modeTapArea,
-                  focusRing,
-                  "rounded-md px-2 text-sm font-medium text-[color:var(--clinical-accent)]",
-                )}
-              >
-                Later
-              </button>
-            }
-          />
-        ))}
-      </ul>
-    );
-  }
-
-  return (
-    <DashboardCard
-      id="needs-you"
-      editing={editing}
-      onHide={onHide}
-      aside={
-        <>
-          {waiting > 0 && waiting !== total ? (
-            <span className="nums text-sm text-[color:var(--text-muted)]" data-testid="my-day-needs-you-count">
-              <span className="sr-only">Waiting: </span>
-              {waiting}
-            </span>
-          ) : null}
-          {total > 0 ? (
-            <button
-              type="button"
-              onClick={onShowAll}
-              data-testid="my-day-show-all"
-              className={cn(
-                modeTapArea,
-                focusRing,
-                // The 48px tap area overlaps the card padding, so it does not push the rows down.
-                "-my-3 -mr-1 rounded-md px-2 text-sm font-medium text-[color:var(--clinical-accent)]",
-              )}
-            >
-              {`All ${total}`}
-            </button>
-          ) : null}
-        </>
-      }
-    >
-      {body}
-      <div role="status" className="empty:hidden">
-        {undo ? (
-          <div
-            className="flex min-w-0 flex-wrap items-center justify-between gap-2 rounded-md bg-[color:var(--surface-subtle)] px-3"
-            data-testid="my-day-undo"
-          >
-            <span className="min-w-0 break-words text-sm text-[color:var(--text)]">{`Moved to tomorrow: ${undo.title}`}</span>
-            <button
-              type="button"
-              onClick={() => {
-                device.unsnooze(undo.id);
-                setUndo(null);
-              }}
-              className={cn(
-                modeTapArea,
-                focusRing,
-                "rounded-md px-2 text-sm font-medium text-[color:var(--clinical-accent)]",
-              )}
-            >
-              Undo
-            </button>
-          </div>
-        ) : null}
-      </div>
-    </DashboardCard>
-  );
-}
-
-function CpdCard({
-  loggedHours,
-  targetHours,
-  editing,
-  onHide,
-}: {
-  readonly loggedHours: number;
-  readonly targetHours: number;
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-}) {
-  const hours = (value: number) => Number(value.toFixed(1)).toString();
-  const left = Math.max(0, targetHours - loggedHours);
-  const percent = Math.min(100, Math.round((loggedHours / targetHours) * 100));
-  return (
-    <DashboardCard id="cpd" editing={editing} onHide={onHide}>
-      <Link
-        href={withMyDayReturn("/cme")}
-        data-testid="my-day-cpd"
-        className={cn(focusRing, modePressable, "-m-1 grid min-h-12 gap-1.5 rounded-md p-1 no-underline")}
-      >
-        <span className="sr-only">{`${hours(loggedHours)} of ${hours(targetHours)} CPD hours logged this year.`}</span>
-        <span aria-hidden="true" className="flex items-baseline gap-1">
-          <span className={cn(modeDisplayNumberText, "text-2xl text-[color:var(--text-heading)]")}>
-            {hours(loggedHours)}
-          </span>
-          <span className={modeSecondaryText}>{`/ ${hours(targetHours)} h`}</span>
-        </span>
-        {/* An SVG bar, so the fill's width is an attribute rather than an inline style. */}
-        <svg aria-hidden="true" className="block h-1.5 w-full overflow-hidden rounded-full" preserveAspectRatio="none">
-          <rect width="100%" height="100%" rx="3" className="fill-[color:var(--surface-subtle)]" />
-          <rect
-            width={`${percent}%`}
-            height="100%"
-            rx="3"
-            className="fill-[color:var(--clinical-accent)] forced-colors:fill-[CanvasText]"
-          />
-        </svg>
-        <span className={modeSecondaryText}>{left > 0 ? `${hours(left)} h to go by 31 Dec` : "Target reached"}</span>
-      </Link>
-    </DashboardCard>
-  );
-}
-
-function RenewalCard({
-  renewal,
-  today,
-  editing,
-  onHide,
-}: {
-  readonly renewal: MyDayNextRenewal;
-  readonly today: string;
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-}) {
-  const days = daysUntil(renewal.date, today);
-  const figure = days === 0 ? "Today" : `${days} d`;
-  const spoken = days === 0 ? "today" : days === 1 ? "in 1 day" : `in ${days} days`;
-  return (
-    <DashboardCard id="renewal" editing={editing} onHide={onHide}>
-      <Link
-        href={renewal.href}
-        data-testid="my-day-renewal"
-        className={cn(focusRing, modePressable, "-m-1 grid min-h-12 gap-1 rounded-md p-1 no-underline")}
-      >
-        <span className="sr-only">{`Next recorded date ${spoken}: ${renewal.title}, ${formatPerthDay(renewal.date)}.`}</span>
-        <span aria-hidden="true" className={cn(modeDisplayNumberText, "text-2xl text-[color:var(--text-heading)]")}>
-          {figure}
-        </span>
-        <span aria-hidden="true" className={cn(modeSecondaryText, "break-words")}>
-          {`${renewal.title} · ${formatPerthDay(renewal.date)}`}
-        </span>
-      </Link>
-    </DashboardCard>
-  );
-}
+const ALL_HIDDEN = "Every card is hidden. Choose Edit to bring them back.";
+const WORK_EMPTY =
+  "Nothing for Work yet. Tonight's calls, pinned numbers, your team and your next talk show here once they exist.";
 
 export function MyDayDashboard({
   now,
   today,
   items,
-  nextRenewal,
+  renewals = NO_RENEWALS,
+  helpItems = NO_HELP,
   sources,
   checked,
   editing,
+  page = "today",
   onShowAll,
   onRetry,
 }: MyDayDashboardProps) {
   const device = useMyDayDeviceState(today);
-  const hide = (id: MyDayCardId) => device.setHidden(id, true);
+  const onHide = (id: MyDayCardId) => (editing ? () => device.setHidden(id, true) : undefined);
+  const [undo, setUndo] = useState<{ readonly id: string; readonly title: string } | null>(null);
 
+  // ---------------------------------------------------------------- roster and the hero
   const rosterReady = sources.roster.status === "ready";
+  const shifts = sources.roster.shifts;
   const summary = useMemo(
     () =>
       rosterReady
         ? summariseToday(
-            sources.roster.shifts.map((shift) => ({
+            shifts.map((shift) => ({
               id: shift.id,
               startsAt: shift.startsAt,
               endsAt: shift.endsAt,
@@ -782,22 +180,19 @@ export function MyDayDashboard({
             now,
           )
         : null,
-    [rosterReady, sources.roster.shifts, now],
+    [rosterReady, shifts, now],
   );
-  const byId = useMemo(() => new Map(sources.roster.shifts.map((shift) => [shift.id, shift])), [sources.roster.shifts]);
-
+  const byId = useMemo(() => new Map(shifts.map((shift) => [shift.id, shift])), [shifts]);
   const todaysShifts = useMemo(
-    () => sources.roster.shifts.filter((shift) => kindOf(shift) !== "leave" && perthDateOf(shift.startsAt) === today),
-    [sources.roster.shifts, today],
+    () => shifts.filter((shift) => kindOf(shift) !== "leave" && perthDateOf(shift.startsAt) === today),
+    [shifts, today],
   );
-  // The source hands over an empty list until its read is ready.
   const teachingSessions = sources.teaching.sessions;
   const events = useMemo(
     () => [...todaysShifts.map(shiftEvent), ...teachingSessions.map(teachingEvent)],
     [todaysShifts, teachingSessions],
   );
-
-  // The hero's shift: the shift on now, else the next one (today or later). Nothing ahead leaves only Up next.
+  // The hero's shift: the shift on now, else the next one (today or later).
   const lead = summary?.lead;
   const leadShift =
     lead && lead.state !== "empty"
@@ -808,13 +203,36 @@ export function MyDayDashboard({
         : (byId.get(lead.shift.id) ?? null)
       : null;
   const shiftRunning = lead?.state === "on_now";
-  // The shift already has the hero's ring, so Up next is the next thing after it, never the same shift twice.
+  // The shift already has the hero's ring, so Up next is the next thing after it.
   const upNext = selectUpNext(leadShift ? events.filter((event) => event.id !== `shift:${leadShift.id}`) : events, now);
+  const ribbon = useMemo(
+    () =>
+      buildDayRibbon(
+        [
+          ...todaysShifts.map((shift) => ({
+            id: `shift:${shift.id}`,
+            startsAt: shift.startsAt,
+            endsAt: shift.endsAt,
+            kind: "shift" as const,
+          })),
+          ...teachingSessions.map((session) => ({
+            id: `teaching:${session.occurrenceId}`,
+            startsAt: session.startsAt,
+            endsAt: session.endsAt,
+            kind: "other" as const,
+          })),
+        ],
+        now,
+      ),
+    [todaysShifts, teachingSessions, now],
+  );
 
+  // ---------------------------------------------------------------- this week
   const week = useMemo(() => weekOf(today), [today]);
   const kindsByDate = useMemo(
-    () => (summary ? new Map(summary.week.map((day) => [day.date, day.kinds as readonly ShiftKind[]])) : null),
-    [summary],
+    () =>
+      rosterReady ? kindsByDateOf(shifts.map((shift) => ({ startsAt: shift.startsAt, kind: kindOf(shift) }))) : null,
+    [rosterReady, shifts],
   );
   const dueByDate = useMemo(() => dueCountsByDate(items), [items]);
   const weekHasDue = week.some((date) => (dueByDate.get(date) ?? 0) > 0);
@@ -827,10 +245,7 @@ export function MyDayDashboard({
         key: event.id,
         at: Date.parse(event.startsAt),
         time: perthTimeOf(event.startsAt),
-        text:
-          event.source === "shift"
-            ? `${event.title} until ${perthTimeOf(event.endsAt)}`
-            : `${event.title}${event.where.startsWith("You're presenting") ? " (you)" : ""}`,
+        text: event.title,
         past: Date.parse(event.endsAt) <= at,
       });
     }
@@ -849,14 +264,107 @@ export function MyDayDashboard({
     return kept.slice(0, 6).sort(byTime);
   }, [events, items, now, today]);
 
+  const ahead = sources.teaching.ahead ?? NO_SESSIONS;
+  const detailFor = (date: string): DayDetail[] => {
+    const details: DayDetail[] = [];
+    for (const shift of shifts) {
+      if (perthDateOf(shift.startsAt) !== date) continue;
+      const kind: ShiftKind = kindOf(shift);
+      details.push({
+        key: `shift:${shift.id}`,
+        code: kind === "on_call" ? "OC" : kind === "night" ? "N" : kind === "leave" ? "L" : "D",
+        tint: kind === "on_call" ? "blue" : "blue-2",
+        title:
+          kind === "leave"
+            ? "Leave"
+            : `${shiftName(kind)} ${perthTimeOf(shift.startsAt)} to ${perthTimeOf(shift.endsAt)}`,
+        subtitle: shift.workplace ?? shift.location ?? shift.teamName ?? undefined,
+      });
+    }
+    for (const session of ahead) {
+      if (session.allDay || perthDateOf(session.startsAt) !== date) continue;
+      details.push({
+        key: `teaching:${session.occurrenceId}`,
+        code: "T",
+        tint: "blue-2",
+        title: `${session.title} ${perthTimeOf(session.startsAt)}`,
+        subtitle: session.isPresenter ? "You're presenting" : (session.venue ?? undefined),
+      });
+    }
+    for (const item of items) {
+      if (duePerthDate(item.due) !== date) continue;
+      const chip = MODE_CHIP[item.mode];
+      details.push({
+        key: `item:${item.id}`,
+        code: chip.code,
+        tint: chip.tint,
+        title: item.title,
+        subtitle: item.severity === "overdue" ? (item.mode === "my-work" ? "Date passed" : "Overdue") : "Due",
+        passed: item.severity === "overdue",
+        href: item.href,
+        actionLabel: myDayActionLabel(item),
+      });
+    }
+    return details;
+  };
+
+  // ---------------------------------------------------------------- items
+  const needsYou = selectNeedsYou(items, device.snoozes, today);
+  const flagItems = selectFlagItems(items, (id) => isSnoozed(device.snoozes, id, today));
+  const later = (item: MyDayItem) => {
+    device.snooze(item.id, snoozeUntil(now));
+    setUndo({ id: item.id, title: item.title });
+  };
+  const runway = useMemo(() => renewalsRunway(renewals, today), [renewals, today]);
+
+  // ---------------------------------------------------------------- work
+  const callLog = useOnCallCallLog();
+  const callEntries = callLog?.entries ?? [];
+  const pins = useAdminPins();
+  const pinnedNumbers = useMemo<PinnedNumber[]>(
+    () =>
+      pinnedHelpItems(pins, helpItems).map((help) => ({
+        key: help.key,
+        title: help.title,
+        display: help.phone ? displayPhoneNumber(help.phone, "own-list") : (help.detail ?? ""),
+        tel: onCallTelHref(help.phone ?? undefined) ?? null,
+        href: `${ADMIN_PAGE_HREFS.help}#${onCallEntryAnchorId(help.entry?.id ?? help.key)}`,
+      })),
+    [pins, helpItems],
+  );
+  const whosOn = sources.whosOn;
+  const nextTalk = sources.teaching.nextTalk ?? null;
+  const handoverAt = leadShift && shiftRunning && kindOf(leadShift) === "on_call" ? leadShift.endsAt : null;
+
+  // ---------------------------------------------------------------- me
+  const hoursShifts = useMemo(
+    () => shifts.map((shift) => ({ startsAt: shift.startsAt, endsAt: shift.endsAt, kind: kindOf(shift) })),
+    [shifts],
+  );
+  const weekHours = useMemo(() => hoursBars(hoursShifts, today, "week"), [hoursShifts, today]);
+  const fortnightHours = useMemo(() => hoursBars(hoursShifts, today, "fortnight"), [hoursShifts, today]);
+  const glance = useMemo(() => monthGlance(hoursShifts, today), [hoursShifts, today]);
+
   const cpd = sources.cpd;
+  const cpdReady = cpd.status === "ready" && cpd.targetHours > 0;
+
   const visible: Record<MyDayCardId, boolean> = {
     "up-next": upNext !== null || leadShift !== null,
+    flag: flagItems.length > 0,
     "quick-actions": true,
     "this-week": rosterReady || agenda.length > 0 || weekHasDue,
     "needs-you": true,
-    cpd: cpd.status === "ready" && cpd.targetHours > 0,
-    renewal: nextRenewal !== null,
+    cpd: cpdReady,
+    renewals: runway.length > 0,
+    calls: callEntries.length > 0,
+    "pinned-numbers": pinnedNumbers.length > 0,
+    "whos-on": whosOn?.status === "ready" && whosOn.colleagues.length > 0,
+    "next-talk": nextTalk !== null,
+    hours: rosterReady && (weekHours.totalHours > 0 || fortnightHours.totalHours > 0),
+    "month-glance": rosterReady && glance.totalHours > 0,
+    credentials: renewals.length > 0,
+    "cpd-month": cpdReady,
+    "quick-note": true,
   };
 
   const partial = [
@@ -867,7 +375,6 @@ export function MyDayDashboard({
     onRetry();
     sources.retry?.();
   };
-
   const failed = [
     sources.roster.status === "failed" ? "Shifts" : null,
     sources.teaching.status === "failed" ? "Teaching sessions" : null,
@@ -878,14 +385,15 @@ export function MyDayDashboard({
     "up-next": () => (
       <HeroCard
         shift={leadShift}
-        shiftRunning={shiftRunning}
+        running={shiftRunning}
         upNext={upNext}
+        ribbon={ribbon}
         now={now}
-        editing={editing}
-        onHide={hide}
+        onHide={onHide("up-next")}
       />
     ),
-    "quick-actions": () => <QuickActionsCard editing={editing} onHide={hide} />,
+    flag: () => <FlagCard items={flagItems} onHide={onHide("flag")} />,
+    "quick-actions": () => <QuickActionsCard onHide={onHide("quick-actions")} />,
     "this-week": () => (
       <ThisWeekCard
         week={week}
@@ -893,35 +401,75 @@ export function MyDayDashboard({
         kindsByDate={kindsByDate}
         dueByDate={dueByDate}
         agenda={agenda}
-        editing={editing}
-        onHide={hide}
+        detailFor={detailFor}
+        onHide={onHide("this-week")}
       />
     ),
     "needs-you": () => (
       <NeedsYouCard
-        items={items}
-        now={now}
-        today={today}
+        shown={needsYou.shown}
+        waiting={needsYou.waiting}
+        total={needsYou.total}
         checked={checked}
-        editing={editing}
-        onHide={hide}
+        undo={undo}
+        onLater={later}
+        onUndo={() => {
+          if (undo) device.unsnooze(undo.id);
+          setUndo(null);
+        }}
         onShowAll={onShowAll}
         onRetry={retryAll}
+        onHide={onHide("needs-you")}
       />
     ),
-    cpd: () => <CpdCard loggedHours={cpd.loggedHours} targetHours={cpd.targetHours} editing={editing} onHide={hide} />,
-    renewal: () =>
-      nextRenewal ? <RenewalCard renewal={nextRenewal} today={today} editing={editing} onHide={hide} /> : null,
+    cpd: () => (
+      <CpdRingsCard
+        loggedHours={cpd.loggedHours}
+        targetHours={cpd.targetHours}
+        byCategory={cpd.byCategory}
+        categoryTargets={cpd.categoryTargets}
+        onHide={onHide("cpd")}
+      />
+    ),
+    renewals: () => <RenewalsRunwayCard points={runway} onHide={onHide("renewals")} />,
+    calls: () => (
+      <CallsCard
+        total={callEntries.length}
+        open={callEntries.filter((entry) => !entry.done).length}
+        clearsAt={callLog?.expiresAt ?? null}
+        handoverAt={handoverAt}
+        onHide={onHide("calls")}
+      />
+    ),
+    "pinned-numbers": () => <PinnedNumbersCard numbers={pinnedNumbers} onHide={onHide("pinned-numbers")} />,
+    "whos-on": () => <WhosOnCard colleagues={whosOn?.colleagues ?? []} onHide={onHide("whos-on")} />,
+    "next-talk": () =>
+      nextTalk ? <NextTalkCard session={nextTalk} today={today} onHide={onHide("next-talk")} /> : null,
+    hours: () => <HoursCard week={weekHours} fortnight={fortnightHours} onHide={onHide("hours")} />,
+    "month-glance": () => <MonthGlanceCard glance={glance} today={today} onHide={onHide("month-glance")} />,
+    credentials: () => <CredentialsCard rows={renewals} today={today} onHide={onHide("credentials")} />,
+    "cpd-month": () => (
+      <CpdMonthCard
+        byMonth={cpd.byMonth}
+        loggedHours={cpd.loggedHours}
+        targetHours={cpd.targetHours}
+        projected={cpdProjectedHours(cpd.loggedHours, today)}
+        currentMonth={Number(today.slice(5, 7)) - 1}
+        onHide={onHide("cpd-month")}
+      />
+    ),
+    "quick-note": () => <QuickNoteCard onHide={onHide("quick-note")} />,
   };
 
-  const shownIds = myDayCardIds.filter((id) => visible[id] && !device.hidden.has(id));
-  const hiddenIds = myDayCardIds.filter((id) => device.hidden.has(id));
+  const pageCards: readonly MyDayCardId[] = MY_DAY_PAGE_CARDS[page];
+  const shownIds = pageCards.filter((id) => visible[id] && !device.hidden.has(id));
+  const hiddenIds = pageCards.filter((id) => device.hidden.has(id));
 
   return (
-    <div className="grid gap-3" data-testid="my-day-dashboard">
+    <div className="grid gap-2.5" data-testid="my-day-dashboard" data-page={page}>
       {failed.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2">
-          <p className={modeSecondaryText} data-testid="my-day-card-failed">
+          <p className={dashMuted} data-testid="my-day-card-failed">
             {`Couldn't load ${listNames(failed)}, so ${failed.length === 1 ? "that card is" : "those cards are"} not shown.`}
           </p>
           <Button variant="secondary" onClick={retryAll} data-testid="my-day-card-retry">
@@ -930,23 +478,23 @@ export function MyDayDashboard({
         </div>
       ) : null}
       {partial.length > 0 ? (
-        <p className={modeSecondaryText} data-testid="my-day-card-partial">
+        <p className={dashMuted} data-testid="my-day-card-partial">
           {`Couldn't load ${listNames(partial)}, so these cards may be missing some of it.`}
         </p>
       ) : null}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-editing={editing ? "" : undefined}>
+      <div className="grid gap-2.5 lg:grid-cols-2 lg:items-start" data-editing={editing ? "" : undefined}>
         {shownIds.map((id) => (
           <Fragment key={id}>{cards[id]()}</Fragment>
         ))}
       </div>
       {shownIds.length === 0 && !editing ? (
-        <p className={modeSecondaryText} data-testid="my-day-all-hidden">
-          Every card is hidden. Choose Edit to bring them back.
+        <p className={cn(dashMuted, "px-1")} data-testid="my-day-all-hidden">
+          {page === "work" && hiddenIds.length === 0 ? WORK_EMPTY : ALL_HIDDEN}
         </p>
       ) : null}
       {editing ? (
         <div className="grid gap-2" data-testid="my-day-hidden-cards">
-          <p className={modeSecondaryText}>
+          <p className={dashMuted}>
             {hiddenIds.length > 0
               ? "Hidden cards. Choose one to bring it back."
               : "Choose × on a card to hide it. Hidden cards wait here."}
@@ -962,7 +510,7 @@ export function MyDayDashboard({
                     data-testid={`my-day-restore-${id}`}
                     className={cn(
                       focusRing,
-                      "inline-flex min-h-12 items-center gap-1 rounded-full border border-dashed border-[color:var(--border-strong)] bg-[color:var(--surface-raised)] px-4 text-sm font-medium text-[color:var(--text)]",
+                      "inline-flex min-h-12 items-center gap-1 rounded-full border border-dashed border-[color:var(--dash-line-strong)] bg-[color:var(--dash-raised)] px-4 text-sm font-dash-title text-[color:var(--dash-muted)]",
                     )}
                   >
                     <Plus aria-hidden="true" className="size-icon-sm" />

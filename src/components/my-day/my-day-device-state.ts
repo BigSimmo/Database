@@ -4,6 +4,7 @@ import { useCallback, useMemo, useSyncExternalStore } from "react";
 
 import {
   MY_DAY_HIDDEN_CARDS_STORAGE_KEY,
+  MY_DAY_QUICK_NOTE_STORAGE_KEY,
   MY_DAY_SNOOZED_ITEMS_STORAGE_KEY,
   subscribeAccountTransition,
 } from "@/lib/account-scoped-browser-state";
@@ -122,6 +123,22 @@ export function useMyDayDeviceState(today: string): MyDayDeviceState {
   );
 
   return { hidden, setHidden, snoozes, snooze, unsnooze };
+}
+
+/** The longest quick note kept: a reminder, not a document. */
+export const MY_DAY_QUICK_NOTE_LIMIT = 500;
+
+/**
+ * The quick note on Me: kept on this device for this account only (the same
+ * account-scoped store as the hidden cards), never sent anywhere.
+ */
+export function useMyDayQuickNote(): readonly [string, (value: string) => void] {
+  const raw = useSyncExternalStore(subscribe, () => read(MY_DAY_QUICK_NOTE_STORAGE_KEY), serverSnapshot);
+  const setNote = useCallback((value: string) => {
+    const next = value.slice(0, MY_DAY_QUICK_NOTE_LIMIT);
+    write(MY_DAY_QUICK_NOTE_STORAGE_KEY, next.trim() ? next : null);
+  }, []);
+  return [raw ?? "", setNote] as const;
 }
 
 /** Tests only: forget the in-memory fallback. */

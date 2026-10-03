@@ -12,6 +12,8 @@
  * data each mode already loads for the reader.
  */
 
+import type { AdminHelpItem } from "@/lib/admin/help-items";
+import type { RenewalRow } from "@/lib/my-day/figures";
 import type { TodayItem } from "@/lib/today/today-item";
 import { todaySeverities, type TodaySeverity } from "@/lib/today/today-item";
 
@@ -86,4 +88,8 @@ export interface MyDayState {
   readonly retry: () => void;
   /** Admin's next recorded date ahead; absent until Admin's read is ready, null when there is none. */
   readonly nextRenewal?: MyDayNextRenewal | null;
+  /** Every recorded Admin date, passed to a year ahead, for the runway and the wallet. */
+  readonly renewals?: readonly RenewalRow[];
+  /** Admin's Help items, for the pinned numbers card. */
+  readonly helpItems?: readonly AdminHelpItem[];
 }

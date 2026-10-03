@@ -14,32 +14,57 @@ import type { MyDayItem } from "@/lib/my-day/model";
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 /**
- * The cards, in phone stacking order. "Up next" is the hero: it carries the
- * shift ring (the old "Shift" card, folded in so the same shift is not shown
- * twice) and the next timed session. A stored "shift" id from before the fold
- * is simply ignored.
+ * The three pages (tabs) of My Day and their cards, in phone stacking order
+ * (design review v13, concept D). "Up next" is the hero: the shift ring, the
+ * day ribbon and the next timed session. A stored id from an earlier layout
+ * ("shift", "renewal") is simply ignored.
  */
-export const myDayCardIds = ["up-next", "quick-actions", "this-week", "needs-you", "cpd", "renewal"] as const;
+export const myDayPageIds = ["today", "work", "me"] as const;
+export type MyDayPageId = (typeof myDayPageIds)[number];
+
+export const MY_DAY_PAGE_LABELS: Readonly<Record<MyDayPageId, string>> = {
+  today: "Today",
+  work: "Work",
+  me: "Me",
+};
+
+export const MY_DAY_PAGE_CARDS = {
+  today: ["up-next", "flag", "quick-actions", "this-week", "needs-you", "cpd", "renewals"],
+  work: ["calls", "pinned-numbers", "whos-on", "next-talk"],
+  me: ["hours", "month-glance", "credentials", "cpd-month", "quick-note"],
+} as const satisfies Readonly<Record<MyDayPageId, readonly string[]>>;
+
+export const myDayCardIds = [...MY_DAY_PAGE_CARDS.today, ...MY_DAY_PAGE_CARDS.work, ...MY_DAY_PAGE_CARDS.me] as const;
 export type MyDayCardId = (typeof myDayCardIds)[number];
 
 export const MY_DAY_CARD_LABELS: Readonly<Record<MyDayCardId, string>> = {
   "up-next": "Up next",
+  flag: "Most important now",
   "quick-actions": "Quick actions",
   "this-week": "This week",
   "needs-you": "Needs you",
-  cpd: "CPD",
-  renewal: "Next renewal",
+  cpd: "CPD this year",
+  renewals: "Renewals, next 6 months",
+  calls: "Tonight's calls",
+  "pinned-numbers": "Pinned numbers",
+  "whos-on": "Who's on now",
+  "next-talk": "Next talk",
+  hours: "Hours worked",
+  "month-glance": "Month at a glance",
+  credentials: "Credentials wallet",
+  "cpd-month": "CPD by month",
+  "quick-note": "Quick note",
 };
 
-/** Full-width cards span both phone columns; the rest sit in pairs. */
-export const MY_DAY_CARD_SPAN: Readonly<Record<MyDayCardId, "full" | "half">> = {
-  "up-next": "full",
-  "quick-actions": "full",
-  "this-week": "full",
-  "needs-you": "full",
-  cpd: "half",
-  renewal: "half",
-};
+/** Which page a card lives on, for the edit list. */
+export function myDayPageOfCard(id: MyDayCardId): MyDayPageId {
+  return myDayPageIds.find((page) => (MY_DAY_PAGE_CARDS[page] as readonly string[]).includes(id)) ?? "today";
+}
+
+/** `?page=` to a page id; anything else is Today. */
+export function parseMyDayPage(value: string | null | undefined): MyDayPageId {
+  return value === "work" || value === "me" ? value : "today";
+}
 
 /** How many "Needs you" rows the card shows before "All N". */
 export const MY_DAY_NEEDS_YOU_CAP = 3;

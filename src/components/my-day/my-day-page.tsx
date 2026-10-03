@@ -15,7 +15,6 @@ import { useMyDayDashboardSources } from "@/components/my-day/use-my-day-dashboa
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
 import { Button } from "@/components/ui/button";
-import { formatDateEcho } from "@/lib/admin/renewal-dates";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import {
   myDayEnabledForAuth,
@@ -25,6 +24,15 @@ import {
   type MyDayState,
 } from "@/lib/my-day/model";
 import { MY_DAY_ALL_VIEW_HREF, MY_DAY_PATH, withMyDayReturn } from "@/lib/my-day/return-link";
+import { MY_DAY_PAGE_LABELS, myDayPageIds, parseMyDayPage, type MyDayPageId } from "@/lib/my-day/dashboard";
+import type { RenewalRow } from "@/lib/my-day/figures";
+import type { AdminHelpItem } from "@/lib/admin/help-items";
+import { focusRing } from "@/components/card-recipes";
+import { dashSurface } from "@/components/dashboard-kit/recipes";
+import { cn } from "@/components/ui-primitives";
+
+const NO_RENEWALS: readonly RenewalRow[] = [];
+const NO_HELP: readonly AdminHelpItem[] = [];
 import { useAuthSession } from "@/lib/supabase/client";
 
 const PAGE_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6 lg:max-w-5xl";
@@ -129,8 +137,103 @@ function MyDayDashboardView({
   allowSample,
   ...props
 }: Omit<MyDayDashboardProps, "sources"> & { readonly allowSample: boolean }) {
-  const sources = useMyDayDashboardSources({ today: props.today, allowSample });
+  const sources = useMyDayDashboardSources({ today: props.today, now: props.now, allowSample });
   return <MyDayDashboard {...props} sources={sources} />;
+}
+
+const LONG_WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] as const;
+const LONG_MONTHS = [
+  "January",
+  "February",
+  "March",
+  "April",
+  "May",
+  "June",
+  "July",
+  "August",
+  "September",
+  "October",
+  "November",
+  "December",
+] as const;
+
+/** "Saturday 3 October" for a Perth date. */
+function longDate(date: string): string {
+  const weekday = new Date(`${date}T00:00:00Z`).getUTCDay();
+  return `${LONG_WEEKDAYS[weekday]} ${Number(date.slice(8, 10))} ${LONG_MONTHS[Number(date.slice(5, 7)) - 1]}`;
+}
+
+/** Switch page by replacing the address, so Back still leaves My Day rather than stepping through tabs. */
+function showPage(page: MyDayPageId) {
+  const url = page === "today" ? MY_DAY_PATH : `${MY_DAY_PATH}?page=${page}`;
+  window.history.replaceState(null, "", url);
+}
+
+/** True when the touch began inside something that scrolls sideways (quick actions, the wallet). */
+function insideHorizontalScroller(target: EventTarget | null, stop: Element): boolean {
+  let node = target instanceof Element ? target : null;
+  while (node && node !== stop) {
+    if (node.scrollWidth > node.clientWidth + 1 && /(auto|scroll)/.test(getComputedStyle(node).overflowX)) return true;
+    node = node.parentElement;
+  }
+  return false;
+}
+
+/** Today / Work / Me: a tab list over the dashboard; a sideways swipe on the page changes tab too. */
+function MyDayTabs({ page, onChange }: { readonly page: MyDayPageId; readonly onChange: (page: MyDayPageId) => void }) {
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const move = (delta: number) => {
+    const index = myDayPageIds.indexOf(page);
+    const next = myDayPageIds[(index + delta + myDayPageIds.length) % myDayPageIds.length] ?? "today";
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div
+      role="tablist"
+      aria-label="My Day pages"
+      data-testid="my-day-tabs"
+      className="flex gap-1 rounded-full border border-[color:var(--dash-line)] bg-[color:var(--dash-card)] p-1 forced-colors:border"
+    >
+      {myDayPageIds.map((id) => {
+        const selected = id === page;
+        return (
+          <button
+            key={id}
+            ref={(node) => {
+              refs.current[id] = node;
+            }}
+            type="button"
+            role="tab"
+            id={`my-day-tab-${id}`}
+            aria-selected={selected}
+            aria-controls="my-day-panel"
+            tabIndex={selected ? 0 : -1}
+            data-testid={`my-day-tab-${id}`}
+            onClick={() => onChange(id)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight") {
+                event.preventDefault();
+                move(1);
+              } else if (event.key === "ArrowLeft") {
+                event.preventDefault();
+                move(-1);
+              }
+            }}
+            className={cn(
+              focusRing,
+              "min-h-10 flex-1 rounded-full text-sm font-dash-title",
+              selected
+                ? "bg-[color:var(--dash-raised)] text-[color:var(--dash-ink)] shadow-[var(--dash-shadow)] forced-colors:border"
+                : "text-[color:var(--dash-muted)]",
+            )}
+          >
+            {MY_DAY_PAGE_LABELS[id]}
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
@@ -145,6 +248,12 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
   // The full list has its own address, so the phone's Back returns to the dashboard.
   const searchParams = useSearchParams();
   const view: "dashboard" | "all" = searchParams?.get("view") === "all" ? "all" : "dashboard";
+  const page = parseMyDayPage(searchParams?.get("page"));
+  const touchStart = useRef<{ x: number; y: number } | null>(null);
+  const swipeRef = useRef<HTMLDivElement>(null);
+  const changePage = (next: MyDayPageId) => {
+    if (next !== page) showPage(next);
+  };
   const [editing, setEditing] = useState(false);
   useEffect(() => {
     // Back on the dashboard (by either Back): nothing of ours is left to step back over.
@@ -167,10 +276,10 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
     .filter((mode) => state.sources.some((source) => source.mode === mode && source.status === "ready"))
     .map(myDayModeLabel);
   const myWorkSample = state.sources.some((source) => source.mode === "my-work" && source.sample === true);
-  const nextRenewal =
-    state.nextRenewal && (allowSample || !myWorkSample)
-      ? { ...state.nextRenewal, href: withMyDayReturn(state.nextRenewal.href) }
-      : null;
+  // Admin's dates and numbers: dropped whole for a signed-in reader if they are invented examples.
+  const adminReal = allowSample || !myWorkSample;
+  const renewals = adminReal ? (state.renewals ?? NO_RENEWALS) : NO_RENEWALS;
+  const helpItems = adminReal ? (state.helpItems ?? NO_HELP) : NO_HELP;
   const demoNote = allowSample && state.demoMode;
   // Roster's "unavailable" is its team data (swaps); the others are whole modes not offered yet.
   const notYet = [...(rosterUnavailable ? ["Roster swaps"] : []), ...otherUnavailable];
@@ -178,18 +287,30 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
 
   return (
     <InformationPageShell testId="my-day-main">
-      <div className={PAGE_WIDTH}>
-        <header className="flex min-w-0 items-end justify-between gap-3 lg:justify-start" data-testid="my-day-header">
+      <div className={cn(PAGE_WIDTH, dashSurface)}>
+        <header className="flex min-w-0 items-end justify-between gap-3" data-testid="my-day-header">
           <div className="grid min-w-0 gap-0.5">
-            <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">My Day</h1>
-            <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(today)}</p>
+            <p className="text-sm text-[color:var(--dash-muted)]">{longDate(today)}</p>
+            <h1 className="font-dash-figure text-3xl-minus leading-tight tracking-tight text-[color:var(--dash-ink)]">
+              My Day
+            </h1>
           </div>
           {ready && view === "dashboard" ? (
-            <Button variant="ghost" onClick={() => setEditing((value) => !value)} data-testid="my-day-edit">
+            <button
+              type="button"
+              onClick={() => setEditing((value) => !value)}
+              data-testid="my-day-edit"
+              aria-pressed={editing}
+              className={cn(
+                focusRing,
+                "-mr-2 inline-flex min-h-12 items-center rounded-md px-2 font-dash-title text-base-minus text-[color:var(--dash-blue)]",
+              )}
+            >
               {editing ? "Done" : "Edit"}
-            </Button>
+            </button>
           ) : null}
         </header>
+        {ready && view === "dashboard" ? <MyDayTabs page={page} onChange={changePage} /> : null}
 
         {authStatus === "loading" || (enabled && state.status === "loading") ? (
           <>
@@ -253,21 +374,49 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
             {view === "all" ? (
               <MyDayFullList items={items} now={now} checked={checked} onBack={closeFullList} onRetry={state.retry} />
             ) : (
-              <MyDayDashboardView
-                key={authEpoch}
-                allowSample={allowSample}
-                now={now}
-                today={today}
-                items={items}
-                nextRenewal={nextRenewal}
-                checked={checked}
-                editing={editing}
-                onShowAll={() => {
-                  setEditing(false);
-                  openFullList();
+              <div
+                ref={swipeRef}
+                id="my-day-panel"
+                role="tabpanel"
+                aria-labelledby={`my-day-tab-${page}`}
+                onTouchStart={(event) => {
+                  const touch = event.touches[0];
+                  touchStart.current =
+                    touch && swipeRef.current && !insideHorizontalScroller(event.target, swipeRef.current)
+                      ? { x: touch.clientX, y: touch.clientY }
+                      : null;
                 }}
-                onRetry={state.retry}
-              />
+                onTouchEnd={(event) => {
+                  const start = touchStart.current;
+                  const touch = event.changedTouches[0];
+                  touchStart.current = null;
+                  if (!start || !touch) return;
+                  const dx = touch.clientX - start.x;
+                  const dy = touch.clientY - start.y;
+                  if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) return;
+                  const index = myDayPageIds.indexOf(page);
+                  const next = myDayPageIds[index + (dx < 0 ? 1 : -1)];
+                  if (next) changePage(next);
+                }}
+              >
+                <MyDayDashboardView
+                  key={authEpoch}
+                  allowSample={allowSample}
+                  now={now}
+                  today={today}
+                  items={items}
+                  renewals={renewals}
+                  helpItems={helpItems}
+                  checked={checked}
+                  editing={editing}
+                  page={page}
+                  onShowAll={() => {
+                    setEditing(false);
+                    openFullList();
+                  }}
+                  onRetry={state.retry}
+                />
+              </div>
             )}
 
             {/* One notice at the top at most; the quieter context is one line of small print here. */}
