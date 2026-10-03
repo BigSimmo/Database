@@ -29,16 +29,20 @@ export const WEEKDAY_LETTERS = ["M", "T", "W", "T", "F", "S", "S"] as const;
 // ---------------------------------------------------------------- the flag
 
 /**
- * The flag card's items: the merged items (already overdue first) that are
- * overdue or due soon and not moved to later, at most `cap`. Empty means no
- * flag card.
+ * The flag card's items: the items that are overdue or due soon and not
+ * moved to later, overdue first (otherwise in the given order), at most
+ * `cap`. Empty means no flag card.
  */
 export function selectFlagItems(
   items: readonly MyDayItem[],
   isSnoozed: (id: string) => boolean,
   cap = 3,
 ): readonly MyDayItem[] {
-  return items.filter((item) => item.severity !== "info" && !isSnoozed(item.id)).slice(0, cap);
+  const open = items.filter((item) => item.severity !== "info" && !isSnoozed(item.id));
+  return [
+    ...open.filter((item) => item.severity === "overdue"),
+    ...open.filter((item) => item.severity !== "overdue"),
+  ].slice(0, cap);
 }
 
 /** The one verb on an item's action button. It opens the item's own page; it never acts by itself. */

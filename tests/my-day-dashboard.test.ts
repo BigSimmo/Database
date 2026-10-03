@@ -32,9 +32,15 @@ function event(id: string, startsAt: string, endsAt: string, source: MyDayTimedE
 
 describe("hidden cards", () => {
   it("round-trips known card ids in card order and ignores anything else", () => {
-    const hidden = parseHiddenCards(JSON.stringify(["renewal", "nonsense", "up-next", 3]));
-    expect([...hidden].sort()).toEqual(["renewal", "up-next"]);
-    expect(serialiseHiddenCards(hidden)).toBe(JSON.stringify(["up-next", "renewal"]));
+    // v13 replaced the single "renewal" figure with the "renewals" runway, so a
+    // stored "renewal" is now an unknown id and is dropped like any other.
+    const hidden = parseHiddenCards(JSON.stringify(["renewals", "renewal", "nonsense", "up-next", 3]));
+    expect([...hidden].sort()).toEqual(["renewals", "up-next"]);
+    expect(serialiseHiddenCards(hidden)).toBe(JSON.stringify(["up-next", "renewals"]));
+    // Cards on the Work and Me pages round-trip too.
+    expect(serialiseHiddenCards(parseHiddenCards(JSON.stringify(["quick-note", "calls"])))).toBe(
+      JSON.stringify(["calls", "quick-note"]),
+    );
     expect(parseHiddenCards("not json").size).toBe(0);
     expect(parseHiddenCards(null).size).toBe(0);
   });

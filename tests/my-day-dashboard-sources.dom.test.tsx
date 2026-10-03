@@ -39,6 +39,11 @@ vi.mock("@/components/teaching/use-teaching-resource", () => ({
   }),
 }));
 
+// "Who's on now" reads the reader's team on its own; it has its own tests.
+vi.mock("@/components/my-day/use-my-day-whos-on", () => ({
+  useMyDayWhosOn: () => ({ status: "unavailable", teamName: null, colleagues: [] }),
+}));
+
 vi.mock("@/lib/supabase/client", () => ({
   useAuthSession: () => ({ status: "authenticated", authEpoch: 1 }),
 }));
@@ -46,6 +51,7 @@ vi.mock("@/lib/supabase/client", () => ({
 import { useMyDayDashboardSources } from "@/components/my-day/use-my-day-dashboard-sources";
 
 const TODAY = "2026-10-03";
+const NOW = new Date("2026-10-03T04:40:00Z");
 const SHIFT = {
   id: "s1",
   startsAt: "2026-10-03T09:00:00Z",
@@ -81,8 +87,21 @@ function stubCpd({ demoMode }: { demoMode: boolean }) {
             year: 2026,
             demoMode,
             entries: [
-              { id: "e1", archivedAt: null, allocations: [{ hours: 20 }, { hours: 12 }] },
-              { id: "e2", archivedAt: "2026-05-01", allocations: [{ hours: 99 }] },
+              {
+                id: "e1",
+                date: "2026-03-10",
+                archivedAt: null,
+                allocations: [
+                  { category: "educational", hours: 20 },
+                  { category: "reviewing", hours: 12 },
+                ],
+              },
+              {
+                id: "e2",
+                date: "2026-04-02",
+                archivedAt: "2026-05-01",
+                allocations: [{ category: "measuring", hours: 99 }],
+              },
             ],
           };
       return new Response(JSON.stringify(body), { status: 200 });
@@ -118,19 +137,44 @@ afterEach(() => vi.unstubAllGlobals());
 describe("useMyDayDashboardSources", () => {
   it("reads the reader's own roster, today's real sessions and CPD hours", async () => {
     stubCpd({ demoMode: false });
-    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     expect(result.current.roster).toMatchObject({ status: "ready", sample: false });
     expect(result.current.roster.shifts).toHaveLength(1);
     expect(result.current.teaching.sessions.map((s) => s.occurrenceId)).toEqual(["r"]);
     await waitFor(() => expect(result.current.cpd.status).toBe("ready"));
     // Archived activities never count, as on the CPD page.
     expect(result.current.cpd).toMatchObject({ loggedHours: 32, targetHours: 50, year: 2026 });
+    // The rings and the month bars read the same unarchived activities.
+    expect(result.current.cpd.byCategory).toEqual({ educational: 20, reviewing: 12, measuring: 0 });
+    expect(result.current.cpd.byMonth[2]).toBe(32);
+    expect(result.current.cpd.byMonth.reduce((sum, hours) => sum + hours, 0)).toBe(32);
+  });
+
+  it("finds the next talk the reader is presenting, never a demo team's", () => {
+    stubCpd({ demoMode: false });
+    teaching.current = {
+      status: "ready",
+      data: {
+        teams: [
+          { id: "real", isDemo: false },
+          { id: "demo", isDemo: true },
+        ],
+        sessions: [
+          session("listening", "real"),
+          { ...session("demo-talk", "demo"), isPresenter: true },
+          { ...session("mine", "real"), isPresenter: true, startsAt: "2026-10-15T06:00:00Z" },
+        ],
+        relocated: [],
+      },
+    };
+    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
+    expect(result.current.teaching.nextTalk?.occurrenceId).toBe("mine");
   });
 
   it("drops every kind of invented data for a signed-in reader", async () => {
     stubCpd({ demoMode: true });
     roster.current = { ...roster.current, sample: true };
-    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     expect(result.current.roster).toMatchObject({ status: "unavailable", shifts: [] });
     expect(result.current.teaching.sessions.some((s) => s.serviceId === "demo")).toBe(false);
     await waitFor(() => expect(result.current.cpd.status).toBe("unavailable"));
@@ -140,9 +184,10 @@ describe("useMyDayDashboardSources", () => {
   it("keeps demo data, flagged as sample, in a local demo build", async () => {
     stubCpd({ demoMode: true });
     roster.current = { ...roster.current, demoMode: true };
-    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: true }));
+    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: true }));
     expect(result.current.roster).toMatchObject({ status: "ready", sample: true });
-    expect(result.current.teaching.sessions.map((s) => s.occurrenceId)).toEqual(["r", "d"]);
+    // Sessions are now listed earliest first (ties by title), so the order is "d" then "r".
+    expect(result.current.teaching.sessions.map((s) => s.occurrenceId)).toEqual(["d", "r"]);
     await waitFor(() => expect(result.current.cpd).toMatchObject({ status: "ready", sample: true }));
   });
 
@@ -155,7 +200,7 @@ describe("useMyDayDashboardSources", () => {
           : new Response(JSON.stringify({ year: 2026, entries: [] }), { status: 200 }),
       ),
     );
-    const first = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const first = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     await waitFor(() => expect(first.result.current.cpd.status).toBe("unavailable"));
     first.unmount();
 
@@ -164,7 +209,7 @@ describe("useMyDayDashboardSources", () => {
       vi.fn(async () => new Response("{}", { status: 500 })),
     );
     roster.current = { ...roster.current, status: "error", shifts: [] };
-    const second = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const second = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     expect(second.result.current.roster.status).toBe("failed");
     await waitFor(() => expect(second.result.current.cpd.status).toBe("failed"));
   });
@@ -173,11 +218,11 @@ describe("useMyDayDashboardSources", () => {
   it("does not present the roster as final while a team's shifts are still loading, and flags a missing team", () => {
     stubCpd({ demoMode: false });
     roster.current = { ...roster.current, teamLoading: true };
-    const loading = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const loading = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     expect(loading.result.current.roster.status).toBe("loading");
     loading.unmount();
     roster.current = { ...roster.current, teamLoading: false, teamMessage: "Couldn't load your team." };
-    const partial = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const partial = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     expect(partial.result.current.roster).toMatchObject({ status: "ready", partial: true });
   });
 
@@ -187,16 +232,19 @@ describe("useMyDayDashboardSources", () => {
       status: "ready",
       data: { teams: [], sessions: [], relocated: [], relocatedUnavailable: true },
     };
-    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, now: NOW, allowSample: false }));
     expect(result.current.teaching).toMatchObject({ status: "ready", partial: true });
   });
 
   it("retries every dashboard read, and reads CPD again when the year turns", async () => {
     stubCpd({ demoMode: false });
     const fetchMock = vi.mocked(fetch);
-    const { result, rerender } = renderHook(({ today }) => useMyDayDashboardSources({ today, allowSample: false }), {
-      initialProps: { today: TODAY },
-    });
+    const { result, rerender } = renderHook(
+      ({ today }) => useMyDayDashboardSources({ today, now: NOW, allowSample: false }),
+      {
+        initialProps: { today: TODAY },
+      },
+    );
     await waitFor(() => expect(result.current.cpd.status).toBe("ready"));
     const before = fetchMock.mock.calls.length;
     act(() => result.current.retry?.());

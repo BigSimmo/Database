@@ -222,7 +222,7 @@ function MyDayTabs({ page, onChange }: { readonly page: MyDayPageId; readonly on
             }}
             className={cn(
               focusRing,
-              "min-h-10 flex-1 rounded-full text-sm font-dash-title",
+              "min-h-12 flex-1 rounded-full text-sm font-dash-title",
               selected
                 ? "bg-[color:var(--dash-raised)] text-[color:var(--dash-ink)] shadow-[var(--dash-shadow)] forced-colors:border"
                 : "text-[color:var(--dash-muted)]",

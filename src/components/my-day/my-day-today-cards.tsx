@@ -286,7 +286,7 @@ export function FlagCard({ items, onHide }: { readonly items: readonly MyDayItem
           <span className={dashMuted}>{`${state.text}${state.passed ? ` · ${MODE_NAME[current.mode]}` : ""}`}</span>
         </span>
         <Link
-          href={current.href}
+          href={withMyDayReturn(current.href)}
           aria-label={`${action}: ${current.title}`}
           data-testid="my-day-flag-action"
           className={cn(focusRing, "inline-flex min-h-12 items-center rounded-full no-underline")}
@@ -731,7 +731,7 @@ export function NeedsYouCard({
               actions={
                 <>
                   <DashPill
-                    href={item.href}
+                    href={withMyDayReturn(item.href)}
                     emphasis="primary"
                     ariaLabel={`${action}: ${item.title}`}
                     testId={`my-day-open-${item.id}`}

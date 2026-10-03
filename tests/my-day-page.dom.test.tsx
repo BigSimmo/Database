@@ -301,6 +301,40 @@ describe("MyDayPage", () => {
     expect(screen.getByTestId("my-day-dashboard")).toBeTruthy();
   });
 
+  // Design review v13: Today, Work and Me pages at `?page=`, switched by
+  // replacing the address so Back still leaves My Day in one step.
+  it("opens the page named in the address, and switches tab without adding history", () => {
+    window.history.replaceState(null, "", "/my-day?page=work");
+    const { rerender } = render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-dashboard").getAttribute("data-page")).toBe("work");
+    expect(screen.getByRole("tab", { name: "Work" }).getAttribute("aria-selected")).toBe("true");
+    const before = window.history.length;
+    fireEvent.click(screen.getByRole("tab", { name: "Me" }));
+    expect(window.location.pathname + window.location.search).toBe("/my-day?page=me");
+    expect(window.history.length).toBe(before);
+    rerender(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-dashboard").getAttribute("data-page")).toBe("me");
+    // Today is the plain address.
+    fireEvent.click(screen.getByRole("tab", { name: "Today" }));
+    expect(window.location.pathname + window.location.search).toBe("/my-day");
+  });
+
+  it("moves between tabs with the arrow keys, wrapping at the ends", () => {
+    render(<MyDayPage now={NOW} />);
+    const today = screen.getByRole("tab", { name: "Today" });
+    expect(today.getAttribute("tabindex")).toBe("0");
+    fireEvent.keyDown(today, { key: "ArrowLeft" });
+    expect(window.location.search).toBe("?page=me");
+    fireEvent.keyDown(today, { key: "ArrowRight" });
+    expect(window.location.search).toBe("?page=work");
+  });
+
+  it("falls back to Today for an unknown page", () => {
+    window.history.replaceState(null, "", "/my-day?page=nonsense");
+    render(<MyDayPage now={NOW} />);
+    expect(screen.getByTestId("my-day-dashboard").getAttribute("data-page")).toBe("today");
+  });
+
   it("does not claim 'nothing needs you' when no source could be checked", () => {
     setState({ sources: readySources.map((source) => ({ ...source, status: "failed" as const })) });
     render(<MyDayPage now={NOW} />);
