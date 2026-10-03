@@ -18,8 +18,8 @@ import type { SignOffFamilyId, SignOffQueue, SignOffRow, SignOffTool } from "./s
  *
  * **The order is fixed and stated.** Statutory content first, then locally
  * authored content that is already live, then imported clinical records, then
- * candidate sources that nothing cites yet. Within a family the queue's own
- * order is kept, so the list is the same on every load and advances only when a
+ * candidate sources that nothing cites yet. Within a family the sign-off
+ * tool's own order is kept (the queue's order where the tool names none), so the list is the same on every load and advances only when a
  * record is signed (it is as current as the deployed build, like the rest of
  * the owner panel).
  */
@@ -74,7 +74,12 @@ export function pickSignOffToday(queue: SignOffQueue, size: number = SIGN_OFF_TO
   for (const familyId of SIGN_OFF_TODAY_FAMILY_ORDER) {
     const family = queue.families.find((candidate) => candidate.id === familyId);
     if (!family) continue;
-    for (const row of family.rows) {
+    // Within a family, follow the sign-off tool's own order where the row names one.
+    const ordered = family.rows
+      .map((row, index) => ({ row, index }))
+      .sort((a, b) => (a.row.toolOrder ?? 0) - (b.row.toolOrder ?? 0) || a.index - b.index)
+      .map(({ row }) => row);
+    for (const row of ordered) {
       if (!row.signOff) continue;
       signableRows.push({
         ...row,
