@@ -2943,27 +2943,6 @@
       "after": 0,
       "reason": "Whole-file deletion: the Ward Flow / Caring Contacts feature it tested was retired and deleted. Owner-approved retirement 2026-09-26.",
       "approvedOn": "2026-09-26"
-    },
-    {
-      "path": "tests/teaching-cpd-bridge.dom.test.tsx",
-      "before": 4,
-      "after": 0,
-      "reason": "Whole-file deletion: TeachingCpdBridgeSheet (PR #3206) duplicated LogToCpdSheet; teaching-scan-landing now uses LogToCpdSheet, which tests/teaching-modules.dom.test.tsx covers.",
-      "approvedOn": "2026-10-03"
-    },
-    {
-      "path": "tests/cme-year-in-weeks.dom.test.tsx",
-      "before": 3,
-      "after": 0,
-      "reason": "Whole-file deletion: CmeYearInWeeks ribbon (PR #3206) duplicated the existing CmePaceChart progress visual on the CPD dashboard and was removed.",
-      "approvedOn": "2026-10-03"
-    },
-    {
-      "path": "tests/roster-fatigue-rest-ring.dom.test.tsx",
-      "before": 9,
-      "after": 0,
-      "reason": "Whole-file deletion: RosterFatigueRestRing (PR #3206) was a second rest display beside RosterRestChip and was removed from Roster Today.",
-      "approvedOn": "2026-10-03"
     }
   ]
 }
