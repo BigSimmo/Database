@@ -226,6 +226,11 @@
         "area": "product"
       },
       {
+        "path": "/admin/new-job/pack",
+        "file": "src/app/(search-app)/admin/new-job/pack/page.tsx",
+        "area": "product"
+      },
+      {
         "path": "/roster/team",
         "file": "src/app/(search-app)/roster/team/page.tsx",
         "area": "product"

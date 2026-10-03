@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 
+import signableTherapySlugList from "@/data/therapy-signable-slugs.json";
+import therapiesSource from "@/data/therapies-source.json";
+import { curatedDifferentials } from "@/lib/differential-curated";
+
 import {
+  differentialOverlayWaitsForSignOff,
   loadSignOffQueue,
   type SignOffFamily,
   type SignOffQueue,
@@ -166,5 +171,60 @@ describe("every printed command names a record the tool would accept", () => {
       .flatMap((item) => (item.signOff?.script === "therapy:review" ? [item.signOff.slug] : []))
       .filter((slug) => !walk.has(slug));
     expect(refused).toEqual([]);
+  });
+});
+
+describe("tool-order and pin-awareness", () => {
+  it("lists every clinical:review kind's signable rows in the tool's own order", async () => {
+    const tool = await import("../scripts/review-clinical-record.mjs");
+    const contract = await import("../scripts/lib/clinical-record-review-contract.mjs");
+    const today = pickSignOffToday(loadSignOffQueue(), 10_000);
+    const byKind = new Map<string, string[]>();
+    for (const item of today.rows) {
+      if (item.signOff.script !== "clinical:review") continue;
+      byKind.set(item.signOff.kind, [...(byKind.get(item.signOff.kind) ?? []), item.signOff.code]);
+    }
+    for (const [kind, codes] of byKind) {
+      const loaded = tool.loadKindDocument(kind);
+      const records = contract.collectionOf(kind, loaded.document);
+      const waiting: string[] = contract.signOffQueue(kind, records, await tool.loadContext(kind, process.cwd()));
+      const expected = waiting.filter((id) => codes.some((code) => contract.sameRecordId(id, code)));
+      expect(
+        codes.map((code) => expected.find((id) => contract.sameRecordId(id, code))),
+        kind,
+      ).toEqual(expected);
+    }
+  });
+
+  it("differential eligibility equals the tool's pin-aware queue, including an edited signed overlay", async () => {
+    const tool = await import("../scripts/review-clinical-record.mjs");
+    const contract = await import("../scripts/lib/clinical-record-review-contract.mjs");
+    const context = (await tool.loadContext("differential", process.cwd())) as { curated: Record<string, object> };
+    const records = contract.collectionOf("differential", tool.loadKindDocument("differential").document);
+    const waiting: string[] = contract.signOffQueue("differential", records, context);
+    const mine = Object.keys(curatedDifferentials).filter((slug) =>
+      differentialOverlayWaitsForSignOff(slug, curatedDifferentials[slug as keyof typeof curatedDifferentials]),
+    );
+    expect(mine.sort()).toEqual([...waiting].sort());
+    // A reviewed overlay edited after sign-off is requeued, as the tool does.
+    const reviewed = "delirium";
+    expect(waiting).not.toContain(reviewed);
+    const edited = { ...(curatedDifferentials as Record<string, object>)[reviewed], __edited: true };
+    expect(differentialOverlayWaitsForSignOff(reviewed, edited)).toBe(true);
+    const staleWaiting: string[] = contract.signOffQueue("differential", records, {
+      ...context,
+      curated: { ...context.curated, [reviewed]: edited },
+    });
+    expect(staleWaiting).toContain(reviewed);
+  });
+
+  it("the signable therapy projection matches the source and the tool's walk queue", async () => {
+    const therapy = await import("../scripts/review-therapy.mjs");
+    const records = therapiesSource as { slug: string; reviewStatus: string }[];
+    const walk = new Set<string>(therapy.therapyWalkQueue(records));
+    const projected = new Set<string>(signableTherapySlugList.slugs);
+    for (const record of records.filter((item) => item.reviewStatus !== "reviewed")) {
+      expect(projected.has(record.slug), record.slug).toBe(walk.has(record.slug));
+    }
   });
 });

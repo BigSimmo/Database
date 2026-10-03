@@ -1,8 +1,10 @@
+import { createHash } from "node:crypto";
+
 import { loadFormCatalogDetails } from "@/lib/form-catalog";
 import { formPageHref } from "@/lib/form-register";
 import formulationContent from "@/data/formulation-content.json";
 import { curatedDifferentials } from "@/lib/differential-curated";
-import { curatedReviewFor } from "@/lib/differential-curated-review";
+import differentialCuratedReview from "../../../data/differential-curated-review.json";
 import { loadDifferentialSnapshot } from "@/lib/differential-fixtures";
 import { deriveGovernanceFromSnapshot } from "@/lib/differential-records";
 import {
@@ -12,7 +14,7 @@ import {
 import { dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
 import { isSpecifierClinicianReviewed, loadSpecifiersContent, specifierCatalogItems } from "@/lib/specifiers-content";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
-import therapiesSource from "@/data/therapies-source.json";
+import signableTherapySlugList from "@/data/therapy-signable-slugs.json";
 import { isIndigenousContent } from "@/lib/forms-reference-sign-off";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
 import { conceptReviewState, isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
@@ -71,6 +73,12 @@ export type SignOffRow = {
    * person is typing at a real terminal, so nothing here can record a sign-off.
    */
   signOff: SignOffTool | null;
+  /**
+   * Position in the sign-off tool's own walk order, where that differs from the
+   * order the rows are listed in. "Sign off today" follows it, so its sequence
+   * agrees with the tool's `Next` line.
+   */
+  toolOrder?: number;
 };
 
 /**
@@ -113,24 +121,63 @@ function toolUnlessIndigenous(tool: SignOffTool, record: unknown): SignOffTool |
   return isIndigenousContent([JSON.stringify(record)]) ? null : tool;
 }
 
-type TherapySourceRecord = { slug: string; references?: unknown };
-
 /**
  * Therapy slugs `npm run therapy:review` will sign: the same rule as its
  * `therapyWalkQueue` — the record lists references to check against and has no
- * Indigenous content. Read from the source file because the index projection
- * carries neither the references nor the full text.
+ * Indigenous content. Read from a small projection (`therapy-signable-slugs.json`)
+ * rather than the 2.6 MB `therapies-source.json`, which would otherwise be traced
+ * into the owner route's server bundle. `tests/sign-off-today.test.ts` fails if
+ * the projection drifts from the source or from the tool's own walk queue.
  */
-const signableTherapySlugs = new Set(
-  (therapiesSource as TherapySourceRecord[])
-    .filter((record) => {
-      const references = Array.isArray(record.references)
-        ? record.references.join(" ")
-        : String(record.references ?? "");
-      return references.trim().length > 0 && !isIndigenousContent([JSON.stringify(record)]);
-    })
-    .map((record) => record.slug),
-);
+const signableTherapySlugs = new Set<string>(signableTherapySlugList.slugs);
+
+type DifferentialReviewEntry = {
+  slug: string;
+  status: string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  reviewedContentSha256?: string;
+};
+
+const differentialReviewEntries = (differentialCuratedReview as { entries: DifferentialReviewEntry[] }).entries;
+
+const REVIEW_METADATA_KEYS = ["status", "reviewedBy", "reviewedAt", "reviewedContentSha256"];
+
+function canonicalize(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value === null || typeof value !== "object") return value;
+  const record = value as Record<string, unknown>;
+  return Object.fromEntries(
+    Object.keys(record)
+      .sort()
+      .map((key) => [key, canonicalize(record[key])]),
+  );
+}
+
+/**
+ * Mirrors `recordPinState`/`signOffQueue` in scripts/lib/clinical-record-review-contract.mjs
+ * for the differential kind: an overlay waits when its review row is drafted, or
+ * reviewed with a content pin that no longer matches the overlay as authored now
+ * (an edit since sign-off). A test pins this to the tool for every overlay.
+ */
+export function differentialOverlayWaitsForSignOff(slug: string, overlay: unknown): boolean {
+  const entry = differentialReviewEntries.find((row) => row.slug === slug);
+  if (!entry) return false;
+  if (entry.status === "drafted") return true;
+  if (entry.status !== "reviewed") return false;
+  if (typeof entry.reviewedContentSha256 !== "string") return false;
+  const content = Object.fromEntries(Object.entries(entry).filter(([key]) => !REVIEW_METADATA_KEYS.includes(key)));
+  const digest = createHash("sha256")
+    .update(JSON.stringify(canonicalize({ ...content, curated: overlay })))
+    .digest("hex");
+  return digest !== entry.reviewedContentSha256;
+}
+
+/** The clinical:review tool's own walk position for a differential overlay (review-file order). */
+function differentialToolOrder(slug: string): number {
+  const index = differentialReviewEntries.findIndex((row) => row.slug === slug);
+  return index === -1 ? Number.MAX_SAFE_INTEGER : index;
+}
 
 function formsFamily(): SignOffFamily {
   const rows = loadFormCatalogDetails()
@@ -237,6 +284,10 @@ function differentialsFamily(): SignOffFamily {
   const governance = deriveGovernanceFromSnapshot(snapshot);
   const authored = new Set(Object.keys(curatedDifferentials));
 
+  const overlayWaits = (slug: string) =>
+    authored.has(slug) &&
+    differentialOverlayWaitsForSignOff(slug, curatedDifferentials[slug as keyof typeof curatedDifferentials]);
+
   const diagnoses = snapshot.diagnoses.map<SignOffRow>((record) => ({
     family: "differentials",
     key: `differential-diagnosis:${record.slug}`,
@@ -245,9 +296,9 @@ function differentialsFamily(): SignOffFamily {
     nativeStatus: `validation_status: ${governance.validation_status} (source_status: ${governance.source_status})`,
     statusLabel: !authored.has(record.slug)
       ? "Unverified"
-      : curatedReviewFor(record.slug)
-        ? "Unverified export; locally authored overlay signed off"
-        : "Unverified, with locally authored content",
+      : overlayWaits(record.slug)
+        ? "Unverified, with locally authored content"
+        : "Unverified export; locally authored overlay signed off",
     requires: authored.has(record.slug)
       ? "A clinician verifies the exported record and, separately, the locally authored overlay in src/lib/differential-curated.ts that is shown on top of it."
       : "A clinician verifies the exported record against a named source before its validation_status can move off unverified.",
@@ -255,13 +306,13 @@ function differentialsFamily(): SignOffFamily {
     // Only the locally authored overlay has a sign-off tool. The exported record
     // underneath has none, so a diagnosis with no overlay, or one whose overlay is
     // already signed, has nothing the owner can sign today.
-    signOff:
-      authored.has(record.slug) && !curatedReviewFor(record.slug)
-        ? toolUnlessIndigenous({ script: "clinical:review", kind: "differential", code: record.slug }, [
-            record,
-            curatedDifferentials[record.slug as keyof typeof curatedDifferentials],
-          ])
-        : null,
+    signOff: overlayWaits(record.slug)
+      ? toolUnlessIndigenous({ script: "clinical:review", kind: "differential", code: record.slug }, [
+          record,
+          curatedDifferentials[record.slug as keyof typeof curatedDifferentials],
+        ])
+      : null,
+    toolOrder: overlayWaits(record.slug) ? differentialToolOrder(record.slug) : undefined,
   }));
 
   const presentations = snapshot.presentations.map<SignOffRow>((workflow) => ({
