@@ -19,6 +19,13 @@ export const todayStateCopy = {
     body: "Nothing is shown rather than a guess. Check your connection and try again.",
     action: "Try again",
   }),
+  // A failed read because the device is offline, for a mode whose offline copy
+  // is incomplete (Admin's cache holds no compliance rows), so nothing is shown.
+  failedOffline: (mode: string) => ({
+    title: "You're offline",
+    body: `${mode} needs a connection to show your records. Nothing is shown rather than an incomplete list.`,
+    action: "Try again",
+  }),
   offline: (mode: string) => ({
     title: "You're offline",
     body: `${mode} is showing what this device saved last time, which may be out of date.`,
@@ -32,7 +39,10 @@ export const todayStateCopy = {
     title: "Demo data",
     body: "These items are invented examples, not your records.",
   }),
-} as const satisfies Record<TodaySharedStateKind, (mode: string) => { title: string; body?: string; action?: string }>;
+} as const satisfies Record<
+  TodaySharedStateKind | "failedOffline",
+  (mode: string) => { title: string; body?: string; action?: string }
+>;
 
 /** How many "Needs you" rows show before "See all (n)". */
 export const TODAY_NEEDS_YOU_LIMIT = 3;

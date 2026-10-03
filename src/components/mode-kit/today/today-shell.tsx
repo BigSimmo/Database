@@ -31,7 +31,7 @@ import type { TodayItem } from "@/lib/today/today-item";
 export type TodaySharedState =
   | { readonly kind: "loading" }
   | { readonly kind: "signed-out"; readonly onSignIn: () => void }
-  | { readonly kind: "failed"; readonly onRetry: () => void }
+  | { readonly kind: "failed"; readonly onRetry: () => void; readonly reason?: "offline" | null }
   | { readonly kind: "offline"; readonly onRetry?: () => void }
   | { readonly kind: "empty" }
   | { readonly kind: "demo" };
@@ -136,7 +136,7 @@ function BlockingState({ state, modeName }: { readonly state: TodaySharedState; 
     );
   }
   if (state.kind === "failed") {
-    const copy = todayStateCopy.failed(modeName);
+    const copy = state.reason === "offline" ? todayStateCopy.failedOffline(modeName) : todayStateCopy.failed(modeName);
     return (
       <EmptyState
         icon={TriangleAlert}
@@ -197,8 +197,8 @@ const blockingKinds = new Set<TodaySharedStateKind>(["loading", "signed-out", "f
  *
  *   1. Status line   — greeting, date, hospital or shift (always)
  *   2. Safety rail   — optional; never hidden by a loading or failed state
- *   3. Now           — always shown; exactly ONE featured module (the shell
- *                      draws the featured surface, so a mode cannot add two)
+ *   3. Now           — exactly ONE featured module: the shell draws it, or
+ *                      (`nowSurface="own"`) the mode's existing hero is it
  *   4. Needs you     — overdue first, three rows, then "See all (n)"
  *   5. Coming up     — Perth time, the mode's own module
  *   6. At a glance   — counts or facts
@@ -208,17 +208,26 @@ const blockingKinds = new Set<TodaySharedStateKind>(["loading", "signed-out", "f
  * tests/mode-kit-today-shell.dom.test.tsx. A slot passed `null`/`undefined`
  * renders nothing and reserves nothing.
  */
+const TWO_COLUMNS = "grid min-w-0 grid-cols-1 gap-5 sm:gap-6 lg:grid-cols-2 lg:items-start";
+const COLUMN = "grid min-w-0 content-start gap-5 sm:gap-6";
+
 export function TodayShell({
   mode,
   modeName,
   status,
   safety,
   now,
+  nowSurface = "featured",
   needsYou,
+  needsYouNode,
   comingUp,
   atAGlance,
   shortcuts,
   state,
+  stateExtra,
+  loadingFallback,
+  blocking: modeBlocking,
+  columns = "one",
   testId,
 }: {
   /** Mode identity for the featured tint, e.g. `my-work`. */
@@ -227,35 +236,118 @@ export function TodayShell({
   readonly modeName: string;
   readonly status: ReactNode;
   readonly safety?: ReactNode;
-  /** The body of the one featured module. Required: Now is always shown. */
+  /**
+   * The body of the one featured module. Pass `null` only when the mode has
+   * genuinely nothing to feature (e.g. Admin with nothing to renew): the slot
+   * then renders nothing rather than an empty card.
+   */
   readonly now: ReactNode;
+  /**
+   * `featured` (default): the shell draws the one featured surface around
+   * `now`. `own`: `now` already IS the mode's single featured module (an
+   * existing hero with its own tint and test ids), so the shell adds none.
+   */
+  readonly nowSurface?: "featured" | "own";
   readonly needsYou?: TodayNeedsYouSlot | null;
+  /**
+   * A mode's existing Needs-you module, rendered in the Needs-you slot instead
+   * of the shared list, when mapping it to `TodayItem`s would lose what it
+   * shows (named sub-rows, an action button). It must keep the shared order:
+   * overdue first.
+   */
+  readonly needsYouNode?: ReactNode;
   readonly comingUp?: ReactNode;
   readonly atAGlance?: ReactNode;
   readonly shortcuts?: ReactNode;
   /** Omit when the page is simply ready. */
   readonly state?: TodaySharedState | null;
+  /** Extra content under a shared state (a demo link, a Help link). */
+  readonly stateExtra?: ReactNode;
+  /** A mode's own loading shape that mirrors its ready layout, replacing the generic skeleton. */
+  readonly loadingFallback?: ReactNode;
+  /**
+   * A mode-specific blocking state the six shared ones do not cover (e.g.
+   * Teaching's "no team yet"). Replaces Now..Shortcuts like `failed` does.
+   */
+  readonly blocking?: ReactNode;
+  /**
+   * `two`: from `lg`, Now + Needs you on the left and Coming up, At a glance
+   * and Shortcuts on the right. The left column followed by the right column
+   * IS the slot order, so phone and desktop never disagree about sequence.
+   */
+  readonly columns?: "one" | "two";
   readonly testId?: string;
 }) {
-  const blocking = state && blockingKinds.has(state.kind);
+  const sharedBlocking = state && blockingKinds.has(state.kind);
+  const nowSlot =
+    now === null || now === undefined ? null : (
+      <Slot slot="now">
+        {nowSurface === "own" ? (
+          now
+        ) : (
+          <ModeFeaturedModule mode={mode} testId="today-now">
+            {now}
+          </ModeFeaturedModule>
+        )}
+      </Slot>
+    );
+  const needsYouSlot = needsYouNode ? (
+    <Slot slot="needs-you">{needsYouNode}</Slot>
+  ) : needsYou ? (
+    <NeedsYou slot={needsYou} mode={modeName} empty={state?.kind === "empty"} />
+  ) : null;
+  const act = (
+    <>
+      {nowSlot}
+      {needsYouSlot}
+    </>
+  );
+  const ahead = (
+    <>
+      {comingUp ? <Slot slot="coming-up">{comingUp}</Slot> : null}
+      {atAGlance ? <Slot slot="at-a-glance">{atAGlance}</Slot> : null}
+      {shortcuts ? <Slot slot="shortcuts">{shortcuts}</Slot> : null}
+    </>
+  );
   return (
     <div className="grid min-w-0 gap-5 sm:gap-6" data-testid={testId}>
       <Slot slot="status">{status}</Slot>
       {safety ? <Slot slot="safety">{safety}</Slot> : null}
-      {blocking && state ? (
-        <BlockingState state={state} modeName={modeName} />
+      {sharedBlocking && state ? (
+        state.kind === "loading" && loadingFallback ? (
+          <div data-testid="today-state-loading" className="grid gap-5">
+            <span role="status" className="sr-only">
+              {todayStateCopy.loading(modeName).title}
+            </span>
+            {loadingFallback}
+          </div>
+        ) : (
+          <div className="grid gap-3">
+            <BlockingState state={state} modeName={modeName} />
+            {state.kind !== "loading" ? stateExtra : null}
+          </div>
+        )
+      ) : modeBlocking ? (
+        <div data-testid="today-state-mode">{modeBlocking}</div>
       ) : (
         <>
           {state ? <CaveatNotice state={state} modeName={modeName} /> : null}
-          <Slot slot="now">
-            <ModeFeaturedModule mode={mode} testId="today-now">
-              {now}
-            </ModeFeaturedModule>
-          </Slot>
-          {needsYou ? <NeedsYou slot={needsYou} mode={modeName} empty={state?.kind === "empty"} /> : null}
-          {comingUp ? <Slot slot="coming-up">{comingUp}</Slot> : null}
-          {atAGlance ? <Slot slot="at-a-glance">{atAGlance}</Slot> : null}
-          {shortcuts ? <Slot slot="shortcuts">{shortcuts}</Slot> : null}
+          {state && stateExtra ? stateExtra : null}
+          {columns === "two" ? (
+            <div className={TWO_COLUMNS}>
+              <div className={COLUMN} data-today-column="act">
+                {act}
+              </div>
+              <div className={COLUMN} data-today-column="ahead">
+                {ahead}
+              </div>
+            </div>
+          ) : (
+            <>
+              {act}
+              {ahead}
+            </>
+          )}
         </>
       )}
     </div>
