@@ -27,6 +27,7 @@ import {
   type RuleGate,
   type RuleSignOff,
   type TodayRuleSignOffStore,
+  UNSIGNED,
 } from "@/lib/admin/rule-sign-off";
 import { CPD_CATEGORY_RULE_SET } from "@/lib/cme/category-rules-source";
 import { isReviewedTimeframe, type MhaTimeframesFile } from "@/lib/mha-timeline";
@@ -188,16 +189,25 @@ async function chooseSigner(
   return { signer: { userId: userId.toLowerCase(), name }, added: true };
 }
 
+const REVOKED = Symbol("revoked");
+
 async function signOne(
   io: Io,
   title: string,
   content: unknown,
   signer: ApprovedRuleSigner,
   now: Date,
-): Promise<RuleSignOff | null> {
+  existing?: RuleSignOff,
+): Promise<RuleSignOff | typeof REVOKED | null> {
   io.print("");
   for (const question of QUESTIONS) {
     if (!(await yes(io, question))) {
+      // Owner decision (2026-10-03): an explicit No at a re-review revokes a standing sign-off.
+      // A cancelled review or a mistyped code (below) never does.
+      if (existing?.signedAt) {
+        io.print(`${title}: you answered No, so the existing sign-off is REVOKED and the rule set is off.`);
+        return REVOKED;
+      }
       io.print(`${title}: not signed.`);
       return null;
     }
@@ -244,16 +254,16 @@ export async function runSigning(
     if (!(await yes(io, `Review and sign: ${set.title}?`))) continue;
     if (set.key === "fatigue") {
       showFatigue(io);
-      const signOff = await signOne(io, set.title, FATIGUE_RULE_SET, chosen.signer, now);
+      const signOff = await signOne(io, set.title, FATIGUE_RULE_SET, chosen.signer, now, store.fatigue);
       if (signOff) {
-        next = { ...next, fatigue: signOff };
+        next = { ...next, fatigue: signOff === REVOKED ? { ...UNSIGNED } : signOff };
         changed = true;
       }
     } else if (set.key === "cpd") {
       showCpd(io);
-      const signOff = await signOne(io, set.title, CPD_CATEGORY_RULE_SET, chosen.signer, now);
+      const signOff = await signOne(io, set.title, CPD_CATEGORY_RULE_SET, chosen.signer, now, store.cpd);
       if (signOff) {
-        next = { ...next, cpd: signOff };
+        next = { ...next, cpd: signOff === REVOKED ? { ...UNSIGNED } : signOff };
         changed = true;
       }
     } else {
@@ -266,8 +276,18 @@ export async function runSigning(
         io.print(`${set.title}: needs a real date, no later than today, and a record, so it was not signed.`);
         continue;
       }
-      const signOff = await signOne(io, set.title, mhaContent(timeframes, ruling), chosen.signer, now);
-      if (signOff) {
+      const signOff = await signOne(
+        io,
+        set.title,
+        mhaContent(timeframes, ruling),
+        chosen.signer,
+        now,
+        store.mhaTimerSwitch.signOff,
+      );
+      if (signOff === REVOKED) {
+        next = { ...next, mhaTimerSwitch: { ...next.mhaTimerSwitch, signOff: { ...UNSIGNED } } };
+        changed = true;
+      } else if (signOff) {
         next = { ...next, mhaTimerSwitch: { medicalDeviceRuling: ruling, signOff } };
         changed = true;
       }

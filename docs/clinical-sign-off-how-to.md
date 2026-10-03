@@ -178,7 +178,9 @@ category coaching and the Mental Health Act countdowns. One guided command does 
    the sign-off code it shows, then choose whether to switch it on now.
 5. The countdowns also ask for the date you re-checked the medical-device ruling and where that
    decision is written down. A countdown runs only for a deadline that a named clinician signed.
-6. It saves `src/lib/admin/today-rule-sign-offs.json`. Tell Claude it is signed so the file can
+6. Re-reviewing a feature that is already signed: answering No to any question revokes its
+   sign-off and switches it off. Skipping the review or mistyping the code changes nothing.
+7. It saves `src/lib/admin/today-rule-sign-offs.json`. Tell Claude it is signed so the file can
    be committed.
 
 ## Signing off the differential overlays

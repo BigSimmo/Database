@@ -108,6 +108,54 @@ describe("rules:sign", () => {
     expect(next?.cpd).toEqual(store.cpd);
   });
 
+  describe("re-review of a standing sign-off", () => {
+    const signed: TodayRuleSignOffStore = {
+      ...store,
+      approvedSigners: [{ userId: USER_ID, name: "Dr Jane Example" }],
+      fatigue: {
+        enabled: true,
+        signedBy: "Dr Jane Example",
+        signedByUserId: USER_ID,
+        signedAt: "2026-10-03T02:00:00.000Z",
+        signedContentSha256: ruleContentSha256(FATIGUE_RULE_SET),
+      },
+    };
+    const confirm: [RegExp, string][] = [[/Which signer|account ID/i, USER_ID]];
+    const rest: [RegExp, string][] = [
+      [/Review and sign: CPD/, "n"],
+      [/Review and sign: Mental Health Act/, "n"],
+    ];
+
+    it("revokes the standing sign-off when the owner answers No", async () => {
+      const run = scripted([
+        ...confirm,
+        [/Review and sign: Roster fatigue/, "y"],
+        [/word for word/, "y"],
+        [/figure the engine uses/, "n"],
+        ...rest,
+      ]);
+      const next = await runSigning(run.io, signed, timeframes, now);
+      expect(next?.fatigue).toEqual(UNSIGNED);
+      expect(run.printed.join("\n")).toMatch(/REVOKED/);
+    });
+
+    it("does not revoke on a mistyped code", async () => {
+      const run = scripted([
+        ...confirm,
+        [/Review and sign: Roster fatigue/, "y"],
+        ...agreeAll,
+        [/Type the sign-off code/, "WRONG123"],
+        ...rest,
+      ]);
+      expect(await runSigning(run.io, signed, timeframes, now)).toBeNull();
+    });
+
+    it("does not revoke when the owner skips the review", async () => {
+      const run = scripted([...confirm, [/Review and sign: Roster fatigue/, "n"], ...rest]);
+      expect(await runSigning(run.io, signed, timeframes, now)).toBeNull();
+    });
+  });
+
   it("refuses a system or role name for the signer", async () => {
     const run = scripted([
       [/account ID/i, USER_ID],
