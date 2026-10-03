@@ -13,11 +13,12 @@ import {
   Plus,
   Sun,
 } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { InformationPageShell } from "@/components/information-page-shell";
 import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
+import { TodayShell } from "@/components/mode-kit/today/today-shell";
 import {
   modeDot,
   modeModuleSurface,
@@ -372,151 +373,188 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
   );
   const greeting = greetingFor(now);
 
+  const header = (
+    <RosterPageHeader
+      icon={greeting.icon}
+      eyebrow={formatPerthDay(today)}
+      title="Today"
+      subtitle={
+        <div className="grid gap-0.5">
+          <span>{greeting.text}</span>
+          <RosterFreshness fresh={hasFreshLink(links.links, now)} />
+        </div>
+      }
+      actions={
+        !importing && canEdit ? (
+          <RosterNewButton
+            entries={[
+              { id: "shift", label: "Add a shift", icon: Plus, onSelect: () => setAddView("shift") },
+              {
+                id: "import",
+                label: "Import a file",
+                description: "PDF, Excel, CSV or calendar file",
+                icon: FileUp,
+                onSelect: () => setImporting(true),
+              },
+              { id: "link", label: "Add a calendar link", icon: Link2, onSelect: () => setAddView("link") },
+              {
+                id: "swap",
+                label: "Swap or give away",
+                description: "Pick the shift on the Team calendar",
+                icon: ArrowLeftRight,
+                href: "/roster/team?view=week",
+              },
+              { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
+              { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
+            ]}
+          />
+        ) : null
+      }
+      testId="roster-today-header"
+    />
+  );
+
+  const ready =
+    !importing && shifts.status !== "loading" && shifts.status !== "signed-out" && shifts.status !== "error";
+
+  // Import flow, sign-in and error keep their own components (their wording differs from the shared states).
+  let blocking: ReactNode = null;
+  if (importing) {
+    blocking = (
+      <RosterImportFlow
+        shifts={shifts}
+        settings={settings}
+        today={today}
+        onClose={() => setImporting(false)}
+        onSaved={() => {
+          setImporting(false);
+          setSaved("Saved");
+        }}
+      />
+    );
+  } else if (shifts.status === "signed-out") {
+    blocking = <RosterSignInNotice testId="roster-today-signed-out">Sign in to see your roster.</RosterSignInNotice>;
+  } else if (shifts.status === "error") {
+    blocking = (
+      <div className="grid gap-2" data-testid="roster-today-error">
+        <ModeNotice tone="warning">Your shifts could not be loaded.</ModeNotice>
+        <Button className="justify-self-start" onClick={() => void shifts.reload()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
+  const changesNode =
+    importNotices.length > 0 ? (
+      <ModeGroupedList eyebrow="Needs you" mode="roster" testId="roster-today-changes">
+        <RosterChangeRows
+          notices={importNotices}
+          onDismiss={() => void shifts.dismissChanges()}
+          testId="roster-today-change"
+        />
+      </ModeGroupedList>
+    ) : null;
+  const coverNode =
+    coverShift?.serviceId && coverShift.assignmentId && actorId ? (
+      <ModeGroupedList testId="roster-today-cover">
+        <RosterWhoCanCover
+          serviceId={coverShift.serviceId}
+          assignmentId={coverShift.assignmentId}
+          actorId={actorId}
+          startsAt={coverShift.startsAt}
+        />
+      </ModeGroupedList>
+    ) : null;
+  const teamNode = ready ? (
+    <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
+  ) : null;
+  // The team strip may render nothing; wrapping it always is harmless because the slot is only a zero-height grid cell.
+  const needsYouNode = ready ? (
+    <>
+      {changesNode}
+      {coverNode}
+      {teamNode}
+    </>
+  ) : null;
+
+  const comingUp =
+    ready && summary.lead.state !== "empty" ? (
+      <>
+        <RosterSection icon={CalendarDays} title="This week" id="roster-today-week">
+          <div className={cn(modeModuleSurface, "px-2 py-3")}>
+            <RosterWeekStrip week={summary.week} today={today} testId="roster-today-week-strip" />
+          </div>
+        </RosterSection>
+        <RosterStats testId="roster-today-facts">
+          {shownNextNight ? (
+            <RosterStat
+              icon={Moon}
+              label="Next night"
+              value={formatPerthDay(perthDateOf(shownNextNight.startsAt))}
+              testId="roster-today-next-night"
+            />
+          ) : null}
+          <RosterStat
+            icon={MoonStar}
+            label="Next nights"
+            value={
+              summary.nextNights ? (
+                formatDateSpan(summary.nextNights.start, summary.nextNights.end)
+              ) : (
+                <NoneYet>None rostered</NoneYet>
+              )
+            }
+          />
+          <RosterStat
+            icon={Plane}
+            label="Next leave"
+            value={
+              summary.nextLeave ? (
+                formatDateSpan(summary.nextLeave.start, summary.nextLeave.end)
+              ) : (
+                <NoneYet>None booked</NoneYet>
+              )
+            }
+          />
+        </RosterStats>
+      </>
+    ) : null;
+
   return (
     <InformationPageShell testId="roster-today-main" width="narrow">
-      <RosterPageHeader
-        icon={greeting.icon}
-        eyebrow={formatPerthDay(today)}
-        title="Today"
-        subtitle={
-          <div className="grid gap-0.5">
-            <span>{greeting.text}</span>
-            <RosterFreshness fresh={hasFreshLink(links.links, now)} />
-          </div>
+      <TodayShell
+        mode="roster"
+        modeName="Roster"
+        status={
+          <>
+            {header}
+            {ready && shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
+            {ready ? <RosterSampleShiftsNotice sample={shifts.sample} /> : null}
+            {ready && saved ? <ModeNotice>{saved}</ModeNotice> : null}
+            {ready && shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
+          </>
         }
-        actions={
-          !importing && canEdit ? (
-            <RosterNewButton
-              entries={[
-                { id: "shift", label: "Add a shift", icon: Plus, onSelect: () => setAddView("shift") },
-                {
-                  id: "import",
-                  label: "Import a file",
-                  description: "PDF, Excel, CSV or calendar file",
-                  icon: FileUp,
-                  onSelect: () => setImporting(true),
-                },
-                { id: "link", label: "Add a calendar link", icon: Link2, onSelect: () => setAddView("link") },
-                {
-                  id: "swap",
-                  label: "Swap or give away",
-                  description: "Pick the shift on the Team calendar",
-                  icon: ArrowLeftRight,
-                  href: "/roster/team?view=week",
-                },
-                { id: "leave", label: "Plan leave", icon: Plane, href: "/roster/requests?start=leave" },
-                { id: "dates", label: "Dates I can't work", icon: CalendarOff, href: "/roster/requests?start=dates" },
-              ]}
+        now={
+          ready ? (
+            <Hero
+              summary={summary}
+              byId={byId}
+              now={now}
+              canEdit={canEdit}
+              onImport={() => setImporting(true)}
+              onAddShift={() => setAddView("shift")}
+              cues={cues}
             />
           ) : null
         }
-        testId="roster-today-header"
+        nowSurface="own"
+        needsYouNode={needsYouNode}
+        comingUp={comingUp}
+        state={!importing && shifts.status === "loading" ? { kind: "loading" } : null}
+        loadingFallback={<ModeModuleSkeleton rows={4} testId="roster-today-loading" />}
+        blocking={blocking}
       />
-
-      {importing ? (
-        <RosterImportFlow
-          shifts={shifts}
-          settings={settings}
-          today={today}
-          onClose={() => setImporting(false)}
-          onSaved={() => {
-            setImporting(false);
-            setSaved("Saved");
-          }}
-        />
-      ) : (
-        <div className="grid min-w-0 gap-5">
-          {shifts.status === "loading" ? (
-            <ModeModuleSkeleton rows={4} testId="roster-today-loading" />
-          ) : shifts.status === "signed-out" ? (
-            <RosterSignInNotice testId="roster-today-signed-out">Sign in to see your roster.</RosterSignInNotice>
-          ) : shifts.status === "error" ? (
-            <div className="grid gap-2" data-testid="roster-today-error">
-              <ModeNotice tone="warning">Your shifts could not be loaded.</ModeNotice>
-              <Button className="justify-self-start" onClick={() => void shifts.reload()}>
-                Try again
-              </Button>
-            </div>
-          ) : (
-            <>
-              {shifts.demoMode ? <ModeNotice>Example only. Sign in to add your own shifts.</ModeNotice> : null}
-              <RosterSampleShiftsNotice sample={shifts.sample} />
-              {saved ? <ModeNotice>{saved}</ModeNotice> : null}
-              {shifts.teamMessage ? <ModeNotice tone="warning">{shifts.teamMessage}</ModeNotice> : null}
-              <Hero
-                summary={summary}
-                byId={byId}
-                now={now}
-                canEdit={canEdit}
-                onImport={() => setImporting(true)}
-                onAddShift={() => setAddView("shift")}
-                cues={cues}
-              />
-              {importNotices.length > 0 ? (
-                <ModeGroupedList eyebrow="Needs you" mode="roster" testId="roster-today-changes">
-                  <RosterChangeRows
-                    notices={importNotices}
-                    onDismiss={() => void shifts.dismissChanges()}
-                    testId="roster-today-change"
-                  />
-                </ModeGroupedList>
-              ) : null}
-              {coverShift?.serviceId && coverShift.assignmentId && actorId ? (
-                <ModeGroupedList testId="roster-today-cover">
-                  <RosterWhoCanCover
-                    serviceId={coverShift.serviceId}
-                    assignmentId={coverShift.assignmentId}
-                    actorId={actorId}
-                    startsAt={coverShift.startsAt}
-                  />
-                </ModeGroupedList>
-              ) : null}
-              <RosterTodayTeam now={now} myShifts={shifts.shifts} sampleNoticeShown={shifts.sample} />
-              {summary.lead.state !== "empty" ? (
-                <>
-                  <RosterSection icon={CalendarDays} title="This week" id="roster-today-week">
-                    <div className={cn(modeModuleSurface, "px-2 py-3")}>
-                      <RosterWeekStrip week={summary.week} today={today} testId="roster-today-week-strip" />
-                    </div>
-                  </RosterSection>
-                  <RosterStats testId="roster-today-facts">
-                    {shownNextNight ? (
-                      <RosterStat
-                        icon={Moon}
-                        label="Next night"
-                        value={formatPerthDay(perthDateOf(shownNextNight.startsAt))}
-                        testId="roster-today-next-night"
-                      />
-                    ) : null}
-                    <RosterStat
-                      icon={MoonStar}
-                      label="Next nights"
-                      value={
-                        summary.nextNights ? (
-                          formatDateSpan(summary.nextNights.start, summary.nextNights.end)
-                        ) : (
-                          <NoneYet>None rostered</NoneYet>
-                        )
-                      }
-                    />
-                    <RosterStat
-                      icon={Plane}
-                      label="Next leave"
-                      value={
-                        summary.nextLeave ? (
-                          formatDateSpan(summary.nextLeave.start, summary.nextLeave.end)
-                        ) : (
-                          <NoneYet>None booked</NoneYet>
-                        )
-                      }
-                    />
-                  </RosterStats>
-                </>
-              ) : null}
-            </>
-          )}
-        </div>
-      )}
 
       <p className="px-1 pt-2 text-center text-xs text-[color:var(--text-muted)]">
         Your copy of the roster. Check official changes with your service.
