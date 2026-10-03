@@ -15,7 +15,7 @@
  *
  * It writes only `src/lib/admin/today-rule-sign-offs.json`. Commit that file afterwards.
  */
-import { renameSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, renameSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
@@ -30,7 +30,14 @@ import {
 } from "@/lib/admin/rule-sign-off";
 import { CPD_CATEGORY_RULE_SET } from "@/lib/cme/category-rules-source";
 import { isReviewedTimeframe, type MhaTimeframesFile } from "@/lib/mha-timeline";
-import { currentMhaTimerSwitchContent, mhaTimerGate, type MhaTimerSwitchContent } from "@/lib/on-call/mha-timers";
+import {
+  currentMhaTimerSwitchContent,
+  isRecordedRuling,
+  MHA_TIMER_INTERPRETATION,
+  mhaTimerGate,
+  type MhaTimerSwitchContent,
+} from "@/lib/on-call/mha-timers";
+import { fatigueWarnings } from "@/lib/roster/fatigue-rules";
 import { FATIGUE_RULE_SET } from "@/lib/roster/fatigue-rules-source";
 
 import { createPrompt } from "./lib/confirm.mjs";
@@ -91,7 +98,7 @@ export function statusLines(store: TodayRuleSignOffStore, timeframes: MhaTimefra
   };
   return [
     `Approved signers: ${signers.length === 0 ? "none yet" : signers.map((signer) => signer.name).join(", ")}`,
-    `${RULE_SETS[0]!.title}: ${gateWords(ruleGate(store.fatigue, FATIGUE_RULE_SET, signers, now))}`,
+    `${RULE_SETS[0]!.title}: ${gateWords(fatigueWarnings([], store.fatigue, signers, now).gate)}`,
     `${RULE_SETS[1]!.title}: ${gateWords(ruleGate(store.cpd, CPD_CATEGORY_RULE_SET, signers, now))}`,
     `${RULE_SETS[2]!.title}: ${gateWords(mhaTimerGate(mhaSwitch, timeframes.entries, signers))}`,
   ];
@@ -128,11 +135,21 @@ function showCpd(io: Io): void {
 function showMha(io: Io, timeframes: MhaTimeframesFile): void {
   io.print("The switch covers these timeframes. Each counts down only once its own sign-off is by a");
   io.print("named clinician; the rest stay quote-only whatever the switch says.");
+  io.print(`Countdown interpretation you are signing: ${MHA_TIMER_INTERPRETATION}`);
   for (const entry of timeframes.entries) {
     const countable = isReviewedTimeframe(entry) && isNamedPerson(entry.reviewedBy) && entry.computeAllowed !== false;
     io.print(
       `  - Form ${entry.formCodes.join("/")}, s ${entry.section}, ${entry.duration.value} ${entry.duration.unit}: ` +
         `signed by ${entry.reviewedBy ?? "nobody"}${countable ? "" : " (will stay quote-only)"}`,
+    );
+    io.print(`      trigger: ${entry.trigger}; counted from: ${entry.anchor}`);
+    if (entry.condition) io.print(`      condition: ${entry.condition}`);
+    if (entry.leadIn) io.print(`      lead-in: "${entry.leadIn}"`);
+    io.print(`      quote: "${entry.quote}"`);
+    if (entry.caveat) io.print(`      caveat (s ${entry.caveat.section}): "${entry.caveat.quote}"`);
+    io.print(
+      `      status ${entry.status}; reviewed at ${entry.reviewedAt ?? "never"}; ` +
+        `content pin ${entry.reviewedContentSha256 ?? "none"}; source text SHA-256 ${entry.sourceTextSha256}`,
     );
   }
 }
@@ -244,11 +261,11 @@ export async function runSigning(
       io.print("A per-patient countdown needs your medical-device ruling re-checked first.");
       const confirmedOn = (await io.ask("Date you confirmed or revised that ruling (YYYY-MM-DD): ")).trim();
       const record = (await io.ask("Where that decision is written down (a file or link): ")).trim();
-      if (!ISO_DATE.test(confirmedOn) || record === "") {
-        io.print(`${set.title}: needs a date and a record, so it was not signed.`);
+      const ruling = { confirmedOn, record };
+      if (!ISO_DATE.test(confirmedOn) || !isRecordedRuling(ruling, now.toISOString())) {
+        io.print(`${set.title}: needs a real date, no later than today, and a record, so it was not signed.`);
         continue;
       }
-      const ruling = { confirmedOn, record };
       const signOff = await signOne(io, set.title, mhaContent(timeframes, ruling), chosen.signer, now);
       if (signOff) {
         next = { ...next, mhaTimerSwitch: { medicalDeviceRuling: ruling, signOff } };
@@ -265,7 +282,8 @@ export async function runSigning(
 async function main(): Promise<void> {
   const root = process.cwd();
   const storeFile = join(root, STORE_PATH);
-  const store = JSON.parse(readFileSync(storeFile, "utf8")) as TodayRuleSignOffStore;
+  const rawStore = readFileSync(storeFile, "utf8");
+  const store = JSON.parse(rawStore) as TodayRuleSignOffStore;
   const timeframes = JSON.parse(readFileSync(join(root, TIMEFRAMES_PATH), "utf8")) as MhaTimeframesFile;
   const write = process.argv.includes("--write");
 
@@ -290,6 +308,13 @@ async function main(): Promise<void> {
     );
     if (!next) {
       console.log("Nothing was signed; the file is unchanged.");
+      return;
+    }
+    // Another checkout or process may have changed the file while the questions were open: refuse
+    // rather than overwrite it with the snapshot read at startup.
+    if (readFileSync(storeFile, "utf8") !== rawStore) {
+      console.error(`${STORE_PATH} changed while you were signing, so nothing was saved. Run the command again.`);
+      process.exitCode = 1;
       return;
     }
     const temporary = `${storeFile}.tmp`;
