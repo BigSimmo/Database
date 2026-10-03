@@ -1,7 +1,7 @@
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { isoWeekday } from "./cover";
-import { gradeRank, placementProblem, swapCandidates } from "./eligibility";
-import type { RosterAssignment, RosterGrade, RosterSettings, SwapNeedsManagerReason } from "./model";
+import { gradeRank, placementProblem, swapCandidates, teamPeople } from "./eligibility";
+import type { RosterAssignment, RosterGrade, RosterSettings, RosterTeamMember, SwapNeedsManagerReason } from "./model";
 
 /**
  * The swap flow's "who" and "check" steps, worked out on the phone. Advice
@@ -41,19 +41,12 @@ const SHIFT_HAS_NO_GRADE_WORDS = "This shift has no grade on the roster, so the 
 
 type Person = { userId: string; name: string | null; grade: RosterGrade | null };
 
-/** Everyone with a live shift in the window except the reader, with the latest name and grade seen. */
-function colleagues(rows: readonly RosterAssignment[], meId: string): Person[] {
-  const people = new Map<string, Person>();
-  for (const row of rows) {
-    if (!row.userId || row.userId === meId) continue;
-    const known = people.get(row.userId);
-    people.set(row.userId, {
-      userId: row.userId,
-      name: row.name ?? known?.name ?? null,
-      grade: row.grade ?? known?.grade ?? null,
-    });
-  }
-  return [...people.values()];
+/**
+ * Everyone to weigh except the reader: the team's current members when known,
+ * otherwise everyone with a live shift in the window (see `teamPeople`).
+ */
+function colleagues(rows: readonly RosterAssignment[], meId: string, members?: readonly RosterTeamMember[]): Person[] {
+  return teamPeople(rows, members).filter((person) => person.userId !== meId);
 }
 
 const byStart = (a: RosterAssignment, b: RosterAssignment) =>
@@ -120,9 +113,11 @@ export function swapOptions(input: {
   me: { userId: string; grade: RosterGrade | null };
   settings: Pick<RosterSettings, "rules" | "swapApproval">;
   now: Date;
+  /** The team's current members; without them, only colleagues with shifts in `rows` are weighed. */
+  members?: readonly RosterTeamMember[];
 }): { can: SwapChoice[]; cannot: SwapBlocked[] } {
-  const { rows, give, me, settings, now } = input;
-  const candidates = swapCandidates(rows, give, me, settings);
+  const { rows, give, me, settings, now, members } = input;
+  const candidates = swapCandidates(rows, give, me, settings, members);
   const can = candidates.map((candidate): SwapChoice => ({
     userId: candidate.userId,
     name: candidate.name,
@@ -132,7 +127,7 @@ export function swapOptions(input: {
   }));
   const canIds = new Set(can.map((choice) => choice.userId));
   const giverRank = gradeRank(give.grade ?? me.grade);
-  const cannot = colleagues(rows, me.userId)
+  const cannot = colleagues(rows, me.userId, members)
     .filter((person) => !canIds.has(person.userId))
     .map((person): SwapBlocked => {
       return { userId: person.userId, name: person.name, ...whyNot(rows, give, person, giverRank) };

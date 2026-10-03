@@ -6,7 +6,11 @@ import { GIVE_AWAY_WORDS, isUrgentGiveAway } from "@/components/roster/requests/
 import { RosterSwapTicket } from "@/components/roster/requests/roster-swap-ticket";
 import { formatShiftRange, useRosterNow } from "@/components/roster/roster-format";
 import { useDelayedRosterAction } from "@/components/roster/swaps/use-delayed-roster-action";
-import { loadSwapOptionsRead, type SwapOptionsRead } from "@/components/roster/swaps/swap-options-loader";
+import {
+  loadSwapOptionsRead,
+  ROSTER_ONLY_NOTE,
+  type SwapOptionsRead,
+} from "@/components/roster/swaps/swap-options-loader";
 import { postRosterAction } from "@/components/roster/use-roster-team";
 import { Button } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
@@ -136,19 +140,39 @@ export function SwapFlowSheet(props: {
   give: RosterAssignment;
   mode: "swap" | "give_away";
   onSent: (label: string) => void;
+  /** A colleague already chosen (from "Who can cover?"); used only while they can still take the shift. */
+  initialColleagueId?: string | null;
 }) {
   // A new session for each shift and mode, so nothing chosen earlier carries over.
   return props.open ? (
-    <FlowSession key={JSON.stringify([props.serviceId, props.actorId, props.give.id, props.mode])} {...props} />
+    <FlowSession
+      key={JSON.stringify([
+        props.serviceId,
+        props.actorId,
+        props.give.id,
+        props.mode,
+        props.initialColleagueId ?? null,
+      ])}
+      {...props}
+    />
   ) : null;
 }
 
-function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parameters<typeof SwapFlowSheet>[0]) {
+function FlowSession({
+  onClose,
+  serviceId,
+  actorId,
+  give,
+  mode,
+  onSent,
+  initialColleagueId,
+}: Parameters<typeof SwapFlowSheet>[0]) {
   const now = useRosterNow();
   const { fresh, loadError, reread } = useFreshRead(serviceId, give.startsAt);
   const { pending, sending, canSend, schedule, undo } = useDelayedRosterAction();
-  const [step, setStep] = useState<Step>("who");
-  const [colleagueId, setColleagueId] = useState("");
+  // A colleague chosen before the sheet opened starts at "take"; if they cannot take it, `shown` falls back to "who".
+  const [step, setStep] = useState<Step>(initialColleagueId ? "take" : "who");
+  const [colleagueId, setColleagueId] = useState(initialColleagueId ?? "");
   // null until chosen; "" means "Nothing, just take my shift".
   const [takeId, setTakeId] = useState<string | null>(null);
   const [refusal, setRefusal] = useState<string | null>(null);
@@ -163,6 +187,7 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
             me: { userId: actorId, grade: fresh.overview.me.grade },
             settings: fresh.overview.settings,
             now,
+            members: fresh.members ?? undefined,
           })
         : null,
     [fresh, mode, give, actorId, now],
@@ -303,6 +328,7 @@ function FlowSession({ onClose, serviceId, actorId, give, mode, onSent }: Parame
         {fresh && mode === "swap" && options && shown === "who" ? (
           <>
             <p className="text-xs text-[color:var(--text-muted)]">Step 1 of 3 · Who</p>
+            {fresh.members ? null : <p className="text-sm">{ROSTER_ONLY_NOTE}</p>}
             <section className="grid gap-2">
               <h3 className="text-base font-medium">Can swap</h3>
               {options.can.length ? (
