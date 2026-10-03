@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import type { OnCallShiftImportSummary } from "@/lib/roster/shifts/model";
 import { formatPerthDay } from "@/lib/roster/shifts/perth-time";
 import {
   formatSnapshotTimes,
@@ -15,9 +16,7 @@ function snap(start: string, end: string, title = "On call", location: string | 
   return { startsAt: start, endsAt: end, title, location };
 }
 
-const summary = (
-  changes: Parameters<typeof importChangeNotices>[0] extends infer S ? NonNullable<S>["changes"] : never,
-) => ({
+const summary = (changes: OnCallShiftImportSummary["changes"]) => ({
   changes,
   seenAt: null as string | null,
 });
