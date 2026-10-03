@@ -120,6 +120,7 @@ export function cpdStandardMismatches(set: CmeRequirementSet): CpdStandardMismat
   const combined = national.find(
     (requirement) =>
       requirement.spec.shape === "hours-across-categories" &&
+      requirement.spec.categories.length === 2 &&
       requirement.spec.categories.includes("reviewing") &&
       requirement.spec.categories.includes("measuring"),
   );

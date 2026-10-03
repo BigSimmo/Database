@@ -88,6 +88,23 @@ describe("cpdStandardMismatches", () => {
       expect.objectContaining({ id: "reviewing-and-measuring", yours: null, standard: 25 }),
     ]);
   });
+
+  it("does not accept a combined line that also includes another category", () => {
+    const widened = {
+      ...preset,
+      requirements: preset.requirements.map((requirement) =>
+        requirement.spec.shape === "hours-across-categories"
+          ? {
+              ...requirement,
+              spec: { ...requirement.spec, categories: [...requirement.spec.categories, "educational" as const] },
+            }
+          : requirement,
+      ),
+    };
+    expect(cpdStandardMismatches(widened)).toEqual([
+      expect.objectContaining({ id: "reviewing-and-measuring", yours: null, standard: 25 }),
+    ]);
+  });
 });
 
 describe("cpdCategoryCoaching", () => {

@@ -114,6 +114,20 @@ describe("fatigueWarnings", () => {
     expect(rules([...nights, shift("2026-10-09", "08:00", "16:00")])).toEqual([]);
   });
 
+  it("treats duty overlapping the end of the last night as no time free", () => {
+    const nights = run("2026-10-05", 3, "21:00", "07:00", "night");
+    const onCall = shift("2026-10-07", "17:00", "08:00", "on_call");
+    const warnings = fatigueWarningsUngated([...nights, onCall]).filter(
+      (warning) => warning.rule === "restAfterNights",
+    );
+    expect(warnings).toEqual([
+      expect.objectContaining({
+        shiftId: onCall.id,
+        words: "0 hours free after 3 nights in a row before this on call.",
+      }),
+    ]);
+  });
+
   it("asks for 48 hours free after four or five nights", () => {
     const nights = run("2026-10-05", 4, "21:00", "07:00", "night");
     const day = shift("2026-10-10", "08:00", "16:00");
