@@ -35,28 +35,9 @@
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
     "preDeployCommand": ["node /app/scripts/deploy/await-migrations.mjs"],
-    "startCommand": "node node_modules/next/dist/bin/next start -H 0.0.0.0 -p $PORT",
-    "deploymentStrategy": {
-      "strategy": "canary",
-      "canaryFraction": 0.25,
-      "canaryDuration": 300
-    },
-    "serviceConfig": {
-      "port": 3000,
-      "cpuRequest": "500m",
-      "cpuLimit": "2000m",
-      "memoryRequest": "512Mi",
-      "memoryLimit": "2Gi"
-    },
-    "rollingUpdateConfig": {
-      "maxSurge": "50%",
-      "maxUnavailable": "25%",
-      "minHealthyPercent": 75,
-      "maxHealthyPercent": 150
-    },
     "multiRegionConfig": {
       "asia-southeast1-eqsg3a": {
-        "numReplicas": 2
+        "numReplicas": 1
       }
     }
   }
