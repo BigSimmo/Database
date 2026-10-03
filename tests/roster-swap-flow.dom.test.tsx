@@ -79,12 +79,19 @@ const overview = {
 const reads = {
   assignments: { assignments: [give, myOther, samEarly, samLate, samClashesWithMine, noorDay] },
   overview,
+  members: {
+    members: [
+      { userId: ME, name: "Alex Example", grade: "registrar" },
+      { userId: SAM, name: "Dr Sam Example", grade: "registrar" },
+      { userId: NOOR, name: "Dr Noor Example", grade: "resident" },
+    ],
+  },
 };
 
 const onSent = vi.fn();
 const onClose = vi.fn();
 
-function flowElement(mode: "swap" | "give_away" = "swap", shiftToGive = give) {
+function flowElement(mode: "swap" | "give_away" = "swap", shiftToGive = give, initialColleagueId?: string) {
   return (
     <SwapFlowSheet
       open
@@ -94,6 +101,7 @@ function flowElement(mode: "swap" | "give_away" = "swap", shiftToGive = give) {
       give={shiftToGive}
       mode={mode}
       onSent={onSent}
+      initialColleagueId={initialColleagueId}
     />
   );
 }
@@ -121,6 +129,13 @@ beforeEach(() => {
   auth.status = "authenticated";
   auth.authEpoch = 1;
   reads.assignments = { assignments: [give, myOther, samEarly, samLate, samClashesWithMine, noorDay] };
+  reads.members = {
+    members: [
+      { userId: ME, name: "Alex Example", grade: "registrar" },
+      { userId: SAM, name: "Dr Sam Example", grade: "registrar" },
+      { userId: NOOR, name: "Dr Noor Example", grade: "resident" },
+    ],
+  };
   mocks.fetchRead.mockImplementation(async (_serviceId: string, what: string) => ({
     ok: true,
     data: reads[what as keyof typeof reads],
@@ -153,6 +168,35 @@ describe("SwapFlowSheet: who and take back", () => {
     const choices = screen.getAllByRole("button").map((button) => button.textContent);
     expect(choices.filter((text) => /Mon 11 Mar|Wed 13 Mar/.test(text ?? ""))).toHaveLength(2);
     expect(choices.some((text) => /14 Mar/.test(text ?? ""))).toBe(false);
+  });
+});
+
+describe("SwapFlowSheet: a colleague chosen before it opens", () => {
+  it("starts at Take back when the chosen colleague can take the shift", async () => {
+    render(flowElement("swap", give, SAM));
+    expect(await screen.findByText("What would you take from Dr Sam Example?")).toBeTruthy();
+    expect(screen.queryByText("Can swap")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(screen.getByText("Can swap")).toBeTruthy();
+  });
+
+  it("stays on Who when the chosen colleague can't take it", async () => {
+    render(flowElement("swap", give, NOOR));
+    await screen.findByText("Can swap");
+    expect(screen.queryByText(/What would you take from/)).toBeNull();
+    const cannot = screen.getByRole("heading", { name: "Can't swap" }).closest("section")!;
+    expect(within(cannot).getByText("Dr Noor Example")).toBeTruthy();
+  });
+
+  it("lists a current member with no shifts in these weeks", async () => {
+    const KAI = "5e000000-0000-4000-8000-000000000007";
+    reads.members = {
+      members: [...reads.members.members, { userId: KAI, name: "Dr Kai Example", grade: "registrar" }],
+    };
+    renderFlow();
+    await screen.findByText("Can swap");
+    expect(screen.getByRole("button", { name: /Dr Kai Example/ })).toBeTruthy();
+    expect(screen.queryByText("Showing colleagues with shifts in these weeks.")).toBeNull();
   });
 });
 
