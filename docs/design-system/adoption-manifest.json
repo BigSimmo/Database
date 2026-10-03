@@ -299,6 +299,7 @@
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/admin-today-page.tsx",
+        "src/components/admin/new-job/admin-credential-pack-page.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/checklist-list.tsx",
@@ -366,6 +367,7 @@
         "src/components/roster/requests/roster-requests-page.tsx",
         "src/components/roster/requests/roster-sent-bar.tsx",
         "src/components/roster/roster-add-sheet.tsx",
+        "src/components/roster/roster-change-rows.tsx",
         "src/components/roster/roster-code-chooser.tsx",
         "src/components/roster/roster-hours-panel.tsx",
         "src/components/roster/roster-import-flow.tsx",
@@ -383,6 +385,7 @@
         "src/components/roster/team/calendar/shift-sheet.tsx",
         "src/components/roster/team/calendar/team-calendar.tsx",
         "src/components/roster/team/roster-team-page.tsx",
+        "src/components/roster/team/roster-today-team.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
@@ -430,6 +433,7 @@
         "src/components/admin/admin-renewed-sheet.tsx",
         "src/components/admin/admin-setup-sheet.tsx",
         "src/components/admin/admin-today-page.tsx",
+        "src/components/admin/new-job/admin-credential-pack-page.tsx",
         "src/components/admin/new-job/admin-new-job-start.tsx",
         "src/components/admin/new-job/admin-records-page.tsx",
         "src/components/admin/renewals/checklist-list.tsx",
@@ -496,6 +500,7 @@
         "src/components/roster/requests/roster-requests-page.tsx",
         "src/components/roster/requests/roster-sent-bar.tsx",
         "src/components/roster/roster-add-sheet.tsx",
+        "src/components/roster/roster-change-rows.tsx",
         "src/components/roster/roster-code-chooser.tsx",
         "src/components/roster/roster-hours-panel.tsx",
         "src/components/roster/roster-import-flow.tsx",
@@ -513,6 +518,7 @@
         "src/components/roster/team/calendar/shift-sheet.tsx",
         "src/components/roster/team/calendar/team-calendar.tsx",
         "src/components/roster/team/roster-team-page.tsx",
+        "src/components/roster/team/roster-today-team.tsx",
         "src/components/specifiers/specifier-builder-page.tsx",
         "src/components/teaching/log-to-cpd-sheet.tsx",
         "src/components/teaching/organise-sheets.tsx",
@@ -592,6 +598,7 @@
       "sourceExported": true,
       "entryExported": true,
       "directImportFiles": [
+        "src/components/admin/new-job/admin-credential-pack-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/cme/cme-entry-form.tsx",
@@ -607,6 +614,7 @@
         "src/components/teaching/teaching-teach.tsx"
       ],
       "productImportFiles": [
+        "src/components/admin/new-job/admin-credential-pack-page.tsx",
         "src/components/calendar/calendar-view.tsx",
         "src/components/clinical-dashboard/document-admin.tsx",
         "src/components/cme/cme-entry-form.tsx",
@@ -3117,6 +3125,7 @@
       "routes": [
         "src/app/(display)/teaching/display/[token]/page.tsx",
         "src/app/(search-app)/admin/help/page.tsx",
+        "src/app/(search-app)/admin/new-job/pack/page.tsx",
         "src/app/(search-app)/admin/new-job/page.tsx",
         "src/app/(search-app)/admin/new-job/records/page.tsx",
         "src/app/(search-app)/admin/page.tsx",
@@ -3272,6 +3281,16 @@
         },
         {
           "file": "src/app/(search-app)/admin/help/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/admin/new-job/pack/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -5379,6 +5398,7 @@
     "discovered": [
       "src/app/(display)/teaching/display/[token]/page.tsx",
       "src/app/(search-app)/admin/help/page.tsx",
+      "src/app/(search-app)/admin/new-job/pack/page.tsx",
       "src/app/(search-app)/admin/new-job/page.tsx",
       "src/app/(search-app)/admin/new-job/records/page.tsx",
       "src/app/(search-app)/admin/page.tsx",
@@ -5530,6 +5550,7 @@
     "declared": [
       "src/app/(display)/teaching/display/[token]/page.tsx",
       "src/app/(search-app)/admin/help/page.tsx",
+      "src/app/(search-app)/admin/new-job/pack/page.tsx",
       "src/app/(search-app)/admin/new-job/page.tsx",
       "src/app/(search-app)/admin/new-job/records/page.tsx",
       "src/app/(search-app)/admin/page.tsx",
@@ -5684,7 +5705,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 156,
+    "inheritedCkbV2RootCount": 157,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -5693,8 +5714,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 157,
-    "productionRouteCount": 149,
-    "nextUiEntryCount": 240
+    "rootCount": 158,
+    "productionRouteCount": 150,
+    "nextUiEntryCount": 241
   }
 }
