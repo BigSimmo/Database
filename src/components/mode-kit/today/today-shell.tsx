@@ -47,7 +47,7 @@ export interface TodayNeedsYouSlot {
 
 function Slot({ slot, children }: { readonly slot: TodaySlot; readonly children: ReactNode }) {
   return (
-    <div data-today-slot={slot} className="grid min-w-0 gap-2">
+    <div data-today-slot={slot} className="grid min-w-0 gap-2 empty:hidden">
       {children}
     </div>
   );
