@@ -1,7 +1,7 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { withSentryConfig } from "@sentry/nextjs";
+import { withSentryConfig } from "@sentry/nextjs/config";
 import { buildSecurityHeaders, resolveRuntimeFlags } from "./src/lib/security-headers";
 import { resolveSentryRelease } from "./src/lib/observability/sentry-release";
 import { expectedSupabaseProject } from "./src/lib/supabase/project";
