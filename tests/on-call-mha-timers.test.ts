@@ -1,0 +1,155 @@
+import { describe, expect, it } from "vitest";
+
+import { ruleContentSha256 } from "@/lib/admin/rule-sign-off";
+import { timeframeContentSha256, type MhaTimeframeEntry } from "@/lib/mha-timeline";
+import {
+  currentMhaTimerSwitchContent,
+  MHA_TIMER_SWITCH,
+  mhaTimerGate,
+  mhaTimers,
+  type MhaTimerSwitch,
+} from "@/lib/on-call/mha-timers";
+
+/**
+ * Gating and countdown arithmetic only. The fixtures use invented quotes and an invented form
+ * code on purpose: statutory content is the timeframe contract test's job, never this file's.
+ */
+
+function entry(id: string, hours: number, extra: Partial<MhaTimeframeEntry> = {}): MhaTimeframeEntry {
+  return {
+    id,
+    formCodes: ["ZZ"],
+    trigger: `Invented trigger ${id}`,
+    section: "999",
+    sourceTextSha256: "0".repeat(64),
+    quote: `invented ${hours} hours`,
+    duration: { value: hours, unit: "hours" },
+    anchor: "Invented anchor",
+    status: "drafted",
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewedContentSha256: null,
+    ...extra,
+  };
+}
+
+function signedBy(base: MhaTimeframeEntry, reviewer: string): MhaTimeframeEntry {
+  const withMeta = {
+    ...base,
+    status: "reviewed" as const,
+    reviewedBy: reviewer,
+    reviewedAt: "2026-10-04T01:00:00.000Z",
+  };
+  return { ...withMeta, reviewedContentSha256: timeframeContentSha256(withMeta) };
+}
+
+const named = [signedBy(entry("long", 72), "Dr Jane Example"), signedBy(entry("short", 6), "Dr Jane Example")];
+
+function onSwitch(entries: readonly MhaTimeframeEntry[]): MhaTimerSwitch {
+  const content = currentMhaTimerSwitchContent(entries, { confirmedOn: "2026-10-04", record: "invented record" });
+  return {
+    content,
+    signOff: {
+      enabled: true,
+      signedBy: "Dr Jane Example",
+      signedAt: "2026-10-04T02:00:00.000Z",
+      signedContentSha256: ruleContentSha256(content),
+    },
+  };
+}
+
+const madeAt = new Date("2026-10-04T00:00:00.000Z");
+const now = new Date("2026-10-04T05:00:00.000Z");
+
+describe("mhaTimers", () => {
+  it("ships off: the shipped switch is unsigned, so nothing counts down", () => {
+    expect(mhaTimerGate()).toEqual({ on: false, reason: "unsigned" });
+    expect(MHA_TIMER_SWITCH.signOff.enabled).toBe(false);
+    const result = mhaTimers([{ timerId: "t1", formCode: "2", madeAt }], now);
+    expect(result.items.length).toBeGreaterThan(0);
+    expect(result.items.every((item) => item.kind === "quote-only")).toBe(true);
+  });
+
+  it("treats the shipped 'PsychSift' sign-offs as awaiting a named clinician", () => {
+    const result = mhaTimers([{ timerId: "t1", formCode: "2", madeAt }], now);
+    const reasons = result.items.map((item) => (item.kind === "quote-only" ? item.reason : "countdown"));
+    expect(reasons).toContain("awaiting-named-sign-off");
+    expect(reasons).not.toContain("countdown");
+  });
+
+  it("counts down signed entries, soonest first, once the switch is signed", () => {
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
+      entries: named,
+      timerSwitch: onSwitch(named),
+    });
+    expect(result.gate).toEqual({ on: true });
+    expect(result.items.map((item) => [item.kind, item.entry.id])).toEqual([
+      ["countdown", "short"],
+      ["countdown", "long"],
+    ]);
+    const [short, long] = result.items;
+    expect(short.kind === "countdown" && short.deadline.toISOString()).toBe("2026-10-04T06:00:00.000Z");
+    expect(short.kind === "countdown" && short.remainingMs).toBe(60 * 60 * 1000);
+    expect(long.kind === "countdown" && long.expired).toBe(false);
+  });
+
+  it("marks a passed deadline expired with a negative remainder", () => {
+    const later = new Date("2026-10-04T07:00:00.000Z");
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], later, {
+      entries: named,
+      timerSwitch: onSwitch(named),
+    });
+    const short = result.items.find((item) => item.entry.id === "short")!;
+    expect(short.kind === "countdown" && short.expired).toBe(true);
+    expect(short.kind === "countdown" && short.remainingMs).toBe(-60 * 60 * 1000);
+  });
+
+  it("keeps a PsychSift-signed entry quote-only even with the switch on", () => {
+    const mixed = [named[0]!, signedBy(entry("system", 24), "PsychSift")];
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
+      entries: mixed,
+      timerSwitch: onSwitch(mixed),
+    });
+    const system = result.items.find((item) => item.entry.id === "system")!;
+    expect(system).toMatchObject({ kind: "quote-only", reason: "awaiting-named-sign-off" });
+  });
+
+  it("never counts an entry the Act ends at a second event", () => {
+    const blocked = [signedBy(entry("ceiling", 72, { computeAllowed: false }), "Dr Jane Example")];
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
+      entries: blocked,
+      timerSwitch: onSwitch(blocked),
+    });
+    expect(result.items).toEqual([expect.objectContaining({ kind: "quote-only", reason: "not-calculable" })]);
+  });
+
+  it("stays off until the medical-device ruling is recorded", () => {
+    const content = currentMhaTimerSwitchContent(named, null);
+    const timerSwitch: MhaTimerSwitch = {
+      content,
+      signOff: {
+        enabled: true,
+        signedBy: "Dr Jane Example",
+        signedAt: "2026-10-04T02:00:00.000Z",
+        signedContentSha256: ruleContentSha256(content),
+      },
+    };
+    expect(mhaTimerGate(timerSwitch, named)).toEqual({ on: false, reason: "medical-device-ruling-pending" });
+  });
+
+  it("turns off when a timeframe is re-signed after the switch was signed", () => {
+    const timerSwitch = onSwitch(named);
+    const resigned = [signedBy({ ...named[0]!, anchor: "Changed anchor" }, "Dr Jane Example"), named[1]!];
+    expect(mhaTimerGate(timerSwitch, resigned)).toEqual({ on: false, reason: "stale-switch" });
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, { entries: resigned, timerSwitch });
+    expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "switched-off")).toBe(true);
+  });
+
+  it("reports an invalid start rather than inventing a deadline", () => {
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt: new Date("not a date") }], now, {
+      entries: named,
+      timerSwitch: onSwitch(named),
+    });
+    expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "invalid-start")).toBe(true);
+  });
+});
