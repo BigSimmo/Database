@@ -9,14 +9,18 @@ import { useTeachingResource } from "@/components/teaching/use-teaching-resource
 
 /**
  * The reader's next teaching session, from Teaching's own `view=next-session`
- * read. Renders nothing while loading, with no session ahead, or on any failure.
+ * read. Null while loading, with no session ahead, cancelled, or on any failure.
  */
-export function MyDayNextTeaching() {
+export function useMyDayNextTeachingSession(): SessionSummaryRead | null {
   const { status, data } = useTeachingResource<{ session: SessionSummaryRead | null }>(
     "/api/teaching?view=next-session",
   );
   const session = status === "ready" ? (data?.session ?? null) : null;
-  if (!session || session.status === "cancelled") return null;
+  return session && session.status !== "cancelled" ? session : null;
+}
+
+export function MyDayNextTeaching({ session }: { readonly session: SessionSummaryRead | null }) {
+  if (!session) return null;
   const day = shortDayLabel(perthDateKey(session.startsAt));
   const when = session.allDay ? day : `${day} · ${formatModeTime(session.startsAt)}`;
   return (

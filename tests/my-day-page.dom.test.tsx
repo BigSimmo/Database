@@ -161,6 +161,32 @@ describe("MyDayPage", () => {
     expect(document.querySelectorAll('[aria-hidden="true"] [data-state-dot]').length).toBe(3);
   });
 
+  it("shows the date eyebrow above the title", () => {
+    render(<MyDayPage now={NOW} />);
+    const header = screen.getByTestId("my-day-header");
+    expect(header.firstElementChild?.textContent).toBe("Saturday 26 September");
+    expect(header.lastElementChild?.textContent).toBe("My Day");
+  });
+
+  it("badges each row by mode and colours only an overdue due line with the warning token", () => {
+    setState({
+      items: [
+        item("a", "overdue"),
+        item("o", "overdue", { mode: "cme" }),
+        item("t", "soon", { mode: "teaching" }),
+        item("r", "info", { mode: "roster" }),
+        item("c", "info", { mode: "on-call" }),
+      ],
+    });
+    render(<MyDayPage now={NOW} />);
+    const badges = ["a", "o", "t", "r", "c"].map((id) => screen.getByTestId(`my-day-item-badge-${id}`));
+    expect(badges.map((badge) => badge.textContent)).toEqual(["ADM", "CPD", "TCH", "ROS", "OC"]);
+    for (const badge of badges) expect(badge.getAttribute("aria-hidden")).toBe("true");
+    expect(screen.getByTestId("my-day-item-a").querySelector('[class*="--warning"]')).toBeTruthy();
+    expect(screen.getByTestId("my-day-item-t").querySelector('[class*="--warning"]')).toBeNull();
+    expect(screen.getByTestId("my-day-item-a").textContent).not.toMatch(/Expired/);
+  });
+
   it("names failed sources, keeps the rest, and retries on click", () => {
     setState({
       items: [item("a", "soon")],

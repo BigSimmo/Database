@@ -13,9 +13,9 @@ import { modeSecondaryText } from "@/components/mode-kit/type";
 import { MyDayModules } from "@/components/my-day/modules/my-day-modules";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
+import { longDayLabel } from "@/components/teaching/teaching-dates";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/components/ui-primitives";
-import { formatDateEcho } from "@/lib/admin/renewal-dates";
 import { appModeDefinition } from "@/lib/app-modes";
 import { perthCalendarDate } from "@/lib/cme/cpd-year";
 import { formatMyDayDue } from "@/lib/my-day/merge";
@@ -42,6 +42,14 @@ export function useMyDayNow(nowProp?: Date): Date {
   return nowProp ?? tick;
 }
 
+const MODE_BADGE: Record<MyDaySourceMode, string> = {
+  "on-call": "OC",
+  roster: "ROS",
+  cme: "CPD",
+  teaching: "TCH",
+  "my-work": "ADM",
+};
+
 function modeLabel(mode: MyDaySourceMode): string {
   return appModeDefinition(mode).label;
 }
@@ -58,10 +66,31 @@ export function MyDayItemRow({ item, now }: { readonly item: MyDayItem; readonly
       : item.severity === "soon"
         ? "Due soon"
         : "";
-  const subtitle = [modeLabel(item.mode), stateWord, due].filter(Boolean).join(" · ");
+  const subtitle = (
+    <>
+      {[modeLabel(item.mode), stateWord].filter(Boolean).join(" · ")}
+      {due ? (
+        <>
+          {" · "}
+          <span className={item.severity === "overdue" ? "text-[color:var(--warning)]" : undefined}>{due}</span>
+        </>
+      ) : null}
+    </>
+  );
   return (
     <ModeRow
-      title={item.title}
+      title={
+        <span className="flex min-w-0 items-center gap-2">
+          <span
+            aria-hidden="true"
+            data-testid={`my-day-item-badge-${item.id}`}
+            className="grid h-6 min-w-8 shrink-0 place-items-center rounded-sm bg-[color:var(--surface-subtle)] px-1 text-3xs font-semibold tracking-wide text-[color:var(--text-muted)]"
+          >
+            {MODE_BADGE[item.mode]}
+          </span>
+          <span className="min-w-0 break-words">{item.title}</span>
+        </span>
+      }
       subtitle={subtitle}
       meta={
         item.detail ? <span className={cn(modeSecondaryText, "break-words leading-5")}>{item.detail}</span> : undefined
@@ -110,8 +139,10 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
     <InformationPageShell testId="my-day-main">
       <div className={PAGE_WIDTH}>
         <header className="grid gap-0.5" data-testid="my-day-header">
-          <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">My Day</h1>
-          <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(perthCalendarDate(now))}</p>
+          <p className="text-sm text-[color:var(--text-muted)]" data-testid="my-day-date">
+            {longDayLabel(perthCalendarDate(now))}
+          </p>
+          <h1 className="text-3xl-minus font-semibold text-[color:var(--text-heading)]">My Day</h1>
         </header>
 
         {authStatus === "loading" || (enabled && state.status === "loading") ? (
@@ -181,7 +212,7 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
               </ModeNotice>
             ) : null}
 
-            <MyDayModules now={now} />
+            <MyDayModules now={now} items={state.items} />
 
             {sections.length === 0 ? (
               <div data-testid="my-day-empty">

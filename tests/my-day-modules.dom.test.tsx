@@ -26,9 +26,14 @@ vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => auth }));
 
 import { MyDayCpdPace } from "@/components/my-day/modules/cpd-pace";
 import { MyDayNextShift } from "@/components/my-day/modules/next-shift";
-import { MyDayNextTeaching } from "@/components/my-day/modules/next-teaching";
-import { MyDayOnCallShortcuts } from "@/components/my-day/modules/on-call-shortcuts";
+import { MyDayNextTeaching, useMyDayNextTeachingSession } from "@/components/my-day/modules/next-teaching";
+import { MyDayQuickActions } from "@/components/my-day/modules/quick-actions";
+import { MyDayRestOfToday, restOfTodayChips } from "@/components/my-day/modules/rest-of-today";
 import { MyDayPinnedNumbers } from "@/components/my-day/modules/pinned-numbers";
+
+function TeachingHarness() {
+  return <MyDayNextTeaching session={useMyDayNextTeachingSession()} />;
+}
 
 // 09:00 on Sat 26 Sep 2026 in Perth.
 const NOW = new Date("2026-09-26T01:00:00Z");
@@ -60,7 +65,7 @@ describe("MyDayNextShift", () => {
   it("shows the next shift with its start and workplace, linking to Roster", () => {
     // Starts 15:20 Perth: 6 h 20 min after 09:00.
     roster.current = { ...roster.current, shifts: [shift("2026-09-26T07:20:00Z", "2026-09-26T23:00:00Z")] };
-    render(<MyDayNextShift now={NOW} />);
+    render(<MyDayNextShift state={roster.current as never} now={NOW} />);
     const link = screen.getByRole("link");
     expect(link.getAttribute("href")).toBe("/roster");
     expect(link.textContent).toContain("Night shift · starts in 6 h 20 min");
@@ -69,7 +74,7 @@ describe("MyDayNextShift", () => {
 
   it("shows when the shift on now ends", () => {
     roster.current = { ...roster.current, shifts: [shift("2026-09-25T23:00:00Z", "2026-09-26T08:00:00Z")] };
-    render(<MyDayNextShift now={NOW} />);
+    render(<MyDayNextShift state={roster.current as never} now={NOW} />);
     expect(screen.getByTestId("my-day-module-next-shift").textContent).toContain("On now · ends 16:00");
   });
 
@@ -89,7 +94,7 @@ describe("MyDayNextShift", () => {
     ],
   ])("renders nothing when %s", (_name, state) => {
     roster.current = { shifts: [], sample: false, demoMode: false, ...state };
-    const { container } = render(<MyDayNextShift now={NOW} />);
+    const { container } = render(<MyDayNextShift state={roster.current as never} now={NOW} />);
     expect(container.innerHTML).toBe("");
   });
 
@@ -100,7 +105,7 @@ describe("MyDayNextShift", () => {
       demoMode: true,
       shifts: [shift("2026-09-26T07:20:00Z", "2026-09-26T23:00:00Z")],
     };
-    render(<MyDayNextShift now={NOW} />);
+    render(<MyDayNextShift state={roster.current as never} now={NOW} />);
     expect(screen.getByTestId("my-day-module-next-shift")).toBeTruthy();
   });
 });
@@ -139,7 +144,7 @@ describe("MyDayNextTeaching", () => {
 
   it("shows title, Perth day and time, venue and the session link", () => {
     teaching.current = { status: "ready", data: { session } };
-    render(<MyDayNextTeaching />);
+    render(<TeachingHarness />);
     const link = screen.getByRole("link");
     expect(link.getAttribute("href")).toBe("/teaching/session/occ-1");
     expect(link.textContent).toContain("Grand rounds");
@@ -154,7 +159,7 @@ describe("MyDayNextTeaching", () => {
     ["cancelled", { status: "ready", data: { session: { ...session, status: "cancelled" } } }],
   ])("renders nothing when %s", (_name, state) => {
     teaching.current = state;
-    const { container } = render(<MyDayNextTeaching />);
+    const { container } = render(<TeachingHarness />);
     expect(container.innerHTML).toBe("");
   });
 });
@@ -229,10 +234,88 @@ describe("MyDayCpdPace", () => {
   });
 });
 
-describe("MyDayOnCallShortcuts", () => {
-  it("links to the call log and the handover builder", () => {
-    render(<MyDayOnCallShortcuts />);
-    const hrefs = screen.getAllByRole("link").map((link) => link.getAttribute("href"));
-    expect(hrefs).toEqual(["/on-call/call#on-call-call-log-heading", "/on-call/call#on-call-handover-heading"]);
+describe("MyDayNextShift ring", () => {
+  it("counts down to the start in words, filling over the 12 h before it", () => {
+    // Starts 09:50 Perth, 50 minutes after NOW.
+    roster.current = { ...roster.current, shifts: [shift("2026-09-26T01:50:00Z", "2026-09-26T10:00:00Z")] };
+    render(<MyDayNextShift state={roster.current as never} now={NOW} />);
+    expect(screen.getByRole("img").getAttribute("aria-label")).toBe("0:50 to on call");
+    const arc = screen.getByTestId("my-day-next-shift-ring").querySelectorAll("circle")[1];
+    const offset = Number(arc.getAttribute("stroke-dashoffset"));
+    const full = Number(arc.getAttribute("stroke-dasharray"));
+    expect(1 - offset / full).toBeCloseTo((12 * 60 - 50) / (12 * 60), 3);
+  });
+
+  it("shows time left once the shift is on", () => {
+    roster.current = { ...roster.current, shifts: [shift("2026-09-25T23:00:00Z", "2026-09-26T08:00:00Z")] };
+    render(<MyDayNextShift state={roster.current as never} now={NOW} />);
+    expect(screen.getByRole("img").getAttribute("aria-label")).toBe("7:00 left on shift");
+  });
+});
+
+describe("MyDayQuickActions", () => {
+  it("links the four quick actions", () => {
+    render(<MyDayQuickActions />);
+    const links = screen.getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "/on-call/call#on-call-call-log-heading",
+      "/on-call/call#on-call-handover-heading",
+      "/on-call/whos-on",
+      "/cme/new",
+    ]);
+    expect(links.map((link) => link.textContent)).toEqual(["Log a call", "Handover", "Who\u2019s on", "Log CPD"]);
+  });
+});
+
+describe("MyDayRestOfToday", () => {
+  const baseItem = { mode: "cme", severity: "soon", href: "/cme/x" } as const;
+  const readyRoster = { status: "ready", sample: false, demoMode: false, shifts: [] } as never;
+
+  it("lists today's remaining timed things in Perth order and highlights the next", () => {
+    const chips = restOfTodayChips({
+      items: [
+        { ...baseItem, id: "late", title: "Evening task", due: "2026-09-26T10:00:00Z" },
+        { ...baseItem, id: "dateonly", title: "No time", due: "2026-09-26" },
+        { ...baseItem, id: "past", title: "Earlier", due: "2026-09-26T00:00:00Z" },
+        { ...baseItem, id: "tomorrow", title: "Tomorrow", due: "2026-09-27T01:00:00Z" },
+      ],
+      roster: {
+        status: "ready",
+        sample: false,
+        demoMode: false,
+        shifts: [shift("2026-09-26T07:20:00Z", "2026-09-26T23:00:00Z")],
+      } as never,
+      session: null,
+      now: NOW,
+    });
+    expect(chips.map((chip) => chip.id)).toEqual(["shift", "item:late"]);
+    render(<MyDayRestOfToday chips={chips} />);
+    expect(screen.getByTestId("my-day-rest-chip-0").getAttribute("data-next")).toBe("true");
+    expect(screen.getByTestId("my-day-rest-chip-0").textContent).toContain("15:20");
+    expect(screen.getByTestId("my-day-rest-chip-1").textContent).toContain("18:00");
+    expect(screen.getByTestId("my-day-rest-chip-1").getAttribute("data-next")).toBeNull();
+  });
+
+  it("includes a teaching session today", () => {
+    const chips = restOfTodayChips({
+      items: [],
+      roster: readyRoster,
+      session: {
+        occurrenceId: "occ-1",
+        title: "Grand rounds",
+        startsAt: "2026-09-26T05:00:00Z",
+        source: "teaching",
+        serviceId: "svc",
+      } as never,
+      now: NOW,
+    });
+    expect(chips).toHaveLength(1);
+    expect(chips[0].href).toBe("/teaching/session/occ-1");
+  });
+
+  it("renders nothing when there are none", () => {
+    expect(restOfTodayChips({ items: [], roster: readyRoster, session: null, now: NOW })).toEqual([]);
+    const { container } = render(<MyDayRestOfToday chips={[]} />);
+    expect(container.innerHTML).toBe("");
   });
 });
