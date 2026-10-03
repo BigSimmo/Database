@@ -280,18 +280,24 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
             ) : null
           }
           needsYouNode={
-            <NowNeedsYou
-              needs={needs}
-              ladderHref={
-                ladderEntry
-                  ? onCallEntryHref(ladderEntry)
-                  : needs
-                    ? `/on-call/playbook#hospital-ladder-${needs.ladderId}`
-                    : null
-              }
-              now={now}
-              live={!pinnedNow}
-            />
+            <>
+              {/* Kept directly under Right now, where it sat before the shell:
+                  "Check the hospital before calling" must not sink below the
+                  reader's usual numbers. */}
+              <HospitalShiftUpdates handbook={handbook} shifts={rosterShifts} now={now} />
+              <NowNeedsYou
+                needs={needs}
+                ladderHref={
+                  ladderEntry
+                    ? onCallEntryHref(ladderEntry)
+                    : needs
+                      ? `/on-call/playbook#hospital-ladder-${needs.ladderId}`
+                      : null
+                }
+                now={now}
+                live={!pinnedNow}
+              />
+            </>
           }
           comingUp={
             <>
@@ -314,7 +320,6 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
               ) : null}
             </>
           }
-          atAGlance={<HospitalShiftUpdates handbook={handbook} shifts={rosterShifts} now={now} />}
           shortcuts={<NowFooter context={context} shifts={shifts} items={handbookItems} now={now} />}
         />
 
