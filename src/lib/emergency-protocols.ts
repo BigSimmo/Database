@@ -47,14 +47,14 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       "Life-threatening medical emergency. High risk of rhabdomyolysis, acute kidney injury, cardiovascular collapse, and mortality. Activate hospital emergency response (MET / Code Blue / ICU).",
     diagnosticFeatures: [
       "Severe 'lead-pipe' muscular rigidity (generalized, sustained resistance to passive movement)",
-      "Hyperthermia (frequently > 38°C, can exceed 40°C)",
+      "Hyperthermia (degree per local protocol)",
       "Autonomic instability: labile blood pressure, marked tachycardia, tachypnea, profuse diaphoresis",
       "Altered mental status: confusion, delirium, stupor, mutism, fluctuating consciousness",
     ],
     urgentInvestigations: [
-      "Serum Creatine Kinase (CK): typically markedly elevated (> 1,000–10,000+ U/L; indicates rhabdomyolysis)",
+      "Serum Creatine Kinase (CK): assess for rhabdomyolysis; interpretation per local protocol",
       "EUC & Creatinine: assess for acute kidney injury secondary to myoglobinuria",
-      "Full Blood Count (FBC): leukocytosis (often 10,000–40,000/mcL)",
+      "Full Blood Count (FBC): look for leukocytosis",
       "Electrolytes, Troponin, 12-lead ECG, Liver function tests, Blood gas, Coagulation profile (DIC check)",
     ],
     immediateManagement: [
@@ -67,7 +67,7 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       {
         title: "Aggressive IV Hydration & Renal Protection",
         detail:
-          "Infuse IV normal saline (e.g. 150–250 mL/h, titrate to urine output > 100–200 mL/h) to prevent myoglobin-induced renal tubular necrosis.",
+          "Give IV fluids to prevent myoglobin-induced renal tubular necrosis. Fluid rate and urine-output targets per local protocol.",
         isHighPriority: true,
       },
       {
@@ -78,7 +78,7 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       {
         title: "Specific Pharmacotherapy (under ICU / Specialist Guidance)",
         detail:
-          "Bromocriptine (dopamine agonist) 2.5–5 mg TDS/QDS via NG/oral, or Dantrolene (skeletal muscle relaxant) 1–2.5 mg/kg IV up to 10 mg/kg/day in refractory hyperthermia.",
+          "Bromocriptine (dopamine agonist) or dantrolene (skeletal muscle relaxant) in refractory hyperthermia. Doses per local protocol.",
       },
     ],
     specialistContacts: [
@@ -104,7 +104,7 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     warningNotice:
       "Rapidly evolving neuromuscular and autonomic toxidrome. Can escalate within hours to severe hyperthermia, seizures, metabolic acidosis, rhabdomyolysis, and death.",
     diagnosticFeatures: [
-      "Hunter Serotonin Toxicity Criteria: spontaneous clonus, OR inducible clonus + agitation/diaphoresis, OR ocular clonus + agitation/diaphoresis, OR tremor + hyperreflexia, OR hypertonia + temp > 38°C + ocular clonus",
+      "Apply the Hunter Serotonin Toxicity Criteria and record which limb of them is met",
       "Neuromuscular excitation: spontaneous/ocular clonus, hyperreflexia (prominent in lower limbs), tremors, shivering",
       "Autonomic hyperactivity: diaphoresis, tachycardia, pyrexia, flushing, mydriasis, loose stools / diarrhea",
       "Altered mental state: agitation, restlessness, pressured speech, delirium, confusion",
@@ -124,18 +124,17 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       {
         title: "Symptom Control with Benzodiazepines",
         detail:
-          "Administer Diazepam (5–10 mg oral or IV slowly) titrated to control neuromuscular agitation, muscle hyperactivity, and tremor.",
+          "Administer diazepam titrated to control neuromuscular agitation, muscle hyperactivity, and tremor. Dose and route per local protocol.",
         isHighPriority: true,
       },
       {
         title: "Cooling & Avoid Physical Restraint",
         detail:
-          "Active cooling for temperature > 38.5°C. Avoid physical restraints because isometric muscle struggle dramatically worsens hyperthermia, lactic acidosis, and rhabdomyolysis.",
+          "Active cooling when the temperature is raised (threshold per local protocol). Avoid physical restraints because isometric muscle struggle dramatically worsens hyperthermia, lactic acidosis, and rhabdomyolysis.",
       },
       {
         title: "Antidote for Moderate–Severe Cases (Specialist Directed)",
-        detail:
-          "Cyproheptadine (5-HT2A antagonist): initial dose 12 mg oral/NG, followed by 4–8 mg every 4–6 hours as indicated (maximum 32 mg/24h).",
+        detail: "Cyproheptadine (5-HT2A antagonist). Dose, interval and maximum per local protocol.",
       },
     ],
     specialistContacts: [
@@ -173,22 +172,21 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     immediateManagement: [
       {
         title: "Anticholinergic Administration (Benztropine)",
-        detail:
-          "Administer Benztropine 1 to 2 mg IM or slow IV over 2 minutes (IV acts within 2–5 minutes; IM acts within 10–20 minutes).",
+        detail: "Administer benztropine IM or slow IV. Dose and timing per local protocol.",
         isHighPriority: true,
       },
       {
         title: "Repeat Dose if Incomplete Response",
-        detail: "If response is incomplete, repeat Benztropine 1–2 mg after 20–30 minutes (maximum 4 mg in 24 hours).",
+        detail: "If response is incomplete, repeat benztropine. Dose, interval and maximum per local protocol.",
       },
       {
         title: "Alternative Agent (if Benztropine Unavailable)",
-        detail: "Promethazine 25 to 50 mg deep IM or slow IV, or Diazepam 5–10 mg oral/IV.",
+        detail: "Promethazine or diazepam. Dose and route per local protocol.",
       },
       {
         title: "Preventing Recurrence",
         detail:
-          "Prescribe oral Benztropine 1–2 mg daily to BD for 48–72 hours following acute reversal, as the causative antipsychotic may outlast the anticholinergic.",
+          "Prescribe oral benztropine following acute reversal, as the causative antipsychotic may outlast the anticholinergic. Dose and duration per local protocol.",
       },
     ],
     specialistContacts: [
@@ -211,14 +209,14 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     ],
     firstLineAction: "Withhold lithium immediately.",
     warningNotice:
-      "Narrow therapeutic index. Severe toxicity (> 2.0–2.5 mmol/L) carries high risk of permanent cerebellar dysfunction (SILENT syndrome), seizures, arrhythmias, and acute renal failure.",
+      "Narrow therapeutic index. Severe toxicity (level per local protocol) carries high risk of permanent cerebellar dysfunction (SILENT syndrome), seizures, arrhythmias, and acute renal failure.",
     diagnosticFeatures: [
-      "Mild–Moderate (1.5–2.0 mmol/L): Coarse tremor, ataxia, nausea, vomiting, diarrhoea, muscle weakness, drowsiness, hyperreflexia",
-      "Severe (> 2.0–2.5 mmol/L): Marked confusion, dysarthria, gross ataxia, myoclonus, fasciculations, seizures, hypotension, acute kidney injury",
-      "Critical (> 3.5–4.0 mmol/L): Coma, status epilepticus, cardiovascular collapse, irreversible neurotoxicity",
+      "Mild to moderate (level per local protocol): Coarse tremor, ataxia, nausea, vomiting, diarrhoea, muscle weakness, drowsiness, hyperreflexia",
+      "Severe (level per local protocol): Marked confusion, dysarthria, gross ataxia, myoclonus, fasciculations, seizures, hypotension, acute kidney injury",
+      "Critical (level per local protocol): Coma, status epilepticus, cardiovascular collapse, irreversible neurotoxicity",
     ],
     urgentInvestigations: [
-      "Stat serum lithium level (repeat every 4–6 hours to monitor trajectory until clearly declining)",
+      "Stat serum lithium level, then repeat levels to monitor trajectory until clearly declining (interval per local protocol)",
       "EUC & eGFR: assess renal function and baseline clearance capacity",
       "Serum electrolytes: especially sodium (hyponatremia impairs renal lithium excretion)",
       "12-lead ECG: evaluate for T-wave inversion/flattening, sinus node dysfunction, QT prolongation, arrhythmias",
@@ -233,13 +231,12 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       {
         title: "Intravenous Normal Saline Resuscitation",
         detail:
-          "Administer IV 0.9% Normal Saline (e.g. 150–250 mL/h adjusted for cardiovascular status) to correct volume depletion, maintain GFR, and promote urinary lithium excretion.",
+          "Administer IV normal saline to correct volume depletion, maintain GFR, and promote urinary lithium excretion. Rate per local protocol, adjusted for cardiovascular status.",
         isHighPriority: true,
       },
       {
         title: "Haemodialysis Evaluation (Nephrology / ICU)",
-        detail:
-          "Indications for urgent haemodialysis: serum lithium > 4.0 mmol/L, OR > 2.5 mmol/L with severe neurological signs (seizures, altered conscious state) or acute renal failure.",
+        detail: "Indications for urgent haemodialysis (serum level and clinical criteria) per local protocol.",
       },
     ],
     specialistContacts: [
@@ -263,10 +260,10 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     ],
     firstLineAction: "Cease clozapine immediately if myocarditis is confirmed or strongly suspected.",
     warningNotice:
-      "Potentially fatal IgE-mediated hypersensitivity myocarditis. Peak onset is during weeks 2 to 8 of initiation. Permanent contraindication to clozapine re-challenge once confirmed.",
+      "Potentially fatal IgE-mediated hypersensitivity myocarditis. Onset timing and the monitoring schedule are per local protocol. Permanent contraindication to clozapine re-challenge once confirmed.",
     diagnosticFeatures: [
-      "Persistent unexplained resting tachycardia (> 100–110 bpm) or orthostatic hypotension",
-      "Unexplained fever (> 38°C) or flu-like symptoms during first 8 weeks of clozapine titration",
+      "Persistent unexplained resting tachycardia (rate per local protocol) or orthostatic hypotension",
+      "Unexplained fever or flu-like symptoms during early clozapine titration",
       "Shortness of breath, orthopnoea, chest tightness/pain, peripheral oedema",
       "Palpitations, marked fatigue, syncope, or elevated jugular venous pressure",
     ],
@@ -275,13 +272,13 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       "High-sensitivity C-reactive Protein (hs-CRP): sensitive early inflammatory marker",
       "12-lead ECG: assess for ST/T wave changes, sinus tachycardia, PR depression, arrhythmias",
       "Echocardiogram: evaluate for left ventricular systolic dysfunction, wall motion abnormalities, or pericardial effusion",
-      "Full blood count: assess for eosinophilia (present in ~50% of cases)",
+      "Full blood count: assess for eosinophilia",
     ],
     immediateManagement: [
       {
-        title: "Immediate Clozapine Cessation Thresholds",
+        title: "Clozapine Cessation Criteria",
         detail:
-          "Cease clozapine immediately if Troponin exceeds 2x upper limit of normal OR if hs-CRP exceeds 100 mg/L alongside suggestive clinical signs.",
+          "Cease clozapine if myocarditis is confirmed or strongly suspected. Troponin and hs-CRP thresholds per local protocol.",
         isHighPriority: true,
       },
       {
@@ -299,7 +296,6 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
     specialistContacts: [
       "On-call Cardiology / Cardiac Care Unit",
       "Treating Consultant Psychiatrist / Hospital Clozapine Coordinator",
-      "Poisons Information Centre: 13 11 26",
     ],
     caveat:
       "Tachycardia alone is common and often benign with clozapine, but persistent tachycardia with fever, dyspnoea, or elevated biomarkers mandates immediate cessation and investigation.",
@@ -333,7 +329,7 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       {
         title: "Lorazepam Challenge Test",
         detail:
-          "Administer Lorazepam 1 to 2 mg sublingually, IV, or IM. Monitor for objective reduction in rigidity, mutism, or stupor within 30–60 minutes.",
+          "Administer lorazepam sublingually, IV, or IM. Dose per local protocol. Monitor for objective reduction in rigidity, mutism, or stupor (timing per local protocol).",
         isHighPriority: true,
       },
       {
@@ -349,7 +345,6 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
       },
     ],
     specialistContacts: [
-      "Poisons Information Centre: 13 11 26 (24 hours Australia-wide)",
       "On-call ECT Coordinator / Consultant Psychiatrist",
       "Hospital Medical Emergency Team (MET) / Intensive Care Unit",
     ],
@@ -380,4 +375,25 @@ export function matchEmergencyClinicalProtocols(text: string | null | undefined)
  */
 export function matchEmergencyClinicalProtocol(text: string | null | undefined): EmergencyClinicalProtocol | null {
   return matchEmergencyClinicalProtocols(text)[0] ?? null;
+}
+
+export interface EmergencySurfaceInput {
+  /** True when the active mode renders an answer surface. */
+  readonly isAnswerSurface: boolean;
+  /** True when an answer is loading or present, so the surface shows a submitted result. */
+  readonly hasResultSurface: boolean;
+  /** Query behind the loading or displayed answer. */
+  readonly resultQuery: string | null | undefined;
+  /** Submitted answer query that never reached the backend because setup was not ready. */
+  readonly setupBlockedQuery: string | null | undefined;
+}
+
+/**
+ * Cards to show on the answer surface. The cards are local and provider-independent, so a
+ * submitted query still gets them when answer setup is not ready (degraded backend). A query
+ * that was never submitted never matches.
+ */
+export function selectEmergencyProtocolsForSurface(input: EmergencySurfaceInput): readonly EmergencyClinicalProtocol[] {
+  if (!input.isAnswerSurface) return [];
+  return matchEmergencyClinicalProtocols(input.hasResultSurface ? input.resultQuery : input.setupBlockedQuery);
 }

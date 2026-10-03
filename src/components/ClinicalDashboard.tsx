@@ -97,7 +97,7 @@ import {
 } from "@/components/clinical-dashboard/answer-progress";
 import { AnswerCrisisBanner } from "@/components/clinical-dashboard/answer-crisis-banner";
 import { EmergencyProtocolBanner } from "@/components/clinical-dashboard/emergency-protocol-banner";
-import { matchEmergencyClinicalProtocols } from "@/lib/emergency-protocols";
+import { selectEmergencyProtocolsForSurface } from "@/lib/emergency-protocols";
 import { requestAnswerStream } from "@/components/clinical-dashboard/answer-request";
 import { MasterSearchHeader } from "@/components/clinical-dashboard/master-search-header";
 import { PhoneFooterLayerFrame } from "@/components/clinical-dashboard/phone-footer-layer-portal";
@@ -3189,12 +3189,12 @@ function ClinicalDashboardContent({
 
   // The card is local and provider-independent, so it also shows for a submitted answer
   // query that never reached the backend (setup not ready) via `setupBlockedQuery`.
-  const matchedEmergencyProtocols =
-    activeModeResultKind === "answer"
-      ? matchEmergencyClinicalProtocols(
-          loading || answer ? (answerLifecycle.query ?? latestAnswerQuery ?? query) : setupBlockedQuery,
-        )
-      : [];
+  const matchedEmergencyProtocols = selectEmergencyProtocolsForSurface({
+    isAnswerSurface: activeModeResultKind === "answer",
+    hasResultSurface: Boolean(loading || answer),
+    resultQuery: answerLifecycle.query ?? latestAnswerQuery ?? query,
+    setupBlockedQuery,
+  });
 
   return (
     <div

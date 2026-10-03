@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -6,6 +8,7 @@ import {
   EMERGENCY_CLINICAL_PROTOCOLS,
   matchEmergencyClinicalProtocol,
   matchEmergencyClinicalProtocols,
+  selectEmergencyProtocolsForSurface,
 } from "@/lib/emergency-protocols";
 
 describe("matchEmergencyClinicalProtocol", () => {
@@ -148,13 +151,101 @@ describe("EMERGENCY_CLINICAL_PROTOCOLS structural integrity", () => {
     expect(protocol.specialistContacts.length).toBeGreaterThanOrEqual(1);
     expect(protocol.evidenceSource.length).toBeGreaterThan(5);
 
-    // Every protocol must reference Poisons Information Centre (13 11 26)
-    const hasPoisons = protocol.specialistContacts.some((c) => c.includes("13 11 26"));
-    expect(hasPoisons).toBe(true);
-
     // Immediate management must have at least one high-priority step
     const hasPriority = protocol.immediateManagement.some((m) => m.isHighPriority);
     expect(hasPriority).toBe(true);
+  });
+});
+
+describe("threshold contract: doses and thresholds defer to local protocol", () => {
+  // docs/clinical-governance.md "Named instruments: name them, never score them": a dose,
+  // temperature, serum level, rate or duration stated on a card is a rule the reader will act on.
+  const allowedNumerals = [
+    /13 11 26/g,
+    /24 hours Australia-wide/g,
+    /12-lead/g,
+    /5-HT2A/g,
+    /\(Version 8\)/g,
+    /\b14th ed\b/g,
+    /QJM 2003/g,
+  ];
+  function strings(value: unknown): string[] {
+    if (typeof value === "string") return [value];
+    if (Array.isArray(value)) return value.flatMap(strings);
+    if (value && typeof value === "object" && !(value instanceof RegExp)) return Object.values(value).flatMap(strings);
+    return [];
+  }
+
+  it.each(EMERGENCY_CLINICAL_PROTOCOLS)("$id carries no numeric decision point", (protocol) => {
+    for (const text of strings(protocol)) {
+      const stripped = allowedNumerals.reduce((acc, pattern) => acc.replace(pattern, ""), text);
+      expect(stripped, `numeric value on card: ${text}`).not.toMatch(/\d/);
+    }
+  });
+});
+
+describe("Poisons call action routing", () => {
+  const byId = (id: string) => EMERGENCY_CLINICAL_PROTOCOLS.find((p) => p.id === id)!;
+
+  it.each(["EMERG-CLOZAPINE-MYOCARDITIS", "EMERG-MALIGNANT-CATATONIA"])(
+    "%s does not expose the Poisons number anywhere",
+    (id) => {
+      const html = renderToStaticMarkup(<EmergencyProtocolBanner protocol={byId(id)} defaultExpanded />);
+      expect(html).not.toContain("tel:131126");
+      expect(html).not.toContain("13 11 26");
+    },
+  );
+
+  it("still exposes the Poisons call on a toxicity card", () => {
+    const html = renderToStaticMarkup(<EmergencyProtocolBanner protocol={byId("EMERG-LITHIUM-TOXICITY")} />);
+    expect(html).toContain('href="tel:131126"');
+  });
+});
+
+describe("selectEmergencyProtocolsForSurface (degraded setup)", () => {
+  it("shows the card for a submitted query when answer setup is not ready", () => {
+    const ids = selectEmergencyProtocolsForSurface({
+      isAnswerSurface: true,
+      hasResultSurface: false,
+      resultQuery: null,
+      setupBlockedQuery: "neuroleptic malignant syndrome",
+    }).map((p) => p.id);
+    expect(ids).toEqual(["EMERG-NMS"]);
+  });
+
+  it("shows nothing when no query was submitted, or off the answer surface", () => {
+    expect(
+      selectEmergencyProtocolsForSurface({
+        isAnswerSurface: true,
+        hasResultSurface: false,
+        resultQuery: "nms",
+        setupBlockedQuery: null,
+      }),
+    ).toEqual([]);
+    expect(
+      selectEmergencyProtocolsForSurface({
+        isAnswerSurface: false,
+        hasResultSurface: true,
+        resultQuery: "nms",
+        setupBlockedQuery: "nms",
+      }),
+    ).toEqual([]);
+  });
+
+  it("uses the result query when a result surface is present", () => {
+    const ids = selectEmergencyProtocolsForSurface({
+      isAnswerSurface: true,
+      hasResultSurface: true,
+      resultQuery: "lithium toxicity",
+      setupBlockedQuery: "nms",
+    }).map((p) => p.id);
+    expect(ids).toEqual(["EMERG-LITHIUM-TOXICITY"]);
+  });
+
+  it("is wired into the dashboard", () => {
+    const source = readFileSync(resolve(process.cwd(), "src/components/ClinicalDashboard.tsx"), "utf8");
+    expect(source).toContain("selectEmergencyProtocolsForSurface({");
+    expect(source).toContain("setSetupBlockedQuery(trimmedQuery)");
   });
 });
 

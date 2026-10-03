@@ -28,6 +28,8 @@ export function EmergencyProtocolBanner({
   className,
 }: EmergencyProtocolBannerProps) {
   const [expanded, setExpanded] = useState(defaultExpanded);
+  // The Poisons call action only belongs on cards whose own escalation list names the service.
+  const showPoisonsCall = protocol.specialistContacts.some((contact) => contact.includes("13 11 26"));
 
   return (
     <aside
@@ -70,14 +72,16 @@ export function EmergencyProtocolBanner({
         </div>
 
         <div className="flex items-center gap-2 shrink-0">
-          <a
-            href="tel:131126"
-            className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-2.5 py-1 text-xs font-bold text-[color:var(--danger)] hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
-            title="Call Poisons Information Centre (Australia 24/7)"
-          >
-            <Phone aria-hidden="true" className="h-3.5 w-3.5" />
-            <span>Poisons: 13 11 26</span>
-          </a>
+          {showPoisonsCall && (
+            <a
+              href="tel:131126"
+              className="inline-flex min-h-tap items-center gap-1.5 rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] px-2.5 py-1 text-xs font-bold text-[color:var(--danger)] hover:bg-[color:var(--surface-raised)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[color:var(--focus)]"
+              title="Call Poisons Information Centre (Australia 24/7)"
+            >
+              <Phone aria-hidden="true" className="h-3.5 w-3.5" />
+              <span>Poisons: 13 11 26</span>
+            </a>
+          )}
           {onDismiss && (
             <button
               type="button"
