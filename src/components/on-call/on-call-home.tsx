@@ -12,6 +12,7 @@ import { InformationPageShell } from "@/components/information-page-shell";
 import { toHandbookDial } from "@/components/on-call/kit/dial-row";
 import { OnCallHandbookState } from "@/components/on-call/kit/handbook-state";
 import { OnCallHospitalLine } from "@/components/on-call/kit/hospital-line";
+import { EmergencyThumbArc } from "@/components/on-call/now/emergency-thumb-arc";
 import { NowCrisisLines } from "@/components/on-call/now/crisis-lines";
 import { NowEmergencyPin } from "@/components/on-call/now/emergency-pin";
 import { NowNeedsYou, useOnCallCallMarks } from "@/components/on-call/now/needs-you";
@@ -336,6 +337,11 @@ export function OnCallHome({ now: pinnedNow }: { now?: Date } = {}) {
           </StateModule>
         ) : null}
       </InformationPageShell>
+      <EmergencyThumbArc
+        pins={pins}
+        switchboardNumber={answer && "display" in answer.dial ? answer.dial.display : null}
+        isNightShift={context.period === "night"}
+      />
     </>
   );
 }
