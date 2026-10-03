@@ -112,6 +112,18 @@ export interface MyDayDashboardProps {
   readonly page?: MyDayPageId;
   readonly onShowAll: () => void;
   readonly onRetry: () => void;
+  /**
+   * The signed-out sample only: invented call counts and pinned numbers in
+   * place of this device's call log and pins, so a visitor sees those cards
+   * filled. Never set for a signed-in reader.
+   */
+  readonly sample?: MyDaySampleExtras;
+}
+
+export interface MyDaySampleExtras {
+  /** Counts only: the sample never invents call notes or patient labels. */
+  readonly calls: { readonly total: number; readonly open: number };
+  readonly pinnedNumbers: readonly PinnedNumber[];
 }
 
 function shiftEvent(shift: RosterDisplayShift): MyDayTimedEvent {
@@ -161,6 +173,7 @@ export function MyDayDashboard({
   page = "today",
   onShowAll,
   onRetry,
+  sample,
 }: MyDayDashboardProps) {
   const device = useMyDayDeviceState(today);
   const onHide = (id: MyDayCardId) => (editing ? () => device.setHidden(id, true) : undefined);
@@ -322,9 +335,12 @@ export function MyDayDashboard({
   // ---------------------------------------------------------------- work
   const callLog = useOnCallCallLog();
   const callEntries = callLog?.entries ?? [];
+  const callTotal = sample ? sample.calls.total : callEntries.length;
+  const callOpen = sample ? sample.calls.open : callEntries.filter((entry) => !entry.done).length;
   const pins = useAdminPins();
-  const pinnedNumbers = useMemo<PinnedNumber[]>(
+  const pinnedNumbers = useMemo<readonly PinnedNumber[]>(
     () =>
+      sample?.pinnedNumbers ??
       // Pins with a phone number lead (it is a numbers card); four fit, the rest are on Help.
       [...pinnedHelpItems(pins, helpItems)]
         .sort((a, b) => Number(Boolean(b.phone)) - Number(Boolean(a.phone)))
@@ -336,7 +352,7 @@ export function MyDayDashboard({
           tel: onCallTelHref(help.phone ?? undefined) ?? null,
           href: `${ADMIN_PAGE_HREFS.help}#${onCallEntryAnchorId(help.entry?.id ?? help.key)}`,
         })),
-    [pins, helpItems],
+    [sample, pins, helpItems],
   );
   const whosOn = sources.whosOn;
   const nextTalk = sources.teaching.nextTalk ?? null;
@@ -366,7 +382,7 @@ export function MyDayDashboard({
     "needs-you": true,
     cpd: cpdReady,
     renewals: runway.length > 0,
-    calls: callEntries.length > 0,
+    calls: callTotal > 0,
     "pinned-numbers": pinnedNumbers.length > 0,
     "whos-on": whosOn?.status === "ready" && whosOn.colleagues.length > 0,
     "next-talk": nextTalk !== null,
@@ -444,9 +460,9 @@ export function MyDayDashboard({
     renewals: () => <RenewalsRunwayCard points={runway} onHide={onHide("renewals")} />,
     calls: () => (
       <CallsCard
-        total={callEntries.length}
-        open={callEntries.filter((entry) => !entry.done).length}
-        clearsAt={callLog?.expiresAt ?? null}
+        total={callTotal}
+        open={callOpen}
+        clearsAt={sample ? null : (callLog?.expiresAt ?? null)}
         handoverAt={handoverAt}
         onHide={onHide("calls")}
       />
