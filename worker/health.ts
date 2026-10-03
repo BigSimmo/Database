@@ -7,7 +7,7 @@
  * - Python venv availability
  *
  * Used by Railway healthcheck and Kubernetes liveness/readiness probes.
- * Intended to run on http://0.0.0.0:3001/health (see run-loop.ts for binding).
+ * Binds /health on Railway PORT, or an explicit WORKER_HEALTH_PORT override.
  */
 
 import { createServer } from "node:http";
@@ -148,11 +148,11 @@ export function createHealthCheckServer() {
 }
 
 /**
- * Start health check server if WORKER_HEALTH_PORT is configured.
+ * Start health check server on WORKER_HEALTH_PORT, falling back to Railway PORT.
  * Returns the running HTTP server instance, or null if unconfigured.
  */
 export function startWorkerHealthServerIfConfigured() {
-  const portStr = process.env.WORKER_HEALTH_PORT;
+  const portStr = process.env.WORKER_HEALTH_PORT || process.env.PORT;
   if (!portStr) return null;
   const port = parseInt(portStr, 10);
   if (isNaN(port) || port <= 0) return null;
