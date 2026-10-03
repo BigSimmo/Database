@@ -8,14 +8,14 @@ permissions:
 jobs:
   probe:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 60
     strategy:
       fail-fast: false
       matrix:
         include:
-          - { name: webkit-fixed, engine: webkit, projects: "--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone", grep: "content disclosures are naturally closed|carries a result into wording", repeat: 2, baseline: "" }
-          - { name: firefox-fixed, engine: firefox, projects: "--project=firefox", grep: "back arrow skips PDF page changes", repeat: 25, baseline: "" }
-          - { name: firefox-baseline, engine: firefox, projects: "--project=firefox", grep: "back arrow skips PDF page changes", repeat: 25, baseline: "src/components/document-viewer/use-document-viewer-route.ts" }
+          - { name: webkit-fixed, engine: webkit, projects: "--project=webkit --project=mobile-webkit --project=mobile-pwa-standalone", grep: "content disclosures are naturally closed|carries a result into wording", repeat: 4, baseline: "" }
+          - { name: firefox-fixed, engine: firefox, projects: "--project=firefox tests/ui-smoke.spec.ts", grep: "", repeat: 3, baseline: "" }
+          - { name: firefox-baseline, engine: firefox, projects: "--project=firefox tests/ui-smoke.spec.ts", grep: "", repeat: 3, baseline: "src/components/document-viewer/use-document-viewer-route.ts" }
     name: probe (${{ matrix.name }})
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -30,4 +30,4 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://sjrfecxgysukkwxsowpy.supabase.co
           NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: placeholder-ci-anon-key
-        run: npm run test:e2e -- ${{ matrix.projects }} -g "${{ matrix.grep }}" --repeat-each=${{ matrix.repeat }} --reporter=line
+        run: npm run test:e2e -- ${{ matrix.projects }} ${{ matrix.grep != '' && format('-g "{0}"', matrix.grep) || '' }} --repeat-each=${{ matrix.repeat }} --reporter=line
