@@ -293,8 +293,8 @@ export function TodayShell({
     );
   const needsYouSlot = needsYouNode ? (
     <Slot slot="needs-you">{needsYouNode}</Slot>
-  ) : needsYou ? (
-    <NeedsYou slot={needsYou} mode={modeName} empty={state?.kind === "empty"} />
+  ) : needsYou || state?.kind === "empty" ? (
+    <NeedsYou slot={needsYou ?? { items: [], seeAllHref: "" }} mode={modeName} empty={state?.kind === "empty"} />
   ) : null;
   const act = (
     <>
