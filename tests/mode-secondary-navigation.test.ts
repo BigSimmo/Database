@@ -67,6 +67,7 @@ const expectedLabels: Record<AppModeId, string[]> = {
     "Going home",
     "End of life",
   ],
+  "my-day": [],
 };
 
 const cleanLandingPath: Record<AppModeId, string> = {
@@ -93,6 +94,7 @@ const cleanLandingPath: Record<AppModeId, string> = {
   "my-work": "/admin",
   roster: "/roster",
   "first-nations": "/first-nations",
+  "my-day": "/my-day",
 };
 
 /**
@@ -122,6 +124,7 @@ const emptyRegistryModes = [
   "tools",
   "calculators",
   "psychiatry",
+  "my-day",
 ] as const satisfies readonly AppModeId[];
 
 describe("mode secondary navigation registry", () => {

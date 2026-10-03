@@ -40,6 +40,14 @@ export const phoneModeGroups = [
   // CPD are areas of their own rather than the tail of "Care", so the urgent
   // screen is not buried at the bottom of the clinical list, and the paperwork
   // that used to crowd it has a home of its own.
+  // My Day leads the operational areas: one list of what needs you across
+  // On Call, Roster, CPD, Teaching and Admin.
+  {
+    id: "my-day",
+    label: "My Day",
+    hint: "What needs you today",
+    modeIds: ["my-day"],
+  },
   {
     id: "on-call",
     label: "On Call",

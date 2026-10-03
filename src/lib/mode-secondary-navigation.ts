@@ -232,6 +232,9 @@ export const modeSecondaryNavigationRegistry = {
     { id: "first-nations-going-home", label: "Going home", href: "/first-nations/going-home" },
     { id: "first-nations-end-of-life", label: "End of life", href: "/first-nations/end-of-life" },
   ],
+  // My Day is one page: the merged list is itself the navigation, and each row
+  // links into the mode that owns the item, so it registers no destinations.
+  "my-day": [],
 } as const satisfies Record<AppModeId, readonly ModeSecondaryNavigationEntry[]>;
 
 type RegistryEntry = (typeof modeSecondaryNavigationRegistry)[AppModeId][number];

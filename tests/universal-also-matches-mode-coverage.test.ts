@@ -87,7 +87,9 @@ const MOUNTS: Record<AppModeId, { file: string; mounts: true } | { file: string;
     file: "src/components/first-nations/page-renderer.tsx",
     mounts: false,
     because: NO_RESULTS_SURFACE,
-  },
+  },  // My Day, likewise: one merged list with no result list of its own.
+  "my-day": { file: "src/components/my-day/my-day-page.tsx", mounts: false, because: NO_RESULTS_SURFACE },
+
 };
 
 function hasNoResultsSurface(modeId: AppModeId) {

@@ -123,6 +123,11 @@ export function searchShellPropsForPathname(pathname: string): SearchShellPathPr
     return { initialMode: "roster", desktopSearchPlacement: "hero" };
   }
 
+  // My Day searches nothing, so like Admin it never wears the shared composer.
+  if (pathname === "/my-day") {
+    return { initialMode: "my-day", desktopSearchPlacement: "hero", searchComposerVisible: false };
+  }
+
   if (pathname === "/first-nations" || pathname.startsWith("/first-nations/")) {
     return { initialMode: "first-nations", desktopSearchPlacement: "hero" };
   }

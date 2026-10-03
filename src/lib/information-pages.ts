@@ -27,6 +27,7 @@ export type InformationPageMode =
   | "my-work"
   | "roster"
   | "first-nations"
+  | "my-day"
   | "teaching";
 
 // Reserved route suffixes, not record slugs. `search` is here because home
@@ -120,6 +121,8 @@ export function isInformationPage(pathname: string): boolean {
   // (`teaching/teaching-nav-header.tsx`), which being an information page
   // also keeps the shell from drawing a second bar over.
   if (pathname === "/teaching" || pathname.startsWith("/teaching/")) return true;
+  // My Day, for Admin's reason: it declares no search surface, so it has no composer.
+  if (pathname === "/my-day") return true;
   if (pathname.startsWith("/dictionary/topics/") && !pathname.slice("/dictionary/topics/".length).includes("/"))
     return true;
 
@@ -166,4 +169,5 @@ export const informationPageShellModes = [
   "roster",
   "first-nations",
   "teaching",
+  "my-day",
 ] as const satisfies readonly InformationPageMode[];
