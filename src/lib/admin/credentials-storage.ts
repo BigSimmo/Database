@@ -30,11 +30,12 @@ import { DOCTOR_CREDENTIALS_STORAGE_KEY } from "@/lib/account-scoped-browser-sta
 export const CREDENTIALS_STORAGE_KEY = DOCTOR_CREDENTIALS_STORAGE_KEY;
 
 export function loadDoctorCredentials(): DoctorCredentials {
-  if (typeof window === "undefined" || !window.localStorage) {
-    return DEFAULT_CREDENTIALS;
-  }
+  if (typeof window === "undefined") return DEFAULT_CREDENTIALS;
   try {
-    const raw = localStorage.getItem(CREDENTIALS_STORAGE_KEY);
+    // Reading the getter can itself throw (SecurityError in restricted browsers), so it stays inside the try.
+    const storage = window.localStorage;
+    if (!storage) return DEFAULT_CREDENTIALS;
+    const raw = storage.getItem(CREDENTIALS_STORAGE_KEY);
     if (!raw) return DEFAULT_CREDENTIALS;
     const parsed = JSON.parse(raw) as Partial<DoctorCredentials>;
     return {
@@ -52,9 +53,11 @@ export function loadDoctorCredentials(): DoctorCredentials {
 }
 
 export function saveDoctorCredentials(creds: DoctorCredentials): boolean {
-  if (typeof window === "undefined" || !window.localStorage) return false;
+  if (typeof window === "undefined") return false;
   try {
-    localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(creds));
+    const storage = window.localStorage;
+    if (!storage) return false;
+    storage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(creds));
     return true;
   } catch {
     return false;
