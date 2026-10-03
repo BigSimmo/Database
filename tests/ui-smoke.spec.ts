@@ -1510,6 +1510,7 @@ test.describe("PsychSift UI smoke coverage", () => {
           links.map((link) => ({ name: link.getAttribute("aria-label"), href: link.getAttribute("href") })),
         ),
     ).toEqual([
+      { name: "My Day", href: "/my-day" },
       { name: "Answer", href: "/?mode=answer" },
       { name: "Documents", href: "/?mode=documents" },
       { name: "Services", href: "/?mode=services" },
