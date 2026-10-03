@@ -262,7 +262,7 @@ export function fatigueWarnings(
   // Fail closed once the source's review date has passed (end of that Perth day).
   const reviewEnd = Date.parse(`${FATIGUE_RULE_SET.source.reviewBy}T00:00:00.000Z`) + 86_400_000 - PERTH_OFFSET_MS;
   if (!Number.isFinite(reviewEnd) || now >= reviewEnd) {
-    return { gate: { on: false, reason: "review-expired" }, warnings: [] };
+    return { gate: { on: false, reason: "review-date-passed" }, warnings: [] };
   }
   return { gate, warnings: fatigueWarningsUngated(shifts) };
 }
