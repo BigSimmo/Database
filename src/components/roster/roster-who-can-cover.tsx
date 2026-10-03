@@ -12,7 +12,11 @@ import { modeInsetHairline, modePressable, modeRowHeight } from "@/components/mo
 import { modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
 import { RosterSwapTicket } from "@/components/roster/requests/roster-swap-ticket";
 import { useRosterNow } from "@/components/roster/roster-format";
-import { loadSwapOptionsRead, type SwapOptionsLoad } from "@/components/roster/swaps/swap-options-loader";
+import {
+  loadSwapOptionsRead,
+  ROSTER_ONLY_NOTE,
+  type SwapOptionsLoad,
+} from "@/components/roster/swaps/swap-options-loader";
 import { Button, buttonFaceClass } from "@/components/ui/button";
 import { Sheet } from "@/components/ui/sheet";
 import { cn } from "@/components/ui-primitives";
@@ -22,7 +26,8 @@ import { swapOptions } from "@/lib/roster/team/swap-options";
  * "Who can cover?" for one of my team shifts. Advice only: it reads the team
  * roster afresh, the same way the swap flow's "who" step does, and lists who
  * could take the shift and why the others can't. Nothing is sent from here;
- * the two links hand the shift to Requests, where everything is checked again.
+ * tapping a colleague who can take it, or either link below, hands the shift to
+ * Requests, where everything is checked again.
  */
 
 const UNNAMED = "Name not available";
@@ -30,9 +35,15 @@ const ADVICE = "Advice only. Everything is checked again when you send a request
 
 const grade = (value: string | null) => (value ? value.charAt(0).toUpperCase() + value.slice(1) : "Grade not set");
 
-/** The Requests hand-off for this shift; `start` is one Requests accepts. */
-export function rosterRequestHref(start: "swap" | "give_away", assignmentId: string, serviceId: string): string {
+/** The Requests hand-off for this shift; `start` is one Requests accepts, `person` a colleague to ask. */
+export function rosterRequestHref(
+  start: "swap" | "give_away",
+  assignmentId: string,
+  serviceId: string,
+  person?: string,
+): string {
   const params = new URLSearchParams({ start, assignment: assignmentId, team: serviceId });
+  if (person) params.set("person", person);
   return `/roster/requests?${params.toString()}`;
 }
 
@@ -127,6 +138,7 @@ function CoverSession({
             me: { userId: actorId, grade: fresh.overview.me.grade },
             settings: fresh.overview.settings,
             now,
+            members: fresh.members ?? undefined,
           })
         : null,
     [fresh, give, actorId, now],
@@ -171,6 +183,7 @@ function CoverSession({
     <div className="grid gap-4">
       <ModeNotice>{ADVICE}</ModeNotice>
       <RosterSwapTicket shift={give} label="Your shift" />
+      {loaded.fresh.members ? null : <p className={modeSecondaryText}>{ROSTER_ONLY_NOTE}</p>}
 
       {options.can.length ? (
         <ModeGroupedList eyebrow="Can take it" testId="roster-who-can-cover-can">
@@ -179,6 +192,7 @@ function CoverSession({
               key={choice.userId}
               title={choice.name ?? UNNAMED}
               subtitle={`${grade(choice.grade)} · ${choice.sameGrade ? "same grade" : "higher grade"}`}
+              href={rosterRequestHref("swap", assignmentId, serviceId, choice.userId)}
             />
           ))}
         </ModeGroupedList>

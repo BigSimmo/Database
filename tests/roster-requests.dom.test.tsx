@@ -108,6 +108,12 @@ const reads = {
   assignments: { assignments: [give, take] },
   requests: { swaps: [swap], openShifts: [] as (typeof open)[] },
   unavailability: { unavailability: [] },
+  members: {
+    members: [
+      { userId: ME, name: "You", grade: "resident" },
+      { userId: MEI, name: "Mei", grade: "resident" },
+    ],
+  },
 };
 
 beforeEach(() => {
@@ -141,6 +147,22 @@ it("opens the calendar swap flow from a handoff, using a valid team ID and never
   expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
   expect(mocks.fetchRead).toHaveBeenCalledWith(second, "overview");
   expect(mocks.post).not.toHaveBeenCalled();
+});
+
+it("opens a swap handoff with the colleague from Who can cover? already chosen", async () => {
+  window.history.replaceState({}, "", `/roster/requests?start=swap&assignment=${TAKE}&person=${MEI}`);
+  render(<RosterRequestsPage />);
+  expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
+  expect(await screen.findByText("What would you take from Mei?")).toBeTruthy();
+  expect(mocks.post).not.toHaveBeenCalled();
+});
+
+it("drops a person that is not an ID and opens the swap at Who", async () => {
+  window.history.replaceState({}, "", `/roster/requests?start=swap&assignment=${TAKE}&person=not-an-id`);
+  render(<RosterRequestsPage />);
+  expect(await screen.findByRole("dialog", { name: "Swap this shift" })).toBeTruthy();
+  expect(await screen.findByText("Can swap")).toBeTruthy();
+  expect(screen.queryByText(/What would you take from/)).toBeNull();
 });
 
 it("opens an Ask dates handoff with Prefer off already selected", async () => {
