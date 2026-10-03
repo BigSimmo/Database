@@ -326,6 +326,7 @@
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/developer-area/hub/roster-teams-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/my-day/my-day-page.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
         "src/components/on-call/now/hospital-shift-updates.tsx",
@@ -453,6 +454,7 @@
         "src/components/cme/cme-training-page.tsx",
         "src/components/cme/cme-year-close-panel.tsx",
         "src/components/dsm/dsm-diagnosis-note-builder.tsx",
+        "src/components/my-day/my-day-page.tsx",
         "src/components/on-call/call/didnt-connect.tsx",
         "src/components/on-call/kit/handbook-state.tsx",
         "src/components/on-call/now/hospital-shift-updates.tsx",
@@ -3151,6 +3153,7 @@
         "src/app/(search-app)/forms/page.tsx",
         "src/app/(search-app)/forms/search/page.tsx",
         "src/app/(search-app)/medications/[slug]/page.tsx",
+        "src/app/(search-app)/my-day/page.tsx",
         "src/app/(search-app)/my-work/page.tsx",
         "src/app/(search-app)/on-call/call/page.tsx",
         "src/app/(search-app)/on-call/card/page.tsx",
@@ -3756,6 +3759,16 @@
         },
         {
           "file": "src/app/(search-app)/medications/[slug]/page.tsx",
+          "exists": true,
+          "imports": [],
+          "importedFamilies": [],
+          "literalCkbV2": false,
+          "dynamicCkbV2": false,
+          "v2MountMode": "inherited-global-root",
+          "sanctionedPatternsPresent": []
+        },
+        {
+          "file": "src/app/(search-app)/my-day/page.tsx",
           "exists": true,
           "imports": [],
           "importedFamilies": [],
@@ -5435,6 +5448,7 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/my-day/page.tsx",
       "src/app/(search-app)/my-work/page.tsx",
       "src/app/(search-app)/on-call/call/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
@@ -5586,6 +5600,7 @@
       "src/app/(search-app)/formulation/search/page.tsx",
       "src/app/(search-app)/medications/[slug]/page.tsx",
       "src/app/(search-app)/medications/page.tsx",
+      "src/app/(search-app)/my-day/page.tsx",
       "src/app/(search-app)/my-work/page.tsx",
       "src/app/(search-app)/on-call/call/page.tsx",
       "src/app/(search-app)/on-call/card/page.tsx",
@@ -5668,7 +5683,7 @@
   },
   "adoption": {
     "literalCkbV2RootCount": 1,
-    "inheritedCkbV2RootCount": 156,
+    "inheritedCkbV2RootCount": 157,
     "dynamicCkbV2RootCount": 0,
     "v2MountedSurfaceCount": 14,
     "declaredV2SurfaceCount": 14
@@ -5677,8 +5692,8 @@
     "registeredComponentCount": 55,
     "previewCount": 55,
     "productImportedComponentCount": 46,
-    "rootCount": 157,
-    "productionRouteCount": 149,
-    "nextUiEntryCount": 240
+    "rootCount": 158,
+    "productionRouteCount": 150,
+    "nextUiEntryCount": 242
   }
 }

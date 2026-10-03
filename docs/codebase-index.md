@@ -398,6 +398,13 @@ publishing, independent clinical/legal review, revision conflicts, correction re
 and owner-private orientation completion. They never pool legacy entries or personal
 CME/compliance. `handbook-resources` holds linked official WA starting points.
 
+**My Day.** `src/lib/my-day/` holds My Day's item shape (`model.ts`) and the pure merge rules
+(`merge.ts`: Perth severity from a due date, overdue → due soon → later ordering, de-duplication by
+id, due-time wording). It derives nothing itself: per-mode adapters in `src/components/my-day/sources/`
+map each mode's existing selectors (Admin's `today-selectors`, On Call notifications, Roster swap
+progress, CPD routines and drafts, Teaching's needs-you counts) onto items, and
+`use-my-day-items.ts` merges them for the `/my-day` page and the home card. Read-only; nothing stored.
+
 **My shifts moved to Roster.** The doctor's own roster now lives in **`src/lib/roster/`**
 (`src/lib/roster/shifts/`, moved from the old On Call shifts folder, plus `shift-kind.ts` for the
 day/evening/night/on-call/leave/other kinds shown as letter squares) and its API at
