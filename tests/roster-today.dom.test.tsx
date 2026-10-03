@@ -164,6 +164,16 @@ describe("Roster Today", () => {
         ],
       }),
     );
+    routes.set(`GET /api/roster/team/${teamId}?what=overview`, () =>
+      Response.json({
+        service: { id: teamId, name: "General Medicine" },
+        me: { role: "member", grade: "registrar", rotationEndsOn: null },
+        latestPublication: null,
+        seenLatest: true,
+        settings: { swapApproval: "auto_same_grade", rules: {}, rulesSource: null, payFortnightAnchor: null },
+        sites: [],
+      }),
+    );
     renderToday("2026-10-13T02:00:00Z"); // 10:00 Tuesday in Perth: the imported day shift is on now
     const cover = await screen.findByTestId("roster-today-cover");
     expect(cover).toHaveTextContent("Who can cover?");
