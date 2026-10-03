@@ -1,5 +1,6 @@
 "use client";
 
+import { withUnit } from "./teaching-number";
 import { Check, RotateCcw } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
@@ -130,7 +131,7 @@ export function TeachingCpdBridgeSheet({
             onClick={() => void handleLog()}
             testId={`${testId}-log-button`}
           >
-            {`Log ${hours.toFixed(1)} h to CPD`}
+            {`Log ${withUnit(hours.toFixed(1), "h")} to CPD`}
           </Button>
         )
       }
@@ -142,7 +143,7 @@ export function TeachingCpdBridgeSheet({
           </span>
           <p className="mt-1 text-base-minus font-medium text-[color:var(--text-heading)]">{title}</p>
           <p className="mt-0.5 text-xs text-[color:var(--text-muted)]">
-            {`${hours.toFixed(1)} h · Category 1: Educational Activities`}
+            {`${withUnit(hours.toFixed(1), "h")} · Category 1: Educational Activities`}
           </p>
         </div>
 
@@ -166,7 +167,9 @@ export function TeachingCpdBridgeSheet({
                   <Check className="size-3.5" aria-hidden="true" />
                 </span>
                 <span className="text-sm font-medium">
-                  {savedResult.created ? `Logged ${hours.toFixed(1)} h to CPD` : "Already in your CPD record"}
+                  {savedResult.created
+                    ? `Logged ${withUnit(hours.toFixed(1), "h")} to CPD`
+                    : "Already in your CPD record"}
                 </span>
               </div>
 

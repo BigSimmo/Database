@@ -1,5 +1,6 @@
 "use client";
 
+import { withUnit } from "./teaching-number";
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -189,7 +190,7 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
               onClick={() => setCpdBridgeOpen(true)}
               data-testid="teaching-scan-cpd-bridge-open"
             >
-              {hasEnded ? `Log ${cpdHours.toFixed(1)} h to CPD` : "Available once session ends"}
+              {hasEnded ? `Log ${withUnit(cpdHours.toFixed(1), "h")} to CPD` : "Available once session ends"}
             </Button>
             <Link
               href={`/teaching/session/${state.mark.occurrenceId}`}

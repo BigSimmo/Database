@@ -23,7 +23,7 @@ describe("TeachingCpdBridgeSheet", () => {
     expect(screen.getByText("1.0 h · Category 1: Educational Activities")).toBeTruthy();
     const logButton = screen.getByTestId("teaching-cpd-bridge-log-button");
     expect(logButton).toBeTruthy();
-    expect(logButton.textContent).toContain("Log 1.0 h to CPD");
+    expect(logButton.textContent).toContain("Log 1.0\u00a0h to CPD");
   });
 
   it("handles 1-tap logging and shows undo countdown ring", async () => {

@@ -105,7 +105,9 @@ export function CmeYearInWeeks({
     >
       <div className="flex items-center justify-between text-xs text-[color:var(--text-muted)]">
         <span className="font-medium text-[color:var(--text)]">Your year in weeks</span>
-        <span className="text-2xs font-normal">{weeksToGo === 0 ? "Year complete" : `${weeksToGo} weeks to go`}</span>
+        <span className="text-2xs font-normal">
+          {weeksToGo === 0 ? "Final week of the year" : `${weeksToGo} weeks to go`}
+        </span>
       </div>
 
       {/* Accessible list of weeks for screen readers */}

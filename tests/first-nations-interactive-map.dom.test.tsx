@@ -92,12 +92,8 @@ describe("Feature 6: First Nations Interactive Bedside Map & Cultural Briefing",
     // Kimberley should now be pressed
     expect(kimberleyPath).toHaveAttribute("aria-pressed", "true");
 
-    // Cultural briefing card appears
-    const briefing = screen.getByTestId("fn-cultural-briefing-kimberley");
-    expect(briefing).toBeInTheDocument();
-    expect(briefing).toHaveTextContent("Traditional Country & Customs");
-    expect(briefing).toHaveTextContent("Yawuru, Bunuba, Gooniyandi, Bardi & neighboring Countries");
-    expect(briefing).toHaveTextContent("Involve family and Elders early");
+    // No ungoverned cultural guidance is rendered (content must carry sourceId + checkedAt)
+    expect(screen.queryByTestId("fn-cultural-briefing-kimberley")).not.toBeInTheDocument();
 
     // Services and languages are displayed
     expect(screen.getByText("Kimberley Aboriginal Medical Services")).toBeInTheDocument();
@@ -116,10 +112,7 @@ describe("Feature 6: First Nations Interactive Bedside Map & Cultural Briefing",
     fireEvent.keyDown(goldfieldsPath, { key: "Enter" });
 
     expect(goldfieldsPath).toHaveAttribute("aria-pressed", "true");
-    const briefing = screen.getByTestId("fn-cultural-briefing-goldfields");
-    expect(briefing).toBeInTheDocument();
-    expect(briefing).toHaveTextContent("Wangkatha, Pitjantjatjara");
-    expect(briefing).toHaveTextContent("PATS");
+    expect(screen.queryByTestId("fn-cultural-briefing-goldfields")).not.toBeInTheDocument();
   });
 
   it("strictly preserves bedside privacy: never saves home region to storage", () => {

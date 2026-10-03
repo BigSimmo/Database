@@ -61,41 +61,6 @@ function DialRow({ contact }: { contact: ContactView }) {
   );
 }
 
-const REGION_CULTURAL_TIPS: Record<string, { readonly country: string; readonly tip: string }> = {
-  kimberley: {
-    country: "Yawuru, Bunuba, Gooniyandi, Bardi & neighboring Countries",
-    tip: "Involve family and Elders early. Many patients are bilingual or speak Kriol; call AIWA for an interpreter for clinical consent.",
-  },
-  pilbara: {
-    country: "Yindjibarndi, Ngarluma, Kariyarra, Martu & neighboring Countries",
-    tip: "Extended family decision-making is customary. Be mindful of avoidances and gender considerations in health discussions.",
-  },
-  midwest: {
-    country: "Yamatji, Badimia & neighboring Countries",
-    tip: "Respectful yarning and relationship before clinical questioning. Silence is often used for reflection.",
-  },
-  goldfields: {
-    country: "Wangkatha, Pitjantjatjara & neighboring Western Desert Countries",
-    tip: "Patients may travel long distances from remote communities. Ensure travel (PATS) and accommodation are planned with family.",
-  },
-  perth: {
-    country: "Whadjuk Noongar Boodjar",
-    tip: "Derbarl Yerrigan Health Service provides local community care. Clarify whether patient lives in metro or is visiting from regional Country.",
-  },
-  "south-west": {
-    country: "Wardandi, Bibbulmun & Noongar Boodjar",
-    tip: "SWAMS provides community health support. Involve family supports and acknowledge connection to Boodjar (Country).",
-  },
-  "great-southern": {
-    country: "Menang Noongar Boodjar",
-    tip: "Strong family networks. Confirm preferred contact person within the family group.",
-  },
-  wheatbelt: {
-    country: "Ballardong, Njaki Njaki Noongar Boodjar",
-    tip: "Patients often require transport coordination between regional health centres and Perth hospitals.",
-  },
-};
-
 function WaLineMap({
   map,
   selectedId,
@@ -206,20 +171,6 @@ export function WhereIsHomePanel({ regions, map, interpreter, mapSource = null }
       </section>
       {region ? (
         <>
-          {REGION_CULTURAL_TIPS[region.id] ? (
-            <section
-              data-testid={`fn-cultural-briefing-${region.id}`}
-              className="grid gap-1.5 rounded-xl border border-[color:var(--border)] bg-[color:var(--surface-raised)] p-3"
-            >
-              <h4 className="text-2xs font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
-                Traditional Country & Customs
-              </h4>
-              <p className="text-sm-minus font-medium text-[color:var(--text-heading)]">
-                {REGION_CULTURAL_TIPS[region.id].country}
-              </p>
-              <p className="text-sm-minus text-[color:var(--text-muted)]">{REGION_CULTURAL_TIPS[region.id].tip}</p>
-            </section>
-          ) : null}
           <ModeGroupedList eyebrow={`Near home · ${region.label}`} headerIcon={MapPin} mode={MODE}>
             {region.services.map((c) => (
               <DialRow key={c.id} contact={c} />
