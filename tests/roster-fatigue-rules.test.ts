@@ -11,7 +11,7 @@ const signOff: RuleSignOff = {
   enabled: true,
   signedBy: "Dr Jane Example",
   signedByUserId: "11111111-1111-4111-8111-111111111111",
-  signedAt: "2026-10-04T01:30:00.000Z",
+  signedAt: "2026-10-02T01:30:00.000Z",
   signedContentSha256: ruleContentSha256(FATIGUE_RULE_SET),
 };
 
@@ -57,6 +57,19 @@ describe("fatigue rule source", () => {
     expect(r.maxDaysBeforeTwoDaysOff).toMatchObject({ days: 12, hoursOff: 48 });
     expect(r.maxDaysBeforeTwoDaysOff.quote).toContain("Forty eight consecutive hours");
     expect(r.maxDaysBeforeTwoDaysOff.quote).toContain("12 days");
+  });
+});
+
+describe("fatigueWarnings review date", () => {
+  it("fails closed once the source review date has passed", () => {
+    const shifts = [shift("2027-09-05", "08:00", "23:00")];
+    const before = Date.parse("2027-09-02T12:00:00+08:00");
+    const after = Date.parse("2027-09-03T00:00:00+08:00");
+    expect(fatigueWarnings(shifts, signOff, signers, before).gate).toEqual({ on: true });
+    expect(fatigueWarnings(shifts, signOff, signers, after)).toEqual({
+      gate: { on: false, reason: "review-expired" },
+      warnings: [],
+    });
   });
 });
 
@@ -162,7 +175,32 @@ describe("fatigueWarnings", () => {
     const first = run("2026-10-05", 12, "08:00", "16:00", "day");
     const onCall = shift("2026-10-17", "17:00", "08:00", "on_call");
     const next = run("2026-10-19", 1, "08:00", "16:00", "day");
-    expect(rules([...first, onCall, ...next])).toEqual(["maxDaysBeforeTwoDaysOff"]);
+    expect(rules([...first, onCall, ...next])).toEqual(["maxDaysBeforeTwoDaysOff", "maxDaysBeforeTwoDaysOff"]);
+  });
+
+  it("warns on an on-call period that interrupts the 48 hours free, with no later shift", () => {
+    const first = run("2026-10-05", 12, "08:00", "16:00", "day");
+    const onCall = shift("2026-10-17", "08:00", "20:00", "on_call"); // 16 hours after the 12th shift
+    expect(fatigueWarningsUngated([...first, onCall]).map((warning) => [warning.rule, warning.shiftId])).toEqual([
+      ["maxDaysBeforeTwoDaysOff", onCall.id],
+    ]);
+    const afterBreak = shift("2026-10-19", "08:00", "20:00", "on_call"); // 64 hours free
+    expect(rules([...first, afterBreak])).toEqual([]);
+  });
+
+  it("treats a start 30 seconds after noon as after noon", () => {
+    const startsAt = perthWallToIso("2026-10-05", "12:00")!;
+    const mk = (offsetSeconds: number, hours: number): FatigueShift => {
+      const start = Date.parse(startsAt) + offsetSeconds * 1000;
+      return {
+        id: `n${offsetSeconds}`,
+        startsAt: new Date(start).toISOString(),
+        endsAt: new Date(start + hours * 3_600_000).toISOString(),
+        kind: "evening",
+      };
+    };
+    expect(rules([mk(30, 13.9)])).toEqual(["maxShiftHoursAfterNoon"]);
+    expect(rules([mk(0, 13.9)])).toEqual([]);
   });
 
   it("warns past 75 hours in seven days", () => {

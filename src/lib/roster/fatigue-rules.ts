@@ -7,7 +7,7 @@ import {
 } from "@/lib/roster/fatigue-rules-source";
 import { myShiftsAsAssignments } from "@/lib/roster/rest-cues";
 import { isWorkedKind, type ShiftKind } from "@/lib/roster/shift-kind";
-import { addDaysToDate, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
+import { PERTH_OFFSET_MS, addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { restBefore, ruleFlags, runPositions } from "@/lib/roster/team/rule-flags";
 import type { RosterAssignment } from "@/lib/roster/team/model";
 
@@ -137,8 +137,20 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
   for (const row of duty) {
     const start = Date.parse(row.startsAt);
     if (lastDutyEnd !== null && (start - lastDutyEnd) / HOUR_MS >= twoDaysOff.hoursOff) workedDates = new Set();
+    const interruptsBreak = lastDutyEnd !== null && workedDates.size >= twoDaysOff.days;
     lastDutyEnd = Math.max(lastDutyEnd ?? start, Date.parse(row.endsAt));
-    if (!isWorkedKind(row.kind)) continue;
+    if (!isWorkedKind(row.kind)) {
+      // On call (or other non-worked duty) beginning before the 48 hours are free breaks the rest.
+      if (interruptsBreak) {
+        warnings.push({
+          shiftId: row.id,
+          rule: "maxDaysBeforeTwoDaysOff",
+          words: `On call starts before 48 hours free from all duty after ${workedDates.size} days of work.`,
+          citation: cite(twoDaysOff),
+        });
+      }
+      continue;
+    }
     const date = perthDateOf(row.startsAt);
     if (workedDates.has(date)) continue;
     workedDates.add(date);
@@ -155,7 +167,9 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
   // Shift length: 14 hours, or 12 for a shift starting after 12 noon (Perth time).
   for (const row of worked) {
     const length = hoursBetween(row.startsAt, row.endsAt);
-    const afterNoon = perthTimeOf(row.startsAt) > "12:00";
+    // Compared to the second: 12:00:30 is after noon, 12:00:00 is not.
+    const perthMs = (((Date.parse(row.startsAt) + PERTH_OFFSET_MS) % 86_400_000) + 86_400_000) % 86_400_000;
+    const afterNoon = perthMs > 12 * HOUR_MS;
     const rule = afterNoon ? rules.maxShiftHoursAfterNoon : rules.maxShiftHours;
     if (length > rule.hours) {
       warnings.push({
@@ -241,8 +255,14 @@ export function fatigueWarnings(
   shifts: readonly FatigueShift[],
   signOff: RuleSignOff = FATIGUE_RULES_SIGN_OFF,
   approvedSigners?: readonly ApprovedRuleSigner[],
+  now: number = Date.now(),
 ): FatigueResult {
-  const gate = ruleGate(signOff, FATIGUE_RULE_SET, approvedSigners);
+  const gate = ruleGate(signOff, FATIGUE_RULE_SET, approvedSigners, now);
   if (!gate.on) return { gate, warnings: [] };
+  // Fail closed once the source's review date has passed (end of that Perth day).
+  const reviewEnd = Date.parse(`${FATIGUE_RULE_SET.source.reviewBy}T00:00:00.000Z`) + 86_400_000 - PERTH_OFFSET_MS;
+  if (!Number.isFinite(reviewEnd) || now >= reviewEnd) {
+    return { gate: { on: false, reason: "review-expired" }, warnings: [] };
+  }
   return { gate, warnings: fatigueWarningsUngated(shifts) };
 }

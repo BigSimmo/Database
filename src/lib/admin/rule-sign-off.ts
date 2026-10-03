@@ -38,6 +38,9 @@ export type RuleGateOffReason =
   | "signer-not-approved"
   | "not-a-named-person"
   | "bad-sign-off-time"
+  | "signed-in-future"
+  | "review-expired"
+  | "standard-not-in-force"
   | "content-changed-since-sign-off"
   | "switched-off";
 
@@ -49,6 +52,9 @@ export const RULE_GATE_REASON_WORDS: Readonly<Record<RuleGateOffReason, string>>
   "signer-not-approved": "The signer is not on the approved signer list",
   "not-a-named-person": "Signed by a system or role name, not a named clinician",
   "bad-sign-off-time": "The sign-off has no proper UTC date and time",
+  "signed-in-future": "The sign-off is dated in the future",
+  "review-expired": "The source's review date has passed, so the rules need re-checking and signing again",
+  "standard-not-in-force": "The standard these rules come from was not in force for the period asked about",
   "content-changed-since-sign-off": "The rules changed after they were signed, so they need signing again",
   "switched-off": "Signed, but switched off",
 };
@@ -165,6 +171,8 @@ export function ruleGate(
   signOff: RuleSignOff,
   content: unknown,
   approvedSigners: readonly ApprovedRuleSigner[] = APPROVED_RULE_SIGNERS,
+  /** Evaluation time in epoch ms; a sign-off dated after it is rejected. */
+  now: number = Date.now(),
 ): RuleGate {
   if (signOff.signedBy === null || signOff.signedBy.trim() === "") return { on: false, reason: "unsigned" };
   if (!isApprovedSigner(signOff.signedByUserId, signOff.signedBy, approvedSigners)) {
@@ -172,6 +180,7 @@ export function ruleGate(
   }
   if (!isNamedPerson(signOff.signedBy)) return { on: false, reason: "not-a-named-person" };
   if (!isUtcIsoTimestamp(signOff.signedAt)) return { on: false, reason: "bad-sign-off-time" };
+  if (Date.parse(signOff.signedAt) > now) return { on: false, reason: "signed-in-future" };
   if (signOff.signedContentSha256 !== ruleContentSha256(content)) {
     return { on: false, reason: "content-changed-since-sign-off" };
   }
