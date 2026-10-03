@@ -41,9 +41,20 @@ export function initWorkerErrorTracking(): boolean {
       // by default, which skips `beforeSendTransaction`: keep the static lifecycle
       // so every transaction still passes privacySafeTransactionEvent.
       traceLifecycle: "static",
+      // Unset dataCollection fields default to collecting, so the worker turns
+      // every category off explicitly (ported from the #3173 Sentry 11 review).
       dataCollection: {
+        userInfo: false,
+        cookies: false,
+        httpHeaders: { request: false, response: false },
+        httpBodies: [],
+        urlQueryParams: false,
         databaseQueryData: false,
         genAI: { inputs: false, outputs: false },
+        queues: false,
+        graphQL: { document: false, variables: false },
+        stackFrameVariables: false,
+        frameContextLines: 0,
       },
       includeLocalVariables: false,
       attachStacktrace: true,
