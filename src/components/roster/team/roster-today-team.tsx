@@ -43,11 +43,17 @@ function TeamSummary({
   const publication = overview.data?.latestPublication;
   // A republished roster's changes stay in Needs you until the user taps "Got it". Opening the page
   // no longer marks the publication seen by itself, so a glance can't make the lines vanish unread.
+  // The lines go only once the server has recorded "seen"; if that fails they stay and say so.
   const [dismissedId, setDismissedId] = useState<string | null>(null);
+  const [dismissFailed, setDismissFailed] = useState(false);
   const dismissChanges = () => {
     if (!publication) return;
-    setDismissedId(publication.id);
-    void postRosterAction(team.serviceId, { action: "seen.mark", publicationId: publication.id });
+    const publicationId = publication.id;
+    setDismissFailed(false);
+    void postRosterAction(team.serviceId, { action: "seen.mark", publicationId }).then((result) => {
+      if (result.ok) setDismissedId(publicationId);
+      else setDismissFailed(true);
+    });
   };
   if (overview.status !== "ready" || !overview.data)
     return overview.status === "error" ? <ModeNotice tone="warning">{overview.message}</ModeNotice> : null;
@@ -89,8 +95,14 @@ function TeamSummary({
       ? personalRosterChanges(myChanges.data.before, myChanges.data.after)
       : [];
   const changeNotices = teamChangeNotices(changed, today);
+  // When the change details could not be read, still say a new version is out rather than nothing.
+  const genericNotice = unseen && publication && myChanges.status !== "loading" && changeNotices.length === 0;
+  const detailsMissing = myChanges.status !== "ready";
   return (
     <>
+      {dismissFailed && unseen ? (
+        <ModeNotice tone="warning">Couldn&apos;t save that you&apos;ve seen the roster changes. Try again.</ModeNotice>
+      ) : null}
       {needsYou.length > 0 || waiting > 0 || changeNotices.length > 0 ? (
         <ModeGroupedList eyebrow="Needs you" mode="roster">
           <RosterChangeRows
@@ -132,11 +144,17 @@ function TeamSummary({
             href="/roster/requests?start=dates"
           />
         ) : null}
-        {unseen && publication && myChanges.status === "ready" && changeNotices.length === 0 ? (
-          // A new version that changed none of your days from today on: still say so, once.
+        {genericNotice ? (
+          // A new version that changed none of your days from today on, or whose changes could not be
+          // read: still say so, once.
           <ModeRow
-            title="New roster published"
-            subtitle={`Version ${publication.version} · no change to your coming shifts`}
+            title={detailsMissing ? "Your roster may have changed" : "New roster published"}
+            subtitle={
+              detailsMissing
+                ? `Version ${publication.version} · open your shifts to check`
+                : `Version ${publication.version} · no change to your coming shifts`
+            }
+            href={detailsMissing ? "/roster/shifts" : undefined}
             trailing={
               <Button variant="secondary" size="sm" onClick={dismissChanges}>
                 Got it

@@ -81,8 +81,13 @@ export function importChangeNotices(
 ): RosterChangeNotice[] {
   if (!summary || summary.seenAt) return [];
   return summary.changes
-    .map(importNotice)
-    .filter((notice) => notice.date >= today)
+    .map((change, index) => ({ change, notice: importNotice(change, index) }))
+    .filter(({ change, notice }) => {
+      if (notice.date >= today) return true;
+      // A shift moved from a coming day into the past still frees that coming day, so it stays.
+      return change.kind === "moved" && perthDateOf(change.before.startsAt) >= today;
+    })
+    .map(({ notice }) => notice)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
 

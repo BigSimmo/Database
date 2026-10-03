@@ -87,6 +87,20 @@ describe("importChangeNotices", () => {
     expect(notice.detail).toBe(`Was ${day("2026-10-06")} On call · 08:00–17:00. Now On call · 08:00–17:00`);
   });
 
+  it("keeps a move from a coming day back into the past, because the coming day is now free", () => {
+    const before = snap("2026-10-07T08:00:00+08:00", "2026-10-07T17:00:00+08:00");
+    const after = snap("2026-10-03T08:00:00+08:00", "2026-10-03T17:00:00+08:00");
+    const notices = importChangeNotices(summary([{ kind: "moved", before, after }]), TODAY);
+    expect(notices).toHaveLength(1);
+    expect(notices[0].detail).toContain(`Was ${day("2026-10-07")}`);
+  });
+
+  it("drops a move that stays entirely in the past", () => {
+    const before = snap("2026-10-02T08:00:00+08:00", "2026-10-02T17:00:00+08:00");
+    const after = snap("2026-10-03T08:00:00+08:00", "2026-10-03T17:00:00+08:00");
+    expect(importChangeNotices(summary([{ kind: "moved", before, after }]), TODAY)).toEqual([]);
+  });
+
   it("marks overnight shifts with +1 in the detail", () => {
     const after = snap("2026-10-06T17:00:00+08:00", "2026-10-07T08:00:00+08:00");
     const [notice] = importChangeNotices(summary([{ kind: "added", after }]), TODAY);

@@ -194,8 +194,19 @@ export function AdminCredentialPackPage({ now: nowProp }: { now?: Date } = {}) {
             Save as PDF opens your browser&apos;s print screen. Choose Save as PDF there, or share from it.
           </p>
 
-          <section className="grid gap-2" aria-label="Preview" data-testid="admin-credential-pack-preview">
-            <h2 className={cn(eyebrowText, "px-1 print:hidden")}>Preview</h2>
+          {/* Only this section prints: the shared print rule hides the app around `data-print-output`. */}
+          <section
+            className="grid gap-2"
+            aria-label="Preview"
+            data-testid="admin-credential-pack-preview"
+            data-print-output
+          >
+            <h2 className={cn(eyebrowText, "px-1")} data-print-hide>
+              Preview
+            </h2>
+            <p className="hidden text-base font-semibold text-[color:var(--text-heading)] print:block">
+              {`Credential pack · ${formatDateEcho(perthCalendarDate(now))}`}
+            </p>
             {nothingIncluded ? (
               <p className={cn(cardSurface, cardPadding.compact, textMuted, "text-sm")}>
                 Nothing ticked. Tick at least one line to make a pack.
