@@ -32,6 +32,8 @@ type Start = "swap" | "give_away" | "cant_make" | "dates" | "leave";
 type ActiveSheet = {
   kind: Start;
   assignment?: string;
+  /** A colleague to preselect in the swap sheet; only a starting point, re-weighed there. */
+  person?: string;
   leaveId?: string;
   date?: string;
   to?: string;
@@ -140,6 +142,8 @@ export function RosterRequestsPage() {
     const date = params.get("date");
     const to = params.get("to");
     const dateKind = params.get("kind");
+    // A person who is not a UUID is dropped rather than refusing the whole hand-off.
+    const person = params.get("person");
     // Query parameters may prefill a sheet; they can never identify the actor.
     if ((assignment && !UUID.test(assignment)) || (date && !DATE.test(date)) || (to && !DATE.test(to))) return null;
     if (start === "dates" && dateKind && dateKind !== "cant" && dateKind !== "prefer_off") return null;
@@ -154,6 +158,7 @@ export function RosterRequestsPage() {
       sheet: {
         kind: start as Start,
         assignment: assignment ?? undefined,
+        person: start === "swap" && person && UUID.test(person) ? person : undefined,
         date: date ?? undefined,
         to: to ?? undefined,
         dateKind: dateKind === "prefer_off" ? "prefer_off" : undefined,
@@ -354,6 +359,7 @@ export function RosterRequestsPage() {
               give={swapGive}
               mode="swap"
               onSent={onSent}
+              initialColleagueId={sheet?.person}
             />
           ) : null}
           <RosterGiveAwaySheet

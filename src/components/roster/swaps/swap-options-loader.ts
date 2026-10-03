@@ -1,7 +1,7 @@
 import { fetchRosterRead } from "@/components/roster/use-roster-team";
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 import { isoWeekday } from "@/lib/roster/team/cover";
-import type { RosterAssignment, RosterOverview } from "@/lib/roster/team/model";
+import type { RosterAssignment, RosterOverview, RosterTeamMember } from "@/lib/roster/team/model";
 
 /**
  * The fresh read behind the swap flow's "who" step and "Who can cover?": the
@@ -10,7 +10,16 @@ import type { RosterAssignment, RosterOverview } from "@/lib/roster/team/model";
  * phone; the server rechecks everything when a request is sent.
  */
 
-export type SwapOptionsRead = { assignments: RosterAssignment[]; overview: RosterOverview; readAt: Date };
+export type SwapOptionsRead = {
+  assignments: RosterAssignment[];
+  overview: RosterOverview;
+  readAt: Date;
+  /** The team's current members, or null when that read failed: advice then weighs only colleagues with shifts. */
+  members: RosterTeamMember[] | null;
+};
+
+/** Shown when the members read failed, so the list is only the colleagues with shifts in the weeks read. */
+export const ROSTER_ONLY_NOTE = "Showing colleagues with shifts in these weeks.";
 
 export type SwapOptionsLoad = { ok: true; fresh: SwapOptionsRead } | { ok: false; code: string; message: string };
 
@@ -24,20 +33,30 @@ export function swapReadWindow(shiftStart: string | Date, now: Date): { from: st
   return { from, to: addDaysToDate(from, 55) };
 }
 
-/** Both reads at once; the first one that fails is the one reported. */
+/**
+ * The reads at once; the first of the roster and overview to fail is the one
+ * reported. The members read is optional: when it fails, advice falls back to
+ * the colleagues with shifts in the weeks read, and says so.
+ */
 export async function loadSwapOptionsRead(
   serviceId: string,
   shiftStart: string | Date,
   now: Date = new Date(),
 ): Promise<SwapOptionsLoad> {
-  const [assignments, overview] = await Promise.all([
+  const [assignments, overview, members] = await Promise.all([
     fetchRosterRead(serviceId, "assignments", swapReadWindow(shiftStart, now)),
     fetchRosterRead(serviceId, "overview"),
+    fetchRosterRead(serviceId, "members"),
   ]);
   if (!assignments.ok) return { ok: false, code: assignments.code, message: assignments.message };
   if (!overview.ok) return { ok: false, code: overview.code, message: overview.message };
   return {
     ok: true,
-    fresh: { assignments: assignments.data.assignments, overview: overview.data, readAt: assignments.readAt },
+    fresh: {
+      assignments: assignments.data.assignments,
+      overview: overview.data,
+      readAt: assignments.readAt,
+      members: members.ok && Array.isArray(members.data?.members) ? members.data.members : null,
+    },
   };
 }

@@ -128,6 +128,17 @@ describe("reading a team", () => {
     expect(response.headers.get("Vary")).toBe("Cookie, Authorization");
   });
 
+  it("reads the team's current members through their own function, as the signed-in user", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: { members: [{ userId: USER, name: "Dr Sam Example", grade: "registrar" }] },
+      error: null,
+    });
+    const response = await GET(readRequest(`what=members&actorId=${USER}`), ctx());
+    expect(response.status).toBe(200);
+    expect(mocks.rpc).toHaveBeenCalledWith("roster_team_members", { p_actor_id: ALEX, p_service_id: SERVICE });
+    expect(await response.json()).toEqual({ members: [{ userId: USER, name: "Dr Sam Example", grade: "registrar" }] });
+  });
+
   it("lists my teams with no team named", async () => {
     mocks.rpc.mockResolvedValue({ data: { teams: [] }, error: null });
     const response = await GET_TEAMS(new Request("http://x/api/roster/team"));

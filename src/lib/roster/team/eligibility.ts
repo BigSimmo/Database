@@ -161,6 +161,27 @@ function peopleIn(assignments: readonly RosterAssignment[]): Person[] {
   return [...people.values()];
 }
 
+/**
+ * The colleagues to weigh for a shift. With the team's current members (the
+ * `members` read), that list is the population: someone with no shift in the
+ * rows read is still a colleague, and someone who has left is not one even if
+ * old rows remain. A member's name or grade, when missing, falls back to what
+ * the rows show. Without members, the people in the rows are the population.
+ */
+export function teamPeople(
+  assignments: readonly RosterAssignment[],
+  members?: readonly { userId: string; name: string | null; grade: RosterGrade | null }[],
+): Person[] {
+  const fromRows = peopleIn(assignments);
+  if (!members) return fromRows;
+  const seen = new Map(fromRows.map((person) => [person.userId, person]));
+  return members.map((member) => ({
+    userId: member.userId,
+    name: member.name ?? seen.get(member.userId)?.name ?? null,
+    grade: member.grade ?? seen.get(member.userId)?.grade ?? null,
+  }));
+}
+
 function byFit(a: RosterCandidate, b: RosterCandidate): number {
   if (a.sameGrade !== b.sameGrade) return a.sameGrade ? -1 : 1;
   const aBreak = a.hoursSinceLastShift ?? Number.POSITIVE_INFINITY;
@@ -179,11 +200,12 @@ export function swapCandidates(
   give: RosterAssignment,
   me: { userId: string; grade: RosterGrade | null },
   settings: Pick<RosterSettings, "rules">,
+  members?: Parameters<typeof teamPeople>[1],
 ): RosterCandidate[] {
   const giverRank = gradeRank(give.grade ?? me.grade);
   if (giverRank === null) return [];
   const minBreak = settings.rules.minBreakHours ?? null;
-  return peopleIn(assignments)
+  return teamPeople(assignments, members)
     .filter((person) => person.userId !== me.userId)
     .flatMap((person): RosterCandidate[] => {
       const rank = gradeRank(person.grade);
