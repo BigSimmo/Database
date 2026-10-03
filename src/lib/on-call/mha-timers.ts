@@ -18,8 +18,10 @@ import { isReviewedTimeframe, timelineFor, type MhaTimeframeEntry, type MhaTimef
  * each entry to the verbatim Act text. This module adds only the per-order countdown and two
  * extra locks, because a live countdown for a real patient is a step beyond the form-page Timeline:
  *
- * 1. Each entry must be signed off by a NAMED clinician. The nine shipped entries are marked
- *    reviewed by "PsychSift", which `isNamedPerson` rejects, so today every entry is quote-only.
+ * 1. Each entry must be signed off by a NAMED clinician: a reviewer name that `isNamedPerson`
+ *    accepts, or an owner-confirmed public attribution in `OWNER_CONFIRMED_TIMEFRAME_ATTRIBUTIONS`
+ *    (each with its written evidence). The nine shipped entries carry "PsychSift", which the owner
+ *    confirmed is his own sign-off.
  * 2. The countdown switch (`MHA_TIMER_SWITCH`) must be signed by a named clinician over the exact
  *    entries, pins, signers and sign-off times it covers, and this module's logic version, and must record that the medical-device ruling was re-checked
  *    for per-patient countdowns (the Today plan, "Safety, privacy and clinical sign-off").
@@ -33,6 +35,33 @@ import { isReviewedTimeframe, timelineFor, type MhaTimeframeEntry, type MhaTimef
  */
 
 const shippedEntries = (mhaTimeframes as MhaTimeframesFile).entries;
+
+/**
+ * Public reviewer attributions the clinical owner has confirmed, in writing, as his own named
+ * sign-off for these timeframes. An entry whose `reviewedBy` is one of these counts as signed by a
+ * named clinician. Only the owner's own confirmation adds an entry; agents never do.
+ */
+export const OWNER_CONFIRMED_TIMEFRAME_ATTRIBUTIONS: readonly {
+  readonly attribution: string;
+  readonly confirmedOn: string;
+  readonly evidence: string;
+}[] = Object.freeze([
+  {
+    attribution: "PsychSift",
+    confirmedOn: "2026-10-03",
+    evidence: "docs/evidence/mha-timeframes-owner-attribution.md",
+  },
+]);
+
+/** Signed off, with its pin intact, by a named clinician or an owner-confirmed attribution. */
+export function isTimeframeSignedByNamedClinician(entry: MhaTimeframeEntry): boolean {
+  if (!isReviewedTimeframe(entry)) return false;
+  const reviewer = entry.reviewedBy?.trim() ?? "";
+  return (
+    isNamedPerson(reviewer) ||
+    OWNER_CONFIRMED_TIMEFRAME_ATTRIBUTIONS.some((confirmed) => confirmed.attribution === reviewer)
+  );
+}
 
 /** What the countdown switch is signed over. Changing any of it needs a fresh sign-off. */
 export type MhaTimerSwitchContent = {
@@ -199,7 +228,7 @@ export function mhaTimers(
         quoteOnly.push({ kind: "quote-only", timerId: input.timerId, entry, reason });
       if (item.quoteOnly) {
         quote(item.reason === "not-calculable" ? "not-calculable" : "awaiting-review");
-      } else if (!isReviewedTimeframe(entry) || !isNamedPerson(entry.reviewedBy)) {
+      } else if (!isTimeframeSignedByNamedClinician(entry)) {
         quote("awaiting-named-sign-off");
       } else if (!gate.on) {
         quote("switched-off");
