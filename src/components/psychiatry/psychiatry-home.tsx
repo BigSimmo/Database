@@ -22,7 +22,7 @@ import { useRef, useState, useSyncExternalStore, type FormEvent, type ReactNode 
 import { focusRing } from "@/components/card-recipes";
 import { DashCard } from "@/components/dashboard-kit/dash-card";
 import { DashTag, IconChip } from "@/components/dashboard-kit/icon-chip";
-import { DashQuickActions, type DashQuickAction } from "@/components/dashboard-kit/quick-actions";
+import type { DashQuickAction } from "@/components/dashboard-kit/quick-actions";
 import { dashFigure, dashLink, dashMuted, dashSurface } from "@/components/dashboard-kit/recipes";
 import { ProgressRing } from "@/components/dashboard-kit/rings";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -402,6 +402,43 @@ function AskHero({
   );
 }
 
+/**
+ * The quick actions as a grid (two across on a phone, four on a wide screen),
+ * as in the approved mock-up, rather than My Day's swipeable row: eight tools
+ * read at a glance, and a wrapped label is never cut off.
+ */
+function QuickActionGrid({ actions }: { readonly actions: readonly DashQuickAction[] }) {
+  return (
+    <ul
+      role="list"
+      aria-label="Quick actions"
+      data-testid="psychiatry-quick-actions"
+      className="grid grid-cols-2 gap-2 lg:grid-cols-4"
+    >
+      {actions.map(({ label, href, icon: ActionIcon, testId }) => (
+        <li key={label} className="min-w-0">
+          <Link
+            href={href}
+            data-testid={testId}
+            className={cn(
+              focusRing,
+              "flex min-h-14 items-center gap-2.5 rounded-2xl border border-[color:var(--dash-line)] bg-[color:var(--dash-raised)] py-2 pr-3 pl-2 font-dash-title text-sm leading-tight text-[color:var(--dash-ink)] no-underline forced-colors:border",
+            )}
+          >
+            <span
+              aria-hidden="true"
+              className="grid size-9 shrink-0 place-items-center rounded-lg bg-[color:var(--dash-blue-tint)] text-[color:var(--dash-blue)] forced-colors:border"
+            >
+              <ActionIcon aria-hidden="true" className="size-icon-lg" />
+            </span>
+            <span className="min-w-0 break-words">{label}</span>
+          </Link>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
 function SectionChip({ mode }: { readonly mode: AppModeId }) {
   const ModeIcon = appModeIcons[mode];
   return (
@@ -729,7 +766,7 @@ export function PsychiatryHome({
             <>
               <AskHero visits={state.visits} thisMonth={month.thisMonth} lastMonth={month.lastMonth} now={now} />
               <DashCard title="Quick actions" testId="psychiatry-card-quick-actions">
-                <DashQuickActions actions={QUICK_ACTIONS} />
+                <QuickActionGrid actions={QUICK_ACTIONS} />
               </DashCard>
               <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
                 <ContinueCard visits={state.visits} now={now} />
@@ -740,7 +777,7 @@ export function PsychiatryHome({
           {page === "tools" ? (
             <>
               <SectionsCard counts={counts} />
-              <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+              <div className="grid items-start gap-3 sm:gap-4 lg:grid-cols-2">
                 <BuildersCard />
                 <WeekCard week={week} />
               </div>
