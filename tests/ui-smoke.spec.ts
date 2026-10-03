@@ -96,36 +96,9 @@ async function revealPhoneHeaderControl(page: Page, control: Locator) {
   // Programmatic scrollTop=0 can briefly report zero in WebKit, then snap back
   // after the closing sheet restores focus without revealing the header.
   if (scrollTop > 0) {
-    // PROBE-START
-    await page.evaluate(() => {
-      const w = window as unknown as { __probe: string[] };
-      w.__probe = [];
-      const t0 = performance.now();
-      const log = (m: string) => w.__probe.push(`${Math.round(performance.now() - t0)}ms ${m} sy=${window.scrollY} | ${(new Error().stack ?? "").split("\n").slice(2, 6).join(" <- ")}`);
-      const ws = window.scrollTo.bind(window);
-      window.scrollTo = ((...a: unknown[]) => { log(`window.scrollTo ${JSON.stringify(a)}`); return (ws as (...x: unknown[]) => void)(...a); }) as typeof window.scrollTo;
-      const ws2 = window.scrollBy.bind(window);
-      window.scrollBy = ((...a: unknown[]) => { log(`window.scrollBy ${JSON.stringify(a)}`); return (ws2 as (...x: unknown[]) => void)(...a); }) as typeof window.scrollBy;
-      const es = Element.prototype.scrollTo;
-      Element.prototype.scrollTo = function (this: Element, ...a: unknown[]) { log(`el.scrollTo ${this.id || this.tagName} ${JSON.stringify(a)}`); return (es as (...x: unknown[]) => void).apply(this, a); } as typeof es;
-      const si = Element.prototype.scrollIntoView;
-      Element.prototype.scrollIntoView = function (this: Element, ...a: unknown[]) { log(`scrollIntoView ${this.id || this.getAttribute("data-testid") || this.tagName} ${JSON.stringify(a)}`); return (si as (...x: unknown[]) => void).apply(this, a); } as typeof si;
-      const fo = HTMLElement.prototype.focus;
-      HTMLElement.prototype.focus = function (this: HTMLElement, ...a: unknown[]) { log(`focus ${this.id || this.getAttribute("data-testid") || this.tagName} ${JSON.stringify(a)}`); return (fo as (...x: unknown[]) => void).apply(this, a); } as typeof fo;
-      const d = Object.getOwnPropertyDescriptor(Element.prototype, "scrollTop")!;
-      Object.defineProperty(Element.prototype, "scrollTop", { configurable: true, get() { return d.get!.call(this); }, set(v) { log(`scrollTop= ${(this as Element).id || (this as Element).tagName} ${v}`); d.set!.call(this, v); } });
-      window.addEventListener("scroll", () => log(`scroll-event`), { capture: true });
-      document.addEventListener("focusin", (e) => log(`focusin ${(e.target as HTMLElement)?.getAttribute?.("data-testid") ?? ""}`));
-      for (let i = 1; i <= 20; i += 1) setTimeout(() => log(`sample html.oy=${getComputedStyle(document.documentElement).overflowY} body.o=${getComputedStyle(document.body).overflowY} ae=${document.activeElement?.getAttribute("data-testid") ?? document.activeElement?.tagName}`), i * 75);
-    });
-    // PROBE-END
     // Use the shared programmatic scroll helper because mobile WebKit does not
     // support Playwright's mouse.wheel API.
     await scrollPrimarySurface(page, 0);
-    // PROBE-START
-    await page.waitForTimeout(1700);
-    console.log(`PROBE ${test.info().project.name}\n` + (await page.evaluate(() => (window as unknown as { __probe: string[] }).__probe.join("\n"))));
-    // PROBE-END
     await expect.poll(async () => (await readPrimaryScrollGeometry(page)).scrollTop).toBeLessThanOrEqual(1);
   }
   await expect(control).toBeInViewport();
@@ -4321,27 +4294,7 @@ test.describe("PsychSift UI smoke coverage", () => {
       );
       expect(await page.evaluate(() => window.history.length)).toBe(historyLength);
 
-      // PROBE-START
-      await page.evaluate(() => {
-        const w = window as unknown as { __hprobe: string[] };
-        w.__hprobe = [];
-        const t0 = performance.now();
-        const log = (m: string) => w.__hprobe.push(`${Math.round(performance.now() - t0)}ms ${m} url=${location.pathname}${location.search}${location.hash} len=${history.length} | ${(new Error().stack ?? "").split("\n").slice(2, 7).join(" <- ")}`);
-        for (const k of ["pushState", "replaceState", "back", "go"] as const) {
-          const orig = history[k].bind(history) as (...a: unknown[]) => unknown;
-          (history as unknown as Record<string, unknown>)[k] = (...a: unknown[]) => { log(`history.${k} ${JSON.stringify(a.slice(1))} na=${Boolean((a[0] as { __NA?: boolean } | null)?.__NA)}`); return orig(...a); };
-        }
-        window.addEventListener("popstate", () => log("popstate"));
-        const nav = (window as unknown as { navigation?: { canGoBack?: boolean } }).navigation;
-        log(`start canGoBack=${String(nav?.canGoBack)}`);
-        for (let i = 1; i <= 30; i += 1) setTimeout(() => log("sample"), i * 100);
-      });
-      // PROBE-END
       await page.getByRole("link", { name: "Back to documents" }).click();
-      // PROBE-START
-      await page.waitForTimeout(3200).catch(() => undefined);
-      console.log(`HPROBE ${test.info().project.name} width=${width}\n` + (await page.evaluate(() => ((window as unknown as { __hprobe?: string[] }).__hprobe ?? ["(page navigated away; probe lost)"]).join("\n")).catch((e) => `eval failed ${String(e)}`)));
-      // PROBE-END
       await expect(page).toHaveURL(
         (url) =>
           url.pathname === origin.pathname &&
@@ -5899,6 +5852,10 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(prioritiesSheet).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(prioritiesSheet).toHaveCount(0);
+    // Let the sheet hand focus back before scrolling. WebKit returns it up to a
+    // second after the sheet unmounts, and PhoneFocusClearance then reveals the
+    // trigger, which undoes any scroll the test made in the meantime.
+    await expect(clinicalSummary.getByTestId("open-clinical-priorities")).toBeFocused();
     const indexedText = page.locator("#source-text");
     const summary = page.getByTestId("high-yield-summary");
     const images = page.locator("#source-images");
@@ -5944,6 +5901,7 @@ test.describe("PsychSift UI smoke coverage", () => {
     await expect(indexedText).toHaveJSProperty("open", false);
     await page.keyboard.press("Escape");
     await expect(densitySheet).toHaveCount(0);
+    await expect(sectionTrigger).toBeFocused();
     for (const disclosure of [summary, images, indexingDetails]) {
       await expect(disclosure).toHaveJSProperty("open", false);
     }

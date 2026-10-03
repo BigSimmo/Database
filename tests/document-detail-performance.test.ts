@@ -118,6 +118,8 @@ describe("document viewer latency guards", () => {
     expect(viewer).toContain("chunkById");
     expect(viewer).toContain("useDocumentViewerRoute");
     expect(routeHook).toContain("window.history.replaceState");
+    // Keeping the router's state stops Next scheduling a late URL rewrite that raced Back.
+    expect(routeHook).toContain("window.history.replaceState(window.history.state,");
     expect(routeHook).not.toContain("window.history.pushState");
     expect(viewer).not.toContain("router.push(documentPageHref");
     expect(viewer).toContain("localProjectIdentityPromiseRef.current = null");
@@ -168,6 +170,8 @@ describe("document viewer latency guards", () => {
     expect(visuals).toContain("onSelectPage={onSelectPage}");
     expect(filmstrip).toContain('data-testid="document-image-filmstrip"');
     expect(routeHook).toContain("window.history.replaceState");
+    // Keeping the router's state stops Next scheduling a late URL rewrite that raced Back.
+    expect(routeHook).toContain("window.history.replaceState(window.history.state,");
     expect(routeHook).not.toContain("window.history.pushState");
     expect(viewer).not.toContain("router.push(documentPageHref");
     // Page must not be part of the canvas key — that remounts pdf.js on every flip.

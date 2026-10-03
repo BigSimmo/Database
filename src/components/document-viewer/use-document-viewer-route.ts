@@ -40,7 +40,12 @@ export function useDocumentViewerRoute({
     (page: number) => {
       const nextPage = Math.max(1, Math.trunc(page));
       if (nextPage === activePage) return;
-      window.history.replaceState(null, "", documentPageHref(documentId, nextPage));
+      // Keep the router's own history state. With a foreign state (null), Next's patched
+      // replaceState schedules a router transition that rewrites the URL again once it
+      // commits. A Back tap landing before that commit raced it: Firefox abandoned the
+      // traversal and left the reader on the document (release-browser-matrix, #9Z197J).
+      // This entry already carries the router's tree for this route; only the page changes.
+      window.history.replaceState(window.history.state, "", documentPageHref(documentId, nextPage));
       setActiveRoute({ page: nextPage, chunkId: undefined });
     },
     [activePage, documentId],
