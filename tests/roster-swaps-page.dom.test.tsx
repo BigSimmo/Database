@@ -124,6 +124,27 @@ afterEach(cleanup);
 
 const tabNames = () => screen.getAllByRole("tab").map((tab) => tab.textContent?.replace(/\d+$/, ""));
 
+describe("Swaps page team link", () => {
+  it("selects the team named by ?team= when the reader has more than one", () => {
+    const OTHER = "5e000000-0000-4000-8000-000000000009";
+    teamsState.data.teams.push({
+      serviceId: OTHER,
+      name: "Other team",
+      enabled: true,
+      role: "member",
+      grade: "resident",
+    });
+    window.history.replaceState(null, "", `/roster/swaps?team=${OTHER}`);
+    try {
+      render(<RosterSwapsPage />);
+      expect(mocks.fetchRead).toHaveBeenCalledWith(OTHER, expect.anything(), expect.anything());
+    } finally {
+      teamsState.data.teams.pop();
+      window.history.replaceState(null, "", "/");
+    }
+  });
+});
+
 describe("Swaps page tabs", () => {
   it("gives a member Needs you, Sent, Open shifts and History, and no team tab", () => {
     render(<RosterSwapsPage />);

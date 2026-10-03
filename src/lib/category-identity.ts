@@ -101,6 +101,7 @@ export const CATEGORY_ICON_KEYS = [
   "brain",
   "presentation",
   "calendarRange",
+  "sunrise",
 ] as const;
 
 export type CategoryIconKey = (typeof CATEGORY_ICON_KEYS)[number];
@@ -134,6 +135,7 @@ export const APP_MODE_ICON: Record<AppModeId, CategoryIconKey> = {
   "my-work": "clipboardList",
   roster: "calendarRange",
   "first-nations": "users",
+  "my-day": "sunrise",
 };
 
 /**
@@ -178,6 +180,7 @@ export const APP_MODE_ACCENT: Record<AppModeId, CategoryAccent> = {
   // (also-matches grids, library chips), which the mode's own chrome does not
   // use. See the class doc comment above.
   "first-nations": "slate",
+  "my-day": "slate",
 };
 
 /**
