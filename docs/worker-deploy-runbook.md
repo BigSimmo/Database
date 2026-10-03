@@ -17,6 +17,13 @@ Production host is **Railway** (`deployment-architecture.md` §2); the image is
 host-agnostic, so the `docker run` recipe below maps 1:1 onto Railway service
 env vars + a restart policy (or any OCI host).
 
+Railway probes `/health` on its injected `PORT`. The worker binds that port when
+`WORKER_HEALTH_PORT` is absent. An explicit local `WORKER_HEALTH_PORT` still takes
+precedence; on Railway, leave it unset or ensure it equals `PORT`. Set variables
+through the service's supported variable configuration, not `deploy.env` in
+config as code. The 300-second rollout window allows boot and probe retries;
+database or Python failures still return 503 and block promotion.
+
 ---
 
 ## 0. Pre-deploy gate — do not deploy before this is live
