@@ -367,4 +367,30 @@ describe("Edit mode", () => {
     expect(screen.getByTestId("my-day-card-quick-actions")).toBeTruthy();
     expect(screen.getByTestId("my-day-item-a")).toBeTruthy();
   });
+
+  // Codex review on #3234 (item 2): when storage works, a missing key is the truth.
+  it("brings a card back when another tab restores it", () => {
+    render(<MyDayDashboard {...props({ editing: true })} />);
+    fireEvent.click(screen.getByRole("button", { name: "Hide Quick actions" }));
+    expect(screen.queryByTestId("my-day-card-quick-actions")).toBeNull();
+    act(() => {
+      window.localStorage.removeItem(MY_DAY_HIDDEN_CARDS_STORAGE_KEY);
+      window.dispatchEvent(new StorageEvent("storage", { key: MY_DAY_HIDDEN_CARDS_STORAGE_KEY }));
+    });
+    expect(screen.getByTestId("my-day-card-quick-actions")).toBeTruthy();
+  });
+});
+
+// Codex review on #3234 (item 7): finished morning lines must not push the rest of the day off.
+describe("Today's agenda", () => {
+  it("keeps upcoming lines when the morning's finished lines would fill the cap", () => {
+    const morning = Array.from({ length: 6 }, (_, index) =>
+      item(`m${index}`, "soon", { due: `2026-10-03T0${index}:00:00Z`, title: `Morning ${index}` }),
+    );
+    const afternoon = item("pm", "soon", { due: "2026-10-03T07:00:00Z", title: "Afternoon task" });
+    render(<MyDayDashboard {...props({ items: [...morning, afternoon] })} />);
+    const agenda = screen.getByTestId("my-day-agenda");
+    expect(agenda.textContent).toContain("Afternoon task");
+    expect(within(agenda).getAllByRole("listitem")).toHaveLength(6);
+  });
 });

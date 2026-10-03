@@ -145,4 +145,13 @@ describe("adminNextRenewal", () => {
     expect(adminNextRenewal([passed], NOW, false)).toBeNull();
     expect(adminNextRenewal([], NOW, false)).toBeNull();
   });
+
+  // Codex review on #3234: the capped "Coming up" list filled with passed dates and hid a future one.
+  it("still finds the future date behind six passed ones", () => {
+    const passedDates = Array.from({ length: 6 }, (_, index) =>
+      complianceFixture(`Passed ${index}`, { category: "Training", expiresOn: `2026-0${index + 1}-15` }),
+    );
+    const future = complianceFixture("Medical registration", { category: "Registration", expiresOn: "2026-11-24" });
+    expect(adminNextRenewal([...passedDates, future], NOW, false)?.entryId).toBe(future.id);
+  });
 });

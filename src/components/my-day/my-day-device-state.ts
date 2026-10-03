@@ -46,14 +46,20 @@ function subscribe(onChange: () => void): () => void {
 const memory = new Map<string, string>();
 subscribeAccountTransition(() => memory.clear());
 
+/**
+ * When storage works it is the only truth: a missing key means "nothing
+ * stored" (another tab may have restored a card or undone a "Later"), so the
+ * memory copy is dropped. Memory is read only when storage itself throws.
+ */
 function read(key: string): string | null {
   try {
     const stored = window.localStorage.getItem(key);
-    if (stored !== null) return stored;
+    if (stored === null) memory.delete(key);
+    return stored;
   } catch {
     // Storage refused: fall back to this page's memory.
+    return memory.get(key) ?? null;
   }
-  return memory.get(key) ?? null;
 }
 
 function write(key: string, value: string | null): void {

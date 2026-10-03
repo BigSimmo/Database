@@ -109,7 +109,8 @@ export function adminMyDayItems(
  */
 export function adminNextRenewal(own: readonly OnCallEntry[], now: Date, sample: boolean): MyDayNextRenewal | null {
   const today = perthCalendarDate(now);
-  for (const group of selectComingUp(own, now).groups) {
+  // Uncapped: the capped list fills with passed dates first, which would hide a future one.
+  for (const group of selectComingUp(own, now, { limit: Number.MAX_SAFE_INTEGER }).groups) {
     if (group.kind === "passed") continue;
     const row = group.rows.find((candidate) => candidate.expiresOn >= today);
     if (row) {

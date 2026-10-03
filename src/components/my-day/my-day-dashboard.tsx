@@ -839,7 +839,14 @@ export function MyDayDashboard({
       const due = Date.parse(item.due);
       lines.push({ key: `item:${item.id}`, at: due, time: perthTimeOf(item.due), text: item.title, past: due <= at });
     }
-    return lines.sort((a, b) => a.at - b.at || a.key.localeCompare(b.key)).slice(0, 6);
+    const byTime = (a: AgendaLine, b: AgendaLine) => a.at - b.at || a.key.localeCompare(b.key);
+    // Unfinished and upcoming lines claim the six places first, so a busy
+    // morning that is over cannot push the rest of the day off the card.
+    const kept = [
+      ...lines.filter((line) => !line.past).sort(byTime),
+      ...lines.filter((line) => line.past).sort(byTime),
+    ];
+    return kept.slice(0, 6).sort(byTime);
   }, [events, items, now, today]);
 
   const cpd = sources.cpd;
@@ -850,6 +857,15 @@ export function MyDayDashboard({
     "needs-you": true,
     cpd: cpd.status === "ready" && cpd.targetHours > 0,
     renewal: nextRenewal !== null,
+  };
+
+  const partial = [
+    sources.roster.partial ? "your team's shifts" : null,
+    sources.teaching.partial ? "the On Call teaching list" : null,
+  ].filter((name): name is string => name !== null);
+  const retryAll = () => {
+    onRetry();
+    sources.retry?.();
   };
 
   const failed = [
@@ -890,7 +906,7 @@ export function MyDayDashboard({
         editing={editing}
         onHide={hide}
         onShowAll={onShowAll}
-        onRetry={onRetry}
+        onRetry={retryAll}
       />
     ),
     cpd: () => <CpdCard loggedHours={cpd.loggedHours} targetHours={cpd.targetHours} editing={editing} onHide={hide} />,
@@ -904,8 +920,18 @@ export function MyDayDashboard({
   return (
     <div className="grid gap-3" data-testid="my-day-dashboard">
       {failed.length > 0 ? (
-        <p className={modeSecondaryText} data-testid="my-day-card-failed">
-          {`Couldn't load ${listNames(failed)}, so ${failed.length === 1 ? "that card is" : "those cards are"} not shown.`}
+        <div className="flex flex-wrap items-center gap-2">
+          <p className={modeSecondaryText} data-testid="my-day-card-failed">
+            {`Couldn't load ${listNames(failed)}, so ${failed.length === 1 ? "that card is" : "those cards are"} not shown.`}
+          </p>
+          <Button variant="secondary" onClick={retryAll} data-testid="my-day-card-retry">
+            Retry
+          </Button>
+        </div>
+      ) : null}
+      {partial.length > 0 ? (
+        <p className={modeSecondaryText} data-testid="my-day-card-partial">
+          {`Couldn't load ${listNames(partial)}, so these cards may be missing some of it.`}
         </p>
       ) : null}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4" data-editing={editing ? "" : undefined}>

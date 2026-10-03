@@ -4,19 +4,39 @@
 // Roster's example roster, a demo Teaching team and a demo CPD year all read
 // as "unavailable" unless the page is a local demo build (allowSample).
 
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const roster = vi.hoisted(() => ({
-  current: { status: "ready", shifts: [] as unknown[], sample: false, demoMode: false },
+  current: {
+    status: "ready",
+    shifts: [] as unknown[],
+    sample: false,
+    demoMode: false,
+    teamLoading: false,
+    teamMessage: null as string | null,
+  },
+  reload: { calls: 0 },
 }));
 vi.mock("@/components/roster/use-roster-shifts", () => ({
-  useRosterShifts: () => roster.current,
+  useRosterShifts: () => ({
+    reload: async () => {
+      roster.reload.calls += 1;
+    },
+    ...roster.current,
+  }),
 }));
 
-const teaching = vi.hoisted(() => ({ current: { status: "ready", data: null as unknown } }));
+const teaching = vi.hoisted(() => ({ current: { status: "ready", data: null as unknown }, retries: { calls: 0 } }));
 vi.mock("@/components/teaching/use-teaching-resource", () => ({
-  useTeachingResource: () => ({ ...teaching.current, code: null, refreshing: false, retry: () => undefined }),
+  useTeachingResource: () => ({
+    ...teaching.current,
+    code: null,
+    refreshing: false,
+    retry: () => {
+      teaching.retries.calls += 1;
+    },
+  }),
 }));
 
 vi.mock("@/lib/supabase/client", () => ({
@@ -71,7 +91,16 @@ function stubCpd({ demoMode }: { demoMode: boolean }) {
 }
 
 beforeEach(() => {
-  roster.current = { status: "ready", shifts: [SHIFT], sample: false, demoMode: false };
+  roster.current = {
+    status: "ready",
+    shifts: [SHIFT],
+    sample: false,
+    demoMode: false,
+    teamLoading: false,
+    teamMessage: null,
+  };
+  roster.reload.calls = 0;
+  teaching.retries.calls = 0;
   teaching.current = {
     status: "ready",
     data: {
@@ -100,7 +129,7 @@ describe("useMyDayDashboardSources", () => {
 
   it("drops every kind of invented data for a signed-in reader", async () => {
     stubCpd({ demoMode: true });
-    roster.current = { status: "ready", shifts: [SHIFT], sample: true, demoMode: false };
+    roster.current = { ...roster.current, sample: true };
     const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
     expect(result.current.roster).toMatchObject({ status: "unavailable", shifts: [] });
     expect(result.current.teaching.sessions.some((s) => s.serviceId === "demo")).toBe(false);
@@ -110,7 +139,7 @@ describe("useMyDayDashboardSources", () => {
 
   it("keeps demo data, flagged as sample, in a local demo build", async () => {
     stubCpd({ demoMode: true });
-    roster.current = { status: "ready", shifts: [SHIFT], sample: false, demoMode: true };
+    roster.current = { ...roster.current, demoMode: true };
     const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: true }));
     expect(result.current.roster).toMatchObject({ status: "ready", sample: true });
     expect(result.current.teaching.sessions.map((s) => s.occurrenceId)).toEqual(["r", "d"]);
@@ -134,9 +163,47 @@ describe("useMyDayDashboardSources", () => {
       "fetch",
       vi.fn(async () => new Response("{}", { status: 500 })),
     );
-    roster.current = { status: "error", shifts: [], sample: false, demoMode: false };
+    roster.current = { ...roster.current, status: "error", shifts: [] };
     const second = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
     expect(second.result.current.roster.status).toBe("failed");
     await waitFor(() => expect(second.result.current.cpd.status).toBe("failed"));
+  });
+
+  // Codex review on #3234 (items 1, 3, 5 and 6).
+  it("does not present the roster as final while a team's shifts are still loading, and flags a missing team", () => {
+    stubCpd({ demoMode: false });
+    roster.current = { ...roster.current, teamLoading: true };
+    const loading = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    expect(loading.result.current.roster.status).toBe("loading");
+    loading.unmount();
+    roster.current = { ...roster.current, teamLoading: false, teamMessage: "Couldn't load your team." };
+    const partial = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    expect(partial.result.current.roster).toMatchObject({ status: "ready", partial: true });
+  });
+
+  it("keeps Teaching's partial-load flag when the On Call teaching list could not be read", () => {
+    stubCpd({ demoMode: false });
+    teaching.current = {
+      status: "ready",
+      data: { teams: [], sessions: [], relocated: [], relocatedUnavailable: true },
+    };
+    const { result } = renderHook(() => useMyDayDashboardSources({ today: TODAY, allowSample: false }));
+    expect(result.current.teaching).toMatchObject({ status: "ready", partial: true });
+  });
+
+  it("retries every dashboard read, and reads CPD again when the year turns", async () => {
+    stubCpd({ demoMode: false });
+    const fetchMock = vi.mocked(fetch);
+    const { result, rerender } = renderHook(({ today }) => useMyDayDashboardSources({ today, allowSample: false }), {
+      initialProps: { today: TODAY },
+    });
+    await waitFor(() => expect(result.current.cpd.status).toBe("ready"));
+    const before = fetchMock.mock.calls.length;
+    act(() => result.current.retry?.());
+    expect(roster.reload.calls).toBe(1);
+    expect(teaching.retries.calls).toBe(1);
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(before + 2));
+    rerender({ today: "2027-01-01" });
+    await waitFor(() => expect(fetchMock.mock.calls.length).toBe(before + 4));
   });
 });

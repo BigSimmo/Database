@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useRosterShifts, type MyShift } from "@/components/roster/use-roster-shifts";
 import { useTeachingResource } from "@/components/teaching/use-teaching-resource";
@@ -34,12 +34,16 @@ export interface MyDayDashboardSources {
     readonly status: MyDayCardSourceStatus;
     readonly shifts: readonly MyShift[];
     readonly sample: boolean;
+    /** Ready, but a confirmed team's shifts could not be read: the roster is the reader's own shifts only. */
+    readonly partial?: boolean;
   };
   readonly teaching: {
     readonly status: MyDayCardSourceStatus;
     /** Today's sessions that are going ahead, from services that are not demos (unless allowed). */
     readonly sessions: readonly SessionSummary[];
     readonly sample: boolean;
+    /** Ready, but the On Call teaching list could not be read, as Teaching's own week says. */
+    readonly partial?: boolean;
   };
   readonly cpd: {
     readonly status: MyDayCardSourceStatus;
@@ -48,6 +52,8 @@ export interface MyDayDashboardSources {
     readonly targetHours: number;
     readonly sample: boolean;
   };
+  /** Read every dashboard source again (the page's Retry). */
+  readonly retry?: () => void;
 }
 
 type CpdLoaded =
@@ -85,19 +91,34 @@ async function loadCpd(signal: AbortSignal): Promise<CpdLoaded | null> {
   }
 }
 
-function useCpdHours(allowSample: boolean): MyDayDashboardSources["cpd"] {
+function useCpdHours(
+  allowSample: boolean,
+  today: string,
+): { readonly cpd: MyDayDashboardSources["cpd"]; readonly retry: () => void } {
   const { authEpoch } = useAuthSession();
-  const [stored, setStored] = useState<{ epoch: number; loaded: CpdLoaded } | null>(null);
+  // The CPD year is the calendar year: keyed on it, the read rolls over on 1 January.
+  const cpdYear = today.slice(0, 4);
+  const [attempt, setAttempt] = useState(0);
+  const [stored, setStored] = useState<{ key: string; loaded: CpdLoaded } | null>(null);
+  const key = `${authEpoch}|${cpdYear}|${attempt}`;
   useEffect(() => {
     const controller = new AbortController();
     void loadCpd(controller.signal).then((next) => {
-      if (next && !controller.signal.aborted) setStored({ epoch: authEpoch, loaded: next });
+      if (next && !controller.signal.aborted) setStored({ key, loaded: next });
     });
     return () => controller.abort();
-  }, [authEpoch]);
+  }, [key]);
+  const retry = useCallback(() => setAttempt((value) => value + 1), []);
+  return { cpd: cpdFrom(stored, key, allowSample), retry };
+}
 
-  // Data read under another sign-in is never shown.
-  if (!stored || stored.epoch !== authEpoch)
+function cpdFrom(
+  stored: { key: string; loaded: CpdLoaded } | null,
+  key: string,
+  allowSample: boolean,
+): MyDayDashboardSources["cpd"] {
+  // Data read under another sign-in, or for last year, is never shown.
+  if (!stored || stored.key !== key)
     return { status: "loading", year: null, loggedHours: 0, targetHours: 0, sample: false };
   const loaded = stored.loaded;
   if (loaded.status !== "ready" || (loaded.sample && !allowSample))
@@ -113,7 +134,10 @@ function useCpdHours(allowSample: boolean): MyDayDashboardSources["cpd"] {
 
 const NO_SESSIONS: readonly SessionSummary[] = [];
 
-function useTodaysTeaching(today: string, allowSample: boolean): MyDayDashboardSources["teaching"] {
+function useTodaysTeaching(
+  today: string,
+  allowSample: boolean,
+): { readonly teaching: MyDayDashboardSources["teaching"]; readonly retry: () => void } {
   const week = useTeachingResource<TeachingWeekResponse>(
     `/api/teaching?${new URLSearchParams({ view: "week", from: today, to: today })}`,
   );
@@ -138,7 +162,15 @@ function useTodaysTeaching(today: string, allowSample: boolean): MyDayDashboardS
         : week.status === "offline" || week.status === "error"
           ? "failed"
           : "unavailable";
-  return { status, sessions, sample: allowSample && sample };
+  return {
+    teaching: {
+      status,
+      sessions,
+      sample: allowSample && sample,
+      partial: status === "ready" && data?.relocatedUnavailable === true,
+    },
+    retry: week.retry,
+  };
 }
 
 export function useMyDayDashboardSources({
@@ -150,8 +182,9 @@ export function useMyDayDashboardSources({
 }): MyDayDashboardSources {
   const shifts = useRosterShifts();
   const invented = shifts.sample || shifts.demoMode;
+  // A selected team's shifts still loading means the week is not yet known to be free.
   const rosterStatus: MyDayCardSourceStatus =
-    shifts.status === "loading"
+    shifts.status === "loading" || (shifts.status === "ready" && shifts.teamLoading)
       ? "loading"
       : shifts.status === "error"
         ? "failed"
@@ -163,10 +196,17 @@ export function useMyDayDashboardSources({
       status: rosterStatus,
       shifts: rosterStatus === "ready" ? shifts.shifts : [],
       sample: rosterStatus === "ready" && invented,
+      partial: rosterStatus === "ready" && Boolean(shifts.teamMessage),
     }),
-    [rosterStatus, shifts.shifts, invented],
+    [rosterStatus, shifts.shifts, invented, shifts.teamMessage],
   );
-  const teaching = useTodaysTeaching(today, allowSample);
-  const cpd = useCpdHours(allowSample);
-  return { roster, teaching, cpd };
+  const { teaching, retry: retryTeaching } = useTodaysTeaching(today, allowSample);
+  const { cpd, retry: retryCpd } = useCpdHours(allowSample, today);
+  const reloadRoster = shifts.reload;
+  const retry = useCallback(() => {
+    void reloadRoster();
+    retryTeaching();
+    retryCpd();
+  }, [reloadRoster, retryTeaching, retryCpd]);
+  return useMemo(() => ({ roster, teaching, cpd, retry }), [roster, teaching, cpd, retry]);
 }
