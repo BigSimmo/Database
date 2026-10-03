@@ -44,10 +44,12 @@ describe("phone mode groups", () => {
       modeIds: ["first-nations"],
     });
     expect(groupOf("cme")).toMatchObject({ id: "cpd", label: "CPD and teaching", modeIds: ["cme", "teaching"] });
+    expect(groupOf("my-day")).toMatchObject({ id: "my-day", label: "My Day", modeIds: ["my-day"] });
     expect(phoneModeGroups.map((group) => group.id)).toEqual([
       "find",
       "psychiatry",
       "care",
+      "my-day",
       "on-call",
       "roster",
       "my-work",

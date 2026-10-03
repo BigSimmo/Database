@@ -12,33 +12,26 @@
  * data each mode already loads for the reader.
  */
 
+import type { TodayItem } from "@/lib/today/today-item";
+import { todaySeverities, type TodaySeverity } from "@/lib/today/today-item";
+
 /** The modes My Day gathers from, in the order they are named on the page. */
 export const myDaySourceModes = ["on-call", "roster", "cme", "teaching", "my-work"] as const;
 export type MyDaySourceMode = (typeof myDaySourceModes)[number];
 
-/** Overdue first, then due soon, then the rest. */
-export const myDaySeverities = ["overdue", "soon", "info"] as const;
-export type MyDaySeverity = (typeof myDaySeverities)[number];
+/** Overdue first, then due soon, then the rest: the shared Today order. */
+export const myDaySeverities = todaySeverities;
+export type MyDaySeverity = TodaySeverity;
 
 /** How many Perth calendar days ahead (inclusive of today) still count as "due soon". */
 export const MY_DAY_SOON_DAYS = 7;
 
-export interface MyDayItem {
-  /** Stable and unique across the merged list, e.g. `my-work:passed:<entryId>`. */
-  readonly id: string;
+/**
+ * A shared `TodayItem` whose owning mode is one of the five My Day gathers,
+ * so anything that produces Today items can feed My Day unchanged.
+ */
+export interface MyDayItem extends TodayItem {
   readonly mode: MyDaySourceMode;
-  /** Short, plain words. Never a patient identifier. */
-  readonly title: string;
-  /** Optional muted second line. */
-  readonly detail?: string;
-  /**
-   * When it is due: a Perth calendar date `YYYY-MM-DD`, or an ISO instant with
-   * a time. `null` for an item with no date (a count, a "not recorded" group).
-   */
-  readonly due: string | null;
-  readonly severity: MyDaySeverity;
-  /** In-app path where the item is resolved. */
-  readonly href: string;
 }
 
 /** How one mode's read went, so the page can say honestly what it could not load. */

@@ -220,7 +220,7 @@ describe("app mode search contract", () => {
     const config = appModeSearchConfig("sources");
     const mode = appModeDefinitions.find((definition) => definition.id === "sources");
 
-    expect(appModeIds).toHaveLength(23);
+    expect(appModeIds).toHaveLength(24);
     expect(mode).toMatchObject({
       label: "Sources",
       description: "Ranked clinical source catalogue and traceability",
@@ -489,6 +489,8 @@ describe("app mode search contract", () => {
       "first-nations": "/first-nations?q=clozapine&run=1",
       // Teaching, likewise: a dashboard with no search route.
       teaching: "/teaching?q=clozapine&run=1",
+      // My Day, likewise: one merged list with no search route.
+      "my-day": "/my-day?q=clozapine&run=1",
     });
   });
 

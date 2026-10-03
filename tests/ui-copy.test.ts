@@ -157,7 +157,7 @@ describe("ui-copy", () => {
     it("covers every declared app mode exactly once", () => {
       const definedModes = Object.keys(sharedHomePresentation) as AppModeId[];
       expect(definedModes.sort()).toEqual([...appModeIds].sort());
-      expect(definedModes).toHaveLength(23);
+      expect(definedModes).toHaveLength(24);
     });
 
     it.each(appModeIds)("provides non-empty title and subtitle for %s", (modeId) => {
