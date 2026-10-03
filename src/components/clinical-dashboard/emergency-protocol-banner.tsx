@@ -47,7 +47,7 @@ export function EmergencyProtocolBanner({
             className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-[color:var(--danger-border)] bg-[color:var(--danger-soft)] text-[color:var(--danger)]"
             aria-hidden="true"
           >
-            <ShieldAlert className="h-5 w-5" />
+            <ShieldAlert aria-hidden="true" className="h-5 w-5" />
           </div>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-1.5">
