@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, ChevronDown, Phone, ShieldAlert, Stethoscope, UserCheck, X } from "lucide-react";
+import { Phone, ShieldAlert, Stethoscope, UserCheck, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { focusRing } from "@/components/card-recipes";
@@ -120,7 +120,7 @@ export function EmergencyThumbArc({
           data-testid={`${testId}-tray`}
           className="absolute bottom-16 right-0 z-40 mb-2 flex w-72 flex-col gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]/95 p-3 shadow-xl backdrop-blur-md animate-in slide-in-from-bottom-4 fade-in duration-[var(--duration-moderate)]"
         >
-          <div className="flex items-center justify-between border-b border-[color:var(--border-subtle)] pb-2 px-1">
+          <div className="flex items-center justify-between border-b border-[color:var(--border)] pb-2 px-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
               Emergency Speed-Dial
             </span>
@@ -156,7 +156,7 @@ export function EmergencyThumbArc({
                       )}
                       aria-hidden="true"
                     >
-                      <Icon className="size-5" />
+                      <Icon className="size-5" aria-hidden={true} />
                     </span>
                     <div className="flex min-w-0 flex-1 flex-col">
                       <span className="truncate text-sm font-medium leading-tight">{action.label}</span>

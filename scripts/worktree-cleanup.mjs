@@ -18,7 +18,7 @@ import { spawnSync } from "node:child_process";
 import { lstatSync, readdirSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import {
   classifyLiveness,

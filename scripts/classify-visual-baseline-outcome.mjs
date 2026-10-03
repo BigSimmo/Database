@@ -8,7 +8,7 @@
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 /**

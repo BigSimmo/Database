@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { pathToFileURL } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 import {

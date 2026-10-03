@@ -10,7 +10,7 @@
 import { lstatSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import {
   assertReportOnlyOptions,

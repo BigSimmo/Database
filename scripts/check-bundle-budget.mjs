@@ -59,7 +59,7 @@ import { gzipSync } from "node:zlib";
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 // `BUNDLE_BUDGET_ROOT` lets tests point at a disposable fixture tree without

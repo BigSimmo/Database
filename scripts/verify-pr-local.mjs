@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { spawnSync } from "node:child_process";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+
 
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { childProcessExitCode } from "./child-process-result.mjs";

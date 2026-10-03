@@ -24,7 +24,7 @@
  * database is reported as unavailable, never counted as a clean merge.
  */
 import { execFileSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 const DEFAULT_FILE_PATH = "src/data/source-acquisitions.json";

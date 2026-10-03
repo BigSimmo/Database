@@ -4,8 +4,8 @@
  * the public origin. Keeping this outside YAML makes the same rules unit-testable.
  */
 import { appendFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 import { collidingRouteSlugs, WEB_VITALS_STRATEGIES, WEB_VITALS_MIN_SAMPLES } from "./summarise-web-vitals.mjs";

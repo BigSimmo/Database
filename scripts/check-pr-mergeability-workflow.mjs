@@ -7,8 +7,8 @@
  * reports on merge queue entries instead of stalling the queue.
  */
 import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { yamlBlock } from "./yaml-contract.mjs";
 

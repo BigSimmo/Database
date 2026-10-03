@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 import { lockPythonVersion, workerPythonLockTargets } from "./worker-python-lock-config.mjs";

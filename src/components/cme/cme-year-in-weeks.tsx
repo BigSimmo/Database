@@ -31,7 +31,6 @@ export function calculateYearWeeks(
   const startOfYear = Date.parse(`${year}-01-01T00:00:00+08:00`);
   const nowMs = now.getTime();
   const dayMs = 24 * 60 * 60 * 1000;
-  const weekMs = 7 * dayMs;
 
   const nowYear = new Intl.DateTimeFormat("en-AU", { timeZone: "Australia/Perth", year: "numeric" }).format(now);
   const currentYearNum = Number(nowYear);

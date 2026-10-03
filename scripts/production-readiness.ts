@@ -3,7 +3,7 @@ import { access, readFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 import { constants } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
+
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 import { loadEnvConfig } from "@next/env";
 

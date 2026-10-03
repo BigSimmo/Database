@@ -13,7 +13,7 @@
  */
 import { readdirSync } from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+
 import { spawnSync } from "node:child_process";
 import { childProcessExitCode } from "./child-process-result.mjs";
 import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
