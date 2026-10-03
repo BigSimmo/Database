@@ -29,6 +29,7 @@ COPY package.json package-lock.json .npmrc ./
 COPY scripts/check-node-engine.cjs scripts/check-node-engine.cjs
 COPY scripts/install-git-hooks.mjs scripts/install-git-hooks.mjs
 COPY scripts/check-installed-lock-parity.mjs scripts/check-installed-lock-parity.mjs
+COPY scripts/lib/is-entrypoint.mjs scripts/lib/is-entrypoint.mjs
 # Registry blips (ECONNRESET) have failed CI app-image builds mid-install; retry
 # the whole `npm ci` rather than relying only on per-request fetch retries.
 RUN for attempt in 1 2 3; do \

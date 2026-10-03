@@ -5,6 +5,13 @@
   "perFileMinRemovedCases": 3,
   "approvedReductions": [
     {
+      "path": "tests/on-call-emergency-thumb-arc.dom.test.tsx",
+      "before": 5,
+      "after": 0,
+      "reason": "Whole-file deletion: the floating EmergencyThumbArc (PR #3206) was removed because it dialled a guessed \"55\" when no emergency number was set up and duplicated NowEmergencyPin; tests/on-call-emergency-single-control.test.ts guards its return.",
+      "approvedOn": "2026-10-03"
+    },
+    {
       "path": "tests/on-call-entry-chips.test.ts",
       "before": 6,
       "after": 0,
