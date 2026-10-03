@@ -37,7 +37,7 @@ export type RuleGate = { readonly on: true } | { readonly on: false; readonly re
 export const RULE_GATE_REASON_WORDS: Readonly<Record<RuleGateOffReason, string>> = {
   unsigned: "Not yet signed by a named clinician",
   "not-a-named-person": "Signed by a system or role name, not a named clinician",
-  "bad-sign-off-time": "The sign-off has no valid time",
+  "bad-sign-off-time": "The sign-off has no proper UTC date and time",
   "content-changed-since-sign-off": "The rules changed after they were signed, so they need signing again",
   "switched-off": "Signed, but switched off",
 };
