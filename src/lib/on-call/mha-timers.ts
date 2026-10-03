@@ -3,6 +3,7 @@ import {
   isNamedPerson,
   ruleContentSha256,
   ruleGate,
+  TODAY_RULE_SIGN_OFFS,
   type ApprovedRuleSigner,
   type RuleGate,
   type RuleSignOff,
@@ -82,10 +83,10 @@ export function currentMhaTimerSwitchContent(
   };
 }
 
-/** Shipped OFF and unsigned. Only a named clinician fills in `signOff`; agents never do. */
+/** Read from `src/lib/admin/today-rule-sign-offs.json`; shipped OFF and unsigned. Only `npm run rules:sign` writes it. */
 export const MHA_TIMER_SWITCH: MhaTimerSwitch = {
-  content: currentMhaTimerSwitchContent(),
-  signOff: { enabled: false, signedBy: null, signedByUserId: null, signedAt: null, signedContentSha256: null },
+  content: currentMhaTimerSwitchContent(shippedEntries, TODAY_RULE_SIGN_OFFS.mhaTimerSwitch.medicalDeviceRuling),
+  signOff: TODAY_RULE_SIGN_OFFS.mhaTimerSwitch.signOff,
 };
 
 export type MhaTimerGate =
