@@ -63,7 +63,9 @@ import { createHash } from "node:crypto";
 import { existsSync, lstatSync, mkdtempSync, readFileSync, rmdirSync, rmSync, symlinkSync, unlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
+import { fileURLToPath } from "node:url";
+
+import { isDirectEntrypoint } from "./lib/is-entrypoint.mjs";
 
 const ZERO_SHA = "0000000000000000000000000000000000000000";
 const MAIN_REMOTE_REF = "refs/remotes/origin/main";
@@ -1535,7 +1537,7 @@ function selfTest() {
 }
 
 // Only run as a CLI when invoked directly — importing (tests) must not exit.
-const invokedDirectly = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+const invokedDirectly = isDirectEntrypoint(import.meta.url);
 if (invokedDirectly) {
   main();
 }

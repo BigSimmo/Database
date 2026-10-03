@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Plan safe risk-scoped Database work by inspecting the current change, selecting the smallest local verification ladder, and separating provider-backed checks into explicit approval gates. Use before non-trivial changes or when asked what checks are needed.
+description: Plan safe risk-scoped PsychSift work by inspecting the current change, selecting the smallest local verification ladder, and separating provider-backed checks into explicit approval gates. Use before non-trivial changes or when asked what checks are needed.
 ---
 
 # Plan

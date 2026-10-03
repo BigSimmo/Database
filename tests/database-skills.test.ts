@@ -79,7 +79,7 @@ describe("Database skill catalog", () => {
         0,
       )})`,
     );
-    expect(rendered).toContain("- skills — List every unique Database-specific skill with a clear explanation");
+    expect(rendered).toContain("- skills — List every unique PsychSift-specific skill with a clear explanation");
     expect(rendered).not.toContain("- workflows —");
     for (const category of catalog.categories) expect(rendered).toContain(category.name);
   });

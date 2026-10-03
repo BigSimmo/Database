@@ -1,7 +1,7 @@
 {
   "version": "repo-awareness-snapshot-v3",
   "captured_revision": {
-    "committed_at": "2026-10-02"
+    "committed_at": "2026-10-03"
   },
   "routes": {
     "modes": [
@@ -2264,6 +2264,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/README_CODE_REVIEW.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/operator-supabase-branching-cap.md",
         "section": "root",
         "catalogued": true
@@ -2327,6 +2332,11 @@
         "path": "docs/product/2026-09-19-doctor-compliance-and-feature-brainstorm.md",
         "section": "product",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/DEPLOYMENT_CHECKLIST.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/specs/2026-09-01-services-safety-provenance-design.md",
@@ -2484,6 +2494,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/PRODUCTION_DEPLOYMENT_GUIDE.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/evidence/rag-irrelevant-at-10-disposition.md",
         "section": "evidence",
         "catalogued": true
@@ -2559,8 +2574,18 @@
         "catalogued": true
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/MASTER_ISSUE_TRACKER.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/reconciliation-playbook.md",
         "section": "root",
+        "catalogued": true
+      },
+      {
+        "path": "docs/agents/native-startup/contextual-working-defaults.md",
+        "section": "agents",
         "catalogued": true
       },
       {
@@ -2617,6 +2642,11 @@
         "path": "docs/continuous-integration.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/COMPLETE_DOCUMENTATION_INDEX.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/plans/2026-08-21-developer-hub-phase-1-WORKLOG.md",
@@ -2722,6 +2752,11 @@
         "path": "docs/superpowers/rag-upgrade/cloud/plans/2026-08-20-rag-ingestion-reindex.md",
         "section": "superpowers",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/FINAL_ASSESSMENT.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/privacy-impact-assessment.md",
@@ -3144,6 +3179,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/ADDITIONAL_RECOMMENDATIONS.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/prompts/mode-aware-clinical-ask-codex-cloud-handover.md",
         "section": "prompts",
         "catalogued": true
@@ -3171,6 +3211,11 @@
       {
         "path": "docs/superpowers/specs/2026-08-23-outstanding-p2-p3-remediation-design.md",
         "section": "superpowers",
+        "catalogued": true
+      },
+      {
+        "path": "docs/docker-optimization-guide.md",
+        "section": "root",
         "catalogued": true
       },
       {
@@ -3274,6 +3319,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/agents/native-startup/external-skill-precedence.md",
+        "section": "agents",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/rag-upgrade/cloud/execution-order.md",
         "section": "superpowers",
         "catalogued": true
@@ -3299,8 +3349,18 @@
         "catalogued": true
       },
       {
+        "path": "docs/task-receipts.md",
+        "section": "root",
+        "catalogued": true
+      },
+      {
         "path": "docs/evidence/pr-3143-owner-signoff-confirmation.md",
         "section": "evidence",
+        "catalogued": false
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/EXTENDED_ISSUE_INVENTORY.md",
+        "section": "archive",
         "catalogued": false
       },
       {
@@ -3554,6 +3614,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/POST_FIX_CHECKLIST.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/decisions/2026-08-28-logo-tail-tips-clean-cut.md",
         "section": "decisions",
         "catalogued": false
@@ -3567,6 +3632,11 @@
         "path": "docs/audit/repo-wide-review-sweep-2026-07-19.md",
         "section": "audit",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/CODE_REVIEW_SUMMARY.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/redesign/03-decision-log.md",
@@ -3612,6 +3682,11 @@
         "path": "docs/codex/architecture-maintainability/README.md",
         "section": "codex",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/VERIFICATION_REQUIRED.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/brand/psychsift-logo.md",
@@ -3694,6 +3769,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/agents/native-startup/search-chrome-behaviour.md",
+        "section": "agents",
+        "catalogued": true
+      },
+      {
         "path": "docs/decisions/2026-09-25-record-sign-off-questions.md",
         "section": "decisions",
         "catalogued": false
@@ -3724,6 +3804,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/agents/native-startup/process-hardening.md",
+        "section": "agents",
+        "catalogued": true
+      },
+      {
         "path": "docs/decisions/2026-08-09-visual-baseline-off-pull-requests.md",
         "section": "decisions",
         "catalogued": false
@@ -3742,6 +3827,11 @@
         "path": "docs/verified-answer-incremental-delivery-design.md",
         "section": "root",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/READY_TO_DEPLOY.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/canonical/approval-matrix.md",
@@ -3824,6 +3914,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/QUICK_REFERENCE.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/superpowers/specs/2026-09-26-first-nations-mode-design.md",
         "section": "superpowers",
         "catalogued": false
@@ -3872,6 +3967,11 @@
         "path": "docs/care-plan/verification-log-2026-08-21.md",
         "section": "care-plan",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/COMPLETE_ISSUE_INVENTORY.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/plans/document-viewer-phase2-unified-chrome.md",
@@ -4069,6 +4169,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/agents/native-startup/publication-workflows.md",
+        "section": "agents",
+        "catalogued": true
+      },
+      {
         "path": "docs/superpowers/plans/2026-09-27-roster-mode-status.md",
         "section": "superpowers",
         "catalogued": true
@@ -4082,6 +4187,11 @@
         "path": "docs/redesign/01-audit.md",
         "section": "redesign",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/FINAL_VERDICT.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/superpowers/rag-upgrade/local/sdd-execution.md",
@@ -4107,6 +4217,11 @@
         "path": "docs/care-plan/reports/final-fix-report.md",
         "section": "care-plan",
         "catalogued": true
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/IMPLEMENTATION_COMPLETE.md",
+        "section": "archive",
+        "catalogued": false
       },
       {
         "path": "docs/deploy-corrector-public-titles.md",
@@ -4181,6 +4296,11 @@
       {
         "path": "docs/decisions/2026-08-24-answer-citation-marks-one-colour.md",
         "section": "decisions",
+        "catalogued": false
+      },
+      {
+        "path": "docs/archive/2026-10-agent-code-reviews/ABSOLUTE_FINAL_STATUS.md",
+        "section": "archive",
         "catalogued": false
       },
       {
@@ -4499,6 +4619,11 @@
         "catalogued": false
       },
       {
+        "path": "docs/projects/design-system-remediation.md",
+        "section": "projects",
+        "catalogued": false
+      },
+      {
         "path": "docs/decisions/2026-09-25-differential-badges-name-what-they-count.md",
         "section": "decisions",
         "catalogued": false
@@ -4541,6 +4666,11 @@
       {
         "path": "docs/design-system/sweep-fix-duration-display.md",
         "section": "design-system",
+        "catalogued": true
+      },
+      {
+        "path": "docs/agents/native-startup/commit-as-you-go.md",
+        "section": "agents",
         "catalogued": true
       },
       {
@@ -4609,6 +4739,11 @@
         "catalogued": true
       },
       {
+        "path": "docs/archive/2026-10-agent-code-reviews/DOCKERFILE_OPTIMIZATIONS.md",
+        "section": "archive",
+        "catalogued": false
+      },
+      {
         "path": "docs/codex/tests-quality-gates/README.md",
         "section": "codex",
         "catalogued": true
@@ -4670,6 +4805,9 @@
       },
       {
         "name": "product"
+      },
+      {
+        "name": "projects"
       },
       {
         "name": "prompts"
@@ -14808,6 +14946,14 @@
         "scope": "Packet B4 docling worker shadow mode (PR #2170): worker/shadow-extraction.ts, worker/python/shadow_docling_extract.py, worker/main.ts post-commit shadow call, worker/prerequisites.ts, worker/validate-runtime.ts, src/lib/env.ts B4 envs, Dockerfile.worker docling venv + models, railway.worker.json, docs (HANDOVER S7 row, worker runbook, ingestion state machine)",
         "outcome": "ingestion-worker-reviewer: approve-with-nits (docling_version regex end-anchored in this head; post-commit reclaim window disclosed in runbook). Shadow runs only after commitDocumentIndexGeneration, aggregate numbers-only record via existing metadata merge, no chunk/embedding/index/table-fact/document_index_quality writes, fail-open, bounded 120s/40 pages/1 process, rollback WORKER_DOCUMENT_EXTRACTOR_MODE=legacy; Gate B caveats carried in the PR body",
         "checks": "verify:pr-local heavy plan exit 0 (Test Files 673 passed | 2 skipped, Tests 7292 passed | 29 skipped, lint+typecheck+build green); focused vitest 9 files 117/117; python unittest 7/7; tsc exit 0; check:production-readiness schema green (only absent local secrets fail); pr-policy offline evaluate ok:true; Docker build not run locally (CI contract)"
+      },
+      {
+        "date": "2026-10-02",
+        "ref": "chore/production-docker-optimizations",
+        "head": "7a31170a88c6fab5e3032780128034c741c78342",
+        "scope": "production-docker-optimizations",
+        "outcome": "passed",
+        "checks": "tsc, vitest, eslint, format"
       },
       {
         "date": "2026-07-27",

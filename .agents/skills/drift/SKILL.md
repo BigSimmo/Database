@@ -1,6 +1,6 @@
 ---
 name: drift
-description: Detect Database schema, migration, type, environment, and generated-artifact drift offline, while keeping live Supabase comparison approval-gated. Use when schema sources disagree or deployment drift is suspected.
+description: Detect PsychSift schema, migration, type, environment, and generated-artifact drift offline, while keeping live Supabase comparison approval-gated. Use when schema sources disagree or deployment drift is suspected.
 ---
 
 # Drift

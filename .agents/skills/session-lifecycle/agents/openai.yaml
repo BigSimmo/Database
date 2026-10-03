@@ -1,6 +1,6 @@
 interface:
   display_name: "Task Alias"
-  short_description: "Compatibility alias for Database task lifecycle"
+  short_description: "Compatibility alias for PsychSift task lifecycle"
   default_prompt: "Use $session-lifecycle only as a compatibility alias for $task."
 policy:
   allow_implicit_invocation: false

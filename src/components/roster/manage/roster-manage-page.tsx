@@ -55,6 +55,7 @@ function ManagerTeam({ team, actorId }: { team: RosterTeam; actorId: string | nu
             shared={{ ...manageRound, onChanged: manageChanged }}
             decisionsInStrip={stripShown}
             actorId={actorId}
+            overview={overview.data}
           />
         ) : section === "cover" ? (
           <RosterCoverTab serviceId={serviceId} overview={overview.data} />

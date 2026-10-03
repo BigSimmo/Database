@@ -1,6 +1,6 @@
 ---
 name: review
-description: Review the current Database diff, branch, or explicitly approved PR target for high-confidence correctness, security, privacy, clinical, and reliability defects. Use for code review, diff review, or readiness feedback.
+description: Review the current PsychSift diff, branch, or explicitly approved PR target for high-confidence correctness, security, privacy, clinical, and reliability defects. Use for code review, diff review, or readiness feedback.
 ---
 
 # Review

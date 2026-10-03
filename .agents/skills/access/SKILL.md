@@ -1,6 +1,6 @@
 ---
 name: access
-description: Verify Database authentication, authorization, ownership, tenancy, grants, RLS, administrative boundaries, and conservative denial behavior. Use for auth changes, private routes, owner scope, cross-tenant risk, or permissions.
+description: Verify PsychSift authentication, authorization, ownership, tenancy, grants, RLS, administrative boundaries, and conservative denial behavior. Use for auth changes, private routes, owner scope, cross-tenant risk, or permissions.
 ---
 
 # Access
