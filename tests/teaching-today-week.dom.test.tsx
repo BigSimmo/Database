@@ -363,7 +363,7 @@ describe("Today", () => {
           : null,
     );
     render(<TeachingToday demoMode={false} />);
-    expect(await screen.findByTestId("teaching-state-error")).toBeInTheDocument();
+    expect(await screen.findByTestId("today-state-failed")).toBeInTheDocument();
     expect(screen.queryByTestId("teaching-state-empty")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByTestId("teaching-state-empty")).toBeInTheDocument();
