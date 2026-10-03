@@ -291,8 +291,8 @@ function ShiftCard({
   const endDay = perthDateOf(shift.endsAt);
   const today = perthDateOf(now);
   const startLine = running
-    ? `${name} until ${perthTimeOf(shift.endsAt)}`
-    : `${name} starts ${startDay === today ? "" : `${formatPerthDay(startDay)} `}${perthTimeOf(shift.startsAt)}`;
+    ? "On now"
+    : `Starts ${startDay === today ? "" : `${formatPerthDay(startDay)} `}${perthTimeOf(shift.startsAt)}`;
   const endLine = `Ends ${perthTimeOf(shift.endsAt)}${endDay === startDay ? "" : ` ${formatPerthDay(endDay)}`}`;
   const spoken = running
     ? `${name} on now, ${countdown.spoken} left. ${endLine}.`
@@ -307,7 +307,7 @@ function ShiftCard({
         <span className="sr-only">{spoken}</span>
         <CountdownRing fraction={fraction} figure={formatRingFigure(remaining)} />
         <span aria-hidden="true" className={cn(modeSecondaryText, "text-center")}>
-          {running ? "Time left" : name}
+          {name}
           <br />
           {startLine}
           <br />
