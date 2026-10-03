@@ -27,6 +27,7 @@ vi.mock("@/lib/supabase/client", () => ({ useAuthSession: () => auth }));
 import { MyDayCpdPace } from "@/components/my-day/modules/cpd-pace";
 import { MyDayNextShift } from "@/components/my-day/modules/next-shift";
 import { MyDayNextTeaching, useMyDayNextTeachingSession } from "@/components/my-day/modules/next-teaching";
+import { MyDayPriorityFlag } from "@/components/my-day/modules/priority-flag";
 import { MyDayQuickActions } from "@/components/my-day/modules/quick-actions";
 import { MyDayRestOfToday, restOfTodayChips } from "@/components/my-day/modules/rest-of-today";
 import { MyDayPinnedNumbers } from "@/components/my-day/modules/pinned-numbers";
@@ -317,5 +318,46 @@ describe("MyDayRestOfToday", () => {
     expect(restOfTodayChips({ items: [], roster: readyRoster, session: null, now: NOW })).toEqual([]);
     const { container } = render(<MyDayRestOfToday chips={[]} />);
     expect(container.innerHTML).toBe("");
+  });
+});
+
+describe("MyDayPriorityFlag", () => {
+  const base = { mode: "my-work", href: "/admin/renewals", due: "2026-09-25" } as const;
+
+  it("shows the top overdue item as one link, Date passed for Admin", () => {
+    render(
+      <MyDayPriorityFlag
+        items={[
+          { ...base, id: "a", title: "Registration date", severity: "overdue" },
+          { ...base, id: "b", title: "Other", severity: "soon" },
+        ]}
+        now={NOW}
+      />,
+    );
+    const link = screen.getByRole("link", { name: "Most important now: Registration date" });
+    expect(link.getAttribute("href")).toBe("/admin/renewals");
+    expect(link.textContent).toContain("ADM");
+    expect(link.textContent).toContain("Admin · Date passed · Yesterday");
+    expect(link.textContent).not.toMatch(/Expired/);
+    expect(screen.getAllByRole("link")).toHaveLength(1);
+  });
+
+  it("shows a soon item when nothing is overdue", () => {
+    render(
+      <MyDayPriorityFlag
+        items={[{ ...base, id: "s", mode: "cme", title: "Log routine", severity: "soon", due: "2026-09-28" }]}
+        now={NOW}
+      />,
+    );
+    expect(screen.getByTestId("my-day-module-priority").textContent).toContain("CPD · Due soon");
+  });
+
+  it("renders nothing for only info items, or none", () => {
+    const { container } = render(
+      <MyDayPriorityFlag items={[{ ...base, id: "i", title: "Later", severity: "info" }]} now={NOW} />,
+    );
+    expect(container.innerHTML).toBe("");
+    const empty = render(<MyDayPriorityFlag items={[]} now={NOW} />);
+    expect(empty.container.innerHTML).toBe("");
   });
 });

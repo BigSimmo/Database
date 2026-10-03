@@ -4,6 +4,7 @@ import { MyDayCpdPace } from "@/components/my-day/modules/cpd-pace";
 import { MyDayNextShift } from "@/components/my-day/modules/next-shift";
 import { MyDayNextTeaching, useMyDayNextTeachingSession } from "@/components/my-day/modules/next-teaching";
 import { MyDayPinnedNumbers } from "@/components/my-day/modules/pinned-numbers";
+import { MyDayPriorityFlag } from "@/components/my-day/modules/priority-flag";
 import { MyDayQuickActions } from "@/components/my-day/modules/quick-actions";
 import { MyDayRestOfToday, restOfTodayChips } from "@/components/my-day/modules/rest-of-today";
 import { useRosterShifts } from "@/components/roster/use-roster-shifts";
@@ -28,6 +29,7 @@ function MyDayModulesBody({ now, items }: { readonly now: Date; readonly items: 
   return (
     <>
       <MyDayNextShift state={roster} now={now} />
+      <MyDayPriorityFlag items={items} now={now} />
       <MyDayRestOfToday chips={chips} />
       <MyDayQuickActions />
       <MyDayPinnedNumbers />

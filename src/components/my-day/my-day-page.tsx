@@ -10,6 +10,7 @@ import { ModeModuleSkeleton } from "@/components/mode-kit/module-skeleton";
 import { ModeNotice } from "@/components/mode-kit/notice";
 import { ModeStateLabel } from "@/components/mode-kit/state-label";
 import { modeSecondaryText } from "@/components/mode-kit/type";
+import { MODE_BADGE } from "@/components/my-day/mode-badge";
 import { MyDayModules } from "@/components/my-day/modules/my-day-modules";
 import { useMyDayItems } from "@/components/my-day/use-my-day-items";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -41,14 +42,6 @@ export function useMyDayNow(nowProp?: Date): Date {
   }, [nowProp]);
   return nowProp ?? tick;
 }
-
-const MODE_BADGE: Record<MyDaySourceMode, string> = {
-  "on-call": "OC",
-  roster: "ROS",
-  cme: "CPD",
-  teaching: "TCH",
-  "my-work": "ADM",
-};
 
 function modeLabel(mode: MyDaySourceMode): string {
   return appModeDefinition(mode).label;
