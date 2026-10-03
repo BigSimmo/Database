@@ -48,7 +48,8 @@ function SignOffTodayList({ signOff }: { signOff: SignOffToday }) {
           <p className="text-sm text-[color:var(--text-muted)]">
             {plural(signOff.rows.length, "record", "records")} for one sitting, highest priority first: Mental Health
             Act forms, then the locally written differential notes, Formulation, Therapy, dictionary rewrites and
-            candidate sources.
+            candidate sources. Content about Aboriginal and Torres Strait Islander people is never listed: it needs
+            Aboriginal governance review, not a clinician sign-off.
           </p>
           <ol className="grid gap-2" data-testid="owner-panel-sign-off-today-list">
             {signOff.rows.map((row) => (
@@ -81,12 +82,12 @@ function SignOffTodayList({ signOff }: { signOff: SignOffToday }) {
         </>
       )}
       <p className="text-xs text-[color:var(--text-muted)]">
-        Run each command in a terminal in your own copy of the project, with your own name in place of the placeholder.
-        The tool shows the record&apos;s full text and asks its checklist before it records your name and today&apos;s
-        date; nothing on this page signs anything. The list moves on once a signed record reaches the live site. Step by
-        step: docs/clinical-sign-off-how-to.md. Of <span className="nums">{signOff.waiting}</span> records waiting,{" "}
-        <span className="nums">{signOff.signable}</span> can be signed with a tool today; the rest are on the full
-        queue.
+        Run each command in a terminal in your own copy of the project, typing your public name in quotes after
+        --reviewed-by. The tool shows the record&apos;s full text and asks its checklist before it records your name and
+        today&apos;s date; nothing on this page signs anything. The list moves on once a signed record reaches the live
+        site. Step by step: docs/clinical-sign-off-how-to.md. Of <span className="nums">{signOff.waiting}</span> records
+        waiting, <span className="nums">{signOff.signable}</span> can be signed with a tool today; the rest are on the
+        full queue.
       </p>
     </section>
   );

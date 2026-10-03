@@ -69,15 +69,15 @@ describe("pickSignOffToday", () => {
 });
 
 describe("signOffCommand", () => {
-  it("builds the clinical:review command with a placeholder reviewer", () => {
+  it("builds the clinical:review command ending at --reviewed-by, so the tool stops until a name is typed", () => {
     expect(signOffCommand({ script: "clinical:review", kind: "form", code: "3C" })).toBe(
-      'npm run clinical:review -- --write --kind form --code 3C --reviewed-by "<your public name>"',
+      'npm run clinical:review -- --write --kind form --code "3C" --reviewed-by',
     );
   });
 
   it("builds the therapy:review command by slug", () => {
     expect(signOffCommand({ script: "therapy:review", slug: "dbt" })).toBe(
-      'npm run therapy:review -- --write --slug dbt --reviewed-by "<your public name>"',
+      'npm run therapy:review -- --write --slug "dbt" --reviewed-by',
     );
   });
 });
@@ -106,7 +106,7 @@ describe("the real queue", () => {
     for (const item of today.rows) {
       expect(SIGN_OFF_TODAY_FAMILY_ORDER).toContain(item.family);
       expect(item.command).toContain("--write");
-      expect(item.command).toContain("<your public name>");
+      expect(item.command.endsWith("--reviewed-by")).toBe(true);
     }
   });
 
@@ -125,5 +125,46 @@ describe("the real queue", () => {
       expect(form.signOff).toMatchObject({ script: "clinical:review", kind: "form" });
       expect(form.title).toContain(`Form ${(form.signOff as { code: string }).code} `);
     }
+  });
+});
+
+/*
+ * The sign-off tools are the authority on what can be signed. Every command the
+ * page prints must name a record the tool itself would offer, or the owner is
+ * handed a command that is refused — or, worse, one for content that needs
+ * Aboriginal governance review rather than a clinician sign-off.
+ */
+describe("every printed command names a record the tool would accept", () => {
+  const rows = loadSignOffQueue()
+    .families.flatMap((item) => item.rows)
+    .filter((item) => item.signOff !== null);
+
+  it("clinical:review rows are in the tool's own waiting list", async () => {
+    const tool = await import("../scripts/review-clinical-record.mjs");
+    const contract = await import("../scripts/lib/clinical-record-review-contract.mjs");
+    const byKind = new Map<string, string[]>();
+    for (const item of rows) {
+      if (item.signOff?.script !== "clinical:review") continue;
+      byKind.set(item.signOff.kind, [...(byKind.get(item.signOff.kind) ?? []), item.signOff.code]);
+    }
+    expect(byKind.size).toBeGreaterThan(0);
+    for (const [kind, codes] of byKind) {
+      const loaded = tool.loadKindDocument(kind);
+      expect(loaded.status, kind).toBe("ok");
+      const records = contract.collectionOf(kind, loaded.document);
+      const waiting: string[] = contract.signOffQueue(kind, records, await tool.loadContext(kind, process.cwd()));
+      const refused = codes.filter((code) => !waiting.some((id) => contract.sameRecordId(id, code)));
+      expect(refused, `${kind} rows the tool would not offer`).toEqual([]);
+    }
+  });
+
+  it("therapy:review rows are in the tool's own walk queue", async () => {
+    const therapy = await import("../scripts/review-therapy.mjs");
+    const source = (await import("@/data/therapies-source.json")).default;
+    const walk = new Set(therapy.therapyWalkQueue(source));
+    const refused = rows
+      .flatMap((item) => (item.signOff?.script === "therapy:review" ? [item.signOff.slug] : []))
+      .filter((slug) => !walk.has(slug));
+    expect(refused).toEqual([]);
   });
 });

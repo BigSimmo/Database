@@ -25,7 +25,7 @@ const twoRows: SignOffToday = {
       href: "/forms/form-3c",
       signOff: { script: "clinical:review", kind: "form", code: "3C" },
       familyName: "WA Mental Health Act forms",
-      command: 'npm run clinical:review -- --write --kind form --code 3C --reviewed-by "<your public name>"',
+      command: 'npm run clinical:review -- --write --kind form --code "3C" --reviewed-by',
     },
     {
       family: "sources",
@@ -38,7 +38,7 @@ const twoRows: SignOffToday = {
       href: null,
       signOff: { script: "clinical:review", kind: "source", code: "src-1" },
       familyName: "Source acquisitions",
-      command: 'npm run clinical:review -- --write --kind source --code src-1 --reviewed-by "<your public name>"',
+      command: 'npm run clinical:review -- --write --kind source --code "src-1" --reviewed-by',
     },
   ],
 };
@@ -50,7 +50,7 @@ describe("Owner panel: Sign off today", () => {
     const items = within(list).getAllByRole("listitem");
     expect(items).toHaveLength(2);
     expect(items[0]).toHaveTextContent("Form 3C");
-    expect(items[0]).toHaveTextContent("--code 3C");
+    expect(items[0]).toHaveTextContent('--code "3C"');
     expect(items[1]).toHaveTextContent("--kind source");
   });
 

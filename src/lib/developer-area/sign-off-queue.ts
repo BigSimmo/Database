@@ -12,6 +12,8 @@ import {
 import { dictionarySenseDrafts } from "@/lib/dictionary-editorial/sense-drafts";
 import { isSpecifierClinicianReviewed, loadSpecifiersContent, specifierCatalogItems } from "@/lib/specifiers-content";
 import { therapyNeedsReview, therapyRecords } from "@/lib/therapies";
+import therapiesSource from "@/data/therapies-source.json";
+import { isIndigenousContent } from "@/lib/forms-reference-sign-off";
 import { acquisitionReviewQueue } from "@/lib/sources/acquisition-ledger";
 import { conceptReviewState, isFormulationSignedOffStatus } from "@/lib/formulation-review-status";
 import { formulationConcepts, formulationGuides } from "@/lib/formulation-concepts";
@@ -100,6 +102,36 @@ export type SignOffQueue = {
   total: number;
 };
 
+/**
+ * The tool for a record, or null when its content is Aboriginal, Torres Strait
+ * Islander or other Indigenous content. Owner rule (2026-09-26): such content
+ * needs Aboriginal governance review, not a clinician sign-off, and both sign-off
+ * tools refuse it. The whole record is checked, keys included, with a pattern at
+ * least as broad as the tools' own, so a false positive only withholds a command.
+ */
+function toolUnlessIndigenous(tool: SignOffTool, record: unknown): SignOffTool | null {
+  return isIndigenousContent([JSON.stringify(record)]) ? null : tool;
+}
+
+type TherapySourceRecord = { slug: string; references?: unknown };
+
+/**
+ * Therapy slugs `npm run therapy:review` will sign: the same rule as its
+ * `therapyWalkQueue` — the record lists references to check against and has no
+ * Indigenous content. Read from the source file because the index projection
+ * carries neither the references nor the full text.
+ */
+const signableTherapySlugs = new Set(
+  (therapiesSource as TherapySourceRecord[])
+    .filter((record) => {
+      const references = Array.isArray(record.references)
+        ? record.references.join(" ")
+        : String(record.references ?? "");
+      return references.trim().length > 0 && !isIndigenousContent([JSON.stringify(record)]);
+    })
+    .map((record) => record.slug),
+);
+
 function formsFamily(): SignOffFamily {
   const rows = loadFormCatalogDetails()
     .filter((details) => details.contentReviewStatus !== "reviewed")
@@ -123,7 +155,7 @@ function formsFamily(): SignOffFamily {
       // dead links to statutory forms — 3A, 4A, 4B and 4C — each landing on
       // "not in your registry" instead of the Mental Health Act guidance.
       href: formPageHref(details.form),
-      signOff: { script: "clinical:review", kind: "form", code: details.form },
+      signOff: toolUnlessIndigenous({ script: "clinical:review", kind: "form", code: details.form }, details),
     }));
   return {
     id: "wa-mha-forms",
@@ -161,7 +193,10 @@ function formulationFamily(): SignOffFamily {
       requires:
         "A clinician confirms the mechanism description, its fit indicators and its treatment implications against the cited sources.",
       href: `/formulation/${mechanism.id}`,
-      signOff: { script: "clinical:review", kind: "formulation-mechanism", code: mechanism.id },
+      signOff: toolUnlessIndigenous(
+        { script: "clinical:review", kind: "formulation-mechanism", code: mechanism.id },
+        mechanism,
+      ),
     }));
   const recordRows = [
     ...formulationConcepts.map((record) => ({ record, kind: "concept" as const })),
@@ -181,7 +216,10 @@ function formulationFamily(): SignOffFamily {
           : "A named clinician checks the concept's summary, qualifications and warnings against the cited sources and records themselves as reviewer.",
       // A held record 404s at /formulation/<id>, so it is listed unlinked.
       href: record.release === "published" ? `/formulation/${record.id}` : null,
-      signOff: { script: "clinical:review", kind: `formulation-${kind}`, code: record.id },
+      signOff: toolUnlessIndigenous(
+        { script: "clinical:review", kind: `formulation-${kind}`, code: record.id },
+        record,
+      ),
     }));
   return {
     id: "formulation",
@@ -219,7 +257,10 @@ function differentialsFamily(): SignOffFamily {
     // already signed, has nothing the owner can sign today.
     signOff:
       authored.has(record.slug) && !curatedReviewFor(record.slug)
-        ? { script: "clinical:review", kind: "differential", code: record.slug }
+        ? toolUnlessIndigenous({ script: "clinical:review", kind: "differential", code: record.slug }, [
+            record,
+            curatedDifferentials[record.slug as keyof typeof curatedDifferentials],
+          ])
         : null,
   }));
 
@@ -283,7 +324,11 @@ function dictionaryFamily(): SignOffFamily {
         ? "A clinician signs off the proposed wording after it is reconciled against the live definition by hash; nothing here applies automatically."
         : `A clinician confirms the verdict and the recorded disposition: ${review.disposition}`,
       href: `/dictionary/${review.entrySlug}`,
-      signOff: { script: "clinical:review", kind: "dictionary-rewrite", code: review.id },
+      // The tool signs only a drafted rewrite: a verdict with no proposed wording
+      // is "pending" there and refused, so it gets no command.
+      signOff: review.proposedWording
+        ? toolUnlessIndigenous({ script: "clinical:review", kind: "dictionary-rewrite", code: review.id }, review)
+        : null,
     }));
 
   return {
@@ -362,7 +407,7 @@ function therapyFamily(): SignOffFamily {
     requires:
       "A qualified clinician signs the record off; until then every Therapy Compass surface shows the awaiting-review badge rather than hiding the record.",
     href: `/therapy-compass/${record.slug}`,
-    signOff: { script: "therapy:review", slug: record.slug },
+    signOff: signableTherapySlugs.has(record.slug) ? { script: "therapy:review", slug: record.slug } : null,
   }));
   return {
     id: "therapy",
@@ -395,7 +440,7 @@ function sourcesFamily(): SignOffFamily {
     requires:
       "The owner verifies the source against the acquisition protocol before any clinical content may cite it; an adopted source with validationStatus unverified is already a ledger error.",
     href: null,
-    signOff: { script: "clinical:review", kind: "source", code: record.id },
+    signOff: toolUnlessIndigenous({ script: "clinical:review", kind: "source", code: record.id }, record),
   }));
   return {
     id: "sources",

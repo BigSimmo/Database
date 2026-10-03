@@ -57,14 +57,15 @@ export type SignOffToday = {
 };
 
 /**
- * The paste-ready sign-off command. The reviewer name is left as a placeholder
- * the tools themselves reject, so a command copied without editing signs nothing.
+ * The sign-off command, ending at `--reviewed-by` so the owner types their own
+ * name after it. Left without a value on purpose: both tools stop with an error
+ * when the name is missing, whereas a filled-in placeholder is not refused by
+ * every tool and could end up published as the reviewer.
  */
 export function signOffCommand(tool: SignOffTool): string {
-  const reviewer = '--reviewed-by "<your public name>"';
   return tool.script === "therapy:review"
-    ? `npm run therapy:review -- --write --slug ${tool.slug} ${reviewer}`
-    : `npm run clinical:review -- --write --kind ${tool.kind} --code ${tool.code} ${reviewer}`;
+    ? `npm run therapy:review -- --write --slug "${tool.slug}" --reviewed-by`
+    : `npm run clinical:review -- --write --kind ${tool.kind} --code "${tool.code}" --reviewed-by`;
 }
 
 export function pickSignOffToday(queue: SignOffQueue, size: number = SIGN_OFF_TODAY_SIZE): SignOffToday {
