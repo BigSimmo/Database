@@ -46,6 +46,8 @@ const preferredDomainsByMode: Record<AppModeId, readonly UniversalSearchDomain[]
   // First Nations owns its own in-page search box on every page (standard
   // §13), not the cross-entity universal search, so it contributes no domains.
   "first-nations": [],
+  // My Day searches nothing; it only gathers the owner's own items.
+  "my-day": [],
 };
 
 const modeByDomain: Record<UniversalSearchDomain, AppModeId> = {
