@@ -6,6 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { useAccountData } from "@/components/account-data-provider";
+import { AdminCredentialsWallet } from "@/components/admin/admin-credentials-wallet";
 import { AdminPinnedNumbers } from "@/components/admin/admin-pinned-numbers";
 import { AdminSetupSheet } from "@/components/admin/admin-setup-sheet";
 import { TodayAtAGlance } from "@/components/admin/today/today-at-a-glance";
@@ -165,6 +166,7 @@ export function AdminTodayPage({ now: nowProp }: { now?: Date } = {}) {
           <div className={TODAY_COLUMNS} data-testid="admin-today-ready">
             <div className={TODAY_COLUMN} data-testid="admin-today-column-act">
               {renewNext ? <TodayRenewNextCard item={renewNext} ownEntries={own} today={today} /> : null}
+              {isAuthenticated && !state.demoMode ? <AdminCredentialsWallet /> : null}
               <TodayAtAGlance counts={showCounts} />
               <AdminPinnedNumbers items={helpItems} testId="admin-today-pinned" />
               {needsYou ? <TodayNeedsYouModule needsYou={needsYou} today={today} /> : null}
