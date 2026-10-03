@@ -361,21 +361,23 @@ export const EMERGENCY_CLINICAL_PROTOCOLS: readonly EmergencyClinicalProtocol[] 
 ] as const;
 
 /**
- * Matches an input search query against the curated acute psychiatric emergency protocols.
- * Returns the matching protocol or null if no acute emergency pattern is present.
+ * Returns every distinct acute emergency protocol whose trigger matches the query, in
+ * catalogue order. A comparison query (for example two syndromes named together) must show
+ * every matched card so an ambiguous differential never looks resolved by one card alone.
+ */
+export function matchEmergencyClinicalProtocols(text: string | null | undefined): readonly EmergencyClinicalProtocol[] {
+  if (!text) return [];
+  const normalized = text.normalize("NFKC").trim();
+  if (normalized.length < 2) return [];
+  return EMERGENCY_CLINICAL_PROTOCOLS.filter((protocol) =>
+    protocol.triggerPatterns.some((pattern) => pattern.test(normalized)),
+  );
+}
+
+/**
+ * First matching protocol or null. Prefer `matchEmergencyClinicalProtocols` for display: this
+ * returns only the first match and so hides any other protocol the query also names.
  */
 export function matchEmergencyClinicalProtocol(text: string | null | undefined): EmergencyClinicalProtocol | null {
-  if (!text) return null;
-  const normalized = text.normalize("NFKC").trim();
-  if (normalized.length < 2) return null;
-
-  for (const protocol of EMERGENCY_CLINICAL_PROTOCOLS) {
-    for (const pattern of protocol.triggerPatterns) {
-      if (pattern.test(normalized)) {
-        return protocol;
-      }
-    }
-  }
-
-  return null;
+  return matchEmergencyClinicalProtocols(text)[0] ?? null;
 }

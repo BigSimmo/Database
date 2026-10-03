@@ -2,7 +2,11 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { EmergencyProtocolBanner } from "@/components/clinical-dashboard/emergency-protocol-banner";
-import { EMERGENCY_CLINICAL_PROTOCOLS, matchEmergencyClinicalProtocol } from "@/lib/emergency-protocols";
+import {
+  EMERGENCY_CLINICAL_PROTOCOLS,
+  matchEmergencyClinicalProtocol,
+  matchEmergencyClinicalProtocols,
+} from "@/lib/emergency-protocols";
 
 describe("matchEmergencyClinicalProtocol", () => {
   describe("Neuroleptic Malignant Syndrome", () => {
@@ -113,6 +117,18 @@ describe("matchEmergencyClinicalProtocol", () => {
       expect(matchEmergencyClinicalProtocol(null)).toBeNull();
       expect(matchEmergencyClinicalProtocol(undefined)).toBeNull();
     });
+  });
+});
+
+describe("matchEmergencyClinicalProtocols (comparison queries)", () => {
+  it("returns both protocols for a two-syndrome comparison, in catalogue order", () => {
+    const ids = matchEmergencyClinicalProtocols("NMS vs serotonin syndrome").map((p) => p.id);
+    expect(ids).toEqual(["EMERG-NMS", "EMERG-SEROTONIN-SYNDROME"]);
+  });
+
+  it("returns a single protocol for a single-condition query and none for no match", () => {
+    expect(matchEmergencyClinicalProtocols("lithium toxicity").map((p) => p.id)).toEqual(["EMERG-LITHIUM-TOXICITY"]);
+    expect(matchEmergencyClinicalProtocols("depression")).toEqual([]);
   });
 });
 
