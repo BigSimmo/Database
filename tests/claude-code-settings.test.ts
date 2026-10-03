@@ -37,10 +37,13 @@ const packageScripts: Record<string, string> = JSON.parse(readFileSync(join(repo
  * trailing `:*` (or ` --*`) makes it a prefix match. Anything else is not a Bash rule.
  */
 function bashRuleMatches(rule: string, command: string): boolean {
-  const parsed = /^Bash\((.*)\)$/.exec(rule);
+  // PowerShell rules (Josh's Windows sessions) carry the same commands, so they are held to the
+  // same provider boundary. Their prefix form is `<command> *`.
+  const parsed = /^(?:Bash|PowerShell)\((.*)\)$/.exec(rule);
   if (!parsed) return false;
   const pattern = parsed[1];
   if (pattern.endsWith(":*")) return command.startsWith(pattern.slice(0, -2));
+  if (pattern.endsWith(" *")) return command.startsWith(pattern.slice(0, -2));
   if (pattern.endsWith(" --*")) return command.startsWith(pattern.slice(0, -4));
   return command === pattern;
 }
