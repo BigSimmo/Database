@@ -32,26 +32,8 @@
     ]
   },
   "deploy": {
-    "healthcheckPath": "/health",
-    "healthcheckPort": 3001,
-    "healthcheckTimeout": 10,
     "restartPolicyType": "ALWAYS",
     "preDeployCommand": ["node /app/scripts/deploy/await-migrations.mjs"],
-    "startCommand": "node dist/worker/index.mjs",
-    "env": {
-      "WORKER_HEALTH_PORT": "3001"
-    },
-    "serviceConfig": {
-      "port": 3001,
-      "cpuRequest": "1000m",
-      "cpuLimit": "4000m",
-      "memoryRequest": "2Gi",
-      "memoryLimit": "4Gi"
-    },
-    "concurrency": {
-      "maxConcurrentRequests": 10,
-      "requestTimeoutSeconds": 3600
-    },
     "multiRegionConfig": {
       "asia-southeast1-eqsg3a": {
         "numReplicas": 2
