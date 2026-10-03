@@ -28,7 +28,7 @@ import {
 import { modeDisplayNumberText, modeNumberText } from "@/components/mode-kit/type";
 import { Button } from "@/components/ui/button";
 import { cn, eyebrowText } from "@/components/ui-primitives";
-import { SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
+import { isWorkedKind, SHIFT_KIND_LABEL } from "@/lib/roster/shift-kind";
 import type { RosterDisplayShift as OnCallShift } from "@/lib/roster/team/team-view";
 import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { summariseToday, type TodaySummary } from "@/lib/roster/today";
@@ -348,6 +348,15 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
         .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0],
     [shifts.shifts, now],
   );
+  // Recovery maths counts worked shifts only: leave and on-call-from-home are not duty hours.
+  const workedShifts = useMemo(() => shifts.shifts.filter((shift) => isWorkedKind(kindOf(shift))), [shifts.shifts]);
+  // The rest ring judges the next worked shift by that team's own minimum break, not a fixed 10 h.
+  const minRestHours = useMemo(() => {
+    const next = [...workedShifts]
+      .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))
+      .find((shift) => Date.parse(shift.startsAt) > now.getTime());
+    return (next?.serviceId ? rulesByTeam.get(next.serviceId)?.minBreakHours : undefined) ?? undefined;
+  }, [workedShifts, rulesByTeam, now]);
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
     [shifts.shifts],
@@ -446,7 +455,12 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onAddShift={() => setAddView("shift")}
                 cues={cues}
               />
-              <RosterFatigueRestRing shifts={shifts.shifts} now={now} sample={shifts.sample} />
+              <RosterFatigueRestRing
+                shifts={workedShifts}
+                now={now}
+                sample={shifts.sample}
+                minRestHours={minRestHours}
+              />
               {coverShift?.serviceId && coverShift.assignmentId && actorId ? (
                 <ModeGroupedList testId="roster-today-cover">
                   <RosterWhoCanCover
