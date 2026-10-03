@@ -11,7 +11,7 @@ import {
   SIGN_OFF_TODAY_SIZE,
   pickSignOffToday,
   signOffCommand,
-  signOffMyDayItem,
+  signOffTodayItem,
 } from "@/lib/developer-area/sign-off-today";
 
 function row(family: SignOffRow["family"], id: string, signable: boolean): SignOffRow {
@@ -82,18 +82,18 @@ describe("signOffCommand", () => {
   });
 });
 
-describe("signOffMyDayItem", () => {
+describe("signOffTodayItem", () => {
   it("is one count line linking to the owner panel, never record titles", () => {
     const today = pickSignOffToday(queue([family("wa-mha-forms", [row("wa-mha-forms", "3C", true)])]));
-    const item = signOffMyDayItem(today);
-    expect(item).toMatchObject({ id: "sign-off:today", severity: "info", due: null });
+    const item = signOffTodayItem(today);
+    expect(item).toMatchObject({ id: "my-work:sign-off:today", mode: "my-work", severity: "info", due: null });
     expect(item?.title).toBe("1 clinical record to sign off today");
     expect(item?.title).not.toContain("Title 3C");
     expect(item?.href.startsWith("/mockups/development")).toBe(true);
   });
 
   it("is absent when nothing can be signed", () => {
-    expect(signOffMyDayItem(pickSignOffToday(queue([])))).toBeNull();
+    expect(signOffTodayItem(pickSignOffToday(queue([])))).toBeNull();
   });
 });
 

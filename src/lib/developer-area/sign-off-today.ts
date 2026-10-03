@@ -1,3 +1,5 @@
+import type { AppModeId } from "@/lib/app-modes";
+
 import type { SignOffFamilyId, SignOffQueue, SignOffRow, SignOffTool } from "./sign-off-queue";
 
 /**
@@ -90,14 +92,17 @@ export function pickSignOffToday(queue: SignOffQueue, size: number = SIGN_OFF_TO
 /**
  * The one My Day line for the sign-off queue: a count with a link to the owner
  * panel, never the records themselves, so a shared list never fills with
- * clinical titles. Structurally compatible with My Day's item shape
- * (`src/lib/my-day/model.ts` on the My Day branch) apart from `mode`, which that
- * branch's mode list does not have yet; the integrator adds "sign-off" there.
- * Owner-only: the caller must show it only to the owner, as the panel does.
+ * clinical titles. Owner-only: the caller must show it only to the owner, as the
+ * panel does.
+ *
+ * Same fields and id convention (`<mode>:<kind>:<record id>`) as the shared
+ * `TodayItem` in `src/lib/today/today-item.ts` (PR #3224, not yet on main), so it
+ * can be passed straight to that type once it lands. The owning mode is
+ * `my-work`, the owner's admin area, which is where the panel lives.
  */
-export type SignOffMyDayItem = {
-  readonly id: "sign-off:today";
-  readonly mode: "sign-off";
+export type SignOffTodayItem = {
+  readonly id: "my-work:sign-off:today";
+  readonly mode: AppModeId;
   readonly title: string;
   readonly detail: string;
   readonly due: null;
@@ -107,12 +112,12 @@ export type SignOffMyDayItem = {
 
 export const SIGN_OFF_TODAY_HREF = "/mockups/development#developer-hub-today";
 
-export function signOffMyDayItem(today: SignOffToday): SignOffMyDayItem | null {
+export function signOffTodayItem(today: SignOffToday): SignOffTodayItem | null {
   if (today.rows.length === 0) return null;
   const count = today.rows.length;
   return {
-    id: "sign-off:today",
-    mode: "sign-off",
+    id: "my-work:sign-off:today",
+    mode: "my-work",
     title: `${count} clinical ${count === 1 ? "record" : "records"} to sign off today`,
     detail: `${today.signable} you can sign with the local tool, of ${today.waiting} waiting`,
     due: null,
