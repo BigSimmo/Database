@@ -10,7 +10,12 @@ import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
 export type HoursShift = { readonly startsAt: string; readonly endsAt: string; readonly kind: ShiftKind };
 /** One extra-time record from the shared record Admin owns. `endedAt` is null while it is still running. */
-export type HoursExtra = { readonly startedAt: string; readonly endedAt: string | null };
+export type HoursExtra = {
+  readonly startedAt: string;
+  readonly endedAt: string | null;
+  /** The record's kind in `extra_time_records`; one logged here is "stayed_late". */
+  readonly kind?: "stayed_late" | "called_in";
+};
 
 export type HoursSummary = {
   /** Perth dates, inclusive. */
