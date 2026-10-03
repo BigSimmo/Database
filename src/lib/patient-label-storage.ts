@@ -193,10 +193,17 @@ export function patientLabelsExpireAt(now: number = Date.now()): number | null {
   return typeof stamp === "object" ? stamp.expiresAt : null;
 }
 
-function usableShiftEnd(shiftEndsAt: Date | string | number | null | undefined, now: number): number | null {
+/**
+ * The roster end to use, `null` when there is none worth trusting (absent,
+ * unreadable, or implausibly far away), or `"ended"` when the shift it names
+ * is already over — a label written then belongs to no shift and is refused.
+ */
+function usableShiftEnd(shiftEndsAt: Date | string | number | null | undefined, now: number): number | null | "ended" {
   if (shiftEndsAt === null || shiftEndsAt === undefined) return null;
   const at = shiftEndsAt instanceof Date ? shiftEndsAt.getTime() : new Date(shiftEndsAt).getTime();
-  if (!Number.isFinite(at) || at <= now || at - now > PATIENT_LABEL_MAX_LIFETIME_MS) return null;
+  if (!Number.isFinite(at)) return null;
+  if (at <= now) return "ended";
+  if (at - now > PATIENT_LABEL_MAX_LIFETIME_MS) return null;
   return at;
 }
 
@@ -209,7 +216,8 @@ export type WritePatientLabelsOptions = {
 
 /**
  * Store one label store's value (the caller serialises it). Returns false, and
- * stores nothing, when the expiry stamp could not be written first.
+ * stores nothing, when the expiry stamp could not be written first or when the
+ * rostered shift the caller names has already ended.
  */
 export function writePatientLabels(name: string, value: string, options: WritePatientLabelsOptions = {}): boolean {
   const key = patientLabelStorageKey(name);
@@ -219,8 +227,10 @@ export function writePatientLabels(name: string, value: string, options: WritePa
   if (!local || !target) return false;
 
   clearExpiredPatientLabels(now);
-  const existing = readStamp();
   const rosterEnd = usableShiftEnd(options.shiftEndsAt, now);
+  // An autosave as the rostered shift ends must not start a fresh 12-hour stamp.
+  if (rosterEnd === "ended") return false;
+  const existing = readStamp();
   const stamp: ExpiryStamp =
     typeof existing === "object"
       ? {

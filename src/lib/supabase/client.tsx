@@ -326,6 +326,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // clear via sign-out / user-id change / expiry handlers below.
           clearRecentQueries();
           clearSignedUrlCache();
+          // A stored session the auth server rejected on boot is a session that
+          // expired while the page was closed. Patient labels must not outlive it,
+          // even before the shift ends; the guest stores above are kept as before.
+          if (sessionResult.data.session && !resolved.session) clearPatientLabels("account-transition");
           if (callbackError) {
             setError(callbackError);
             setNotice(null);

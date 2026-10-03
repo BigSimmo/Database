@@ -187,11 +187,19 @@ describe("writing and reading labels", () => {
     expect(patientLabelsExpireAt(T0 + 2 * HOUR)).toBe(T0 + 9 * HOUR);
   });
 
-  it("ignores a roster end in the past, too far away, or unreadable", () => {
-    for (const shiftEndsAt of [T0 - HOUR, T0 + PATIENT_LABEL_MAX_LIFETIME_MS + HOUR, "not a date"]) {
+  it("ignores a roster end too far away or unreadable", () => {
+    for (const shiftEndsAt of [T0 + PATIENT_LABEL_MAX_LIFETIME_MS + HOUR, "not a date"]) {
       window.localStorage.clear();
       writePatientLabels("timers", "x", { now: T0, shiftEndsAt });
       expect(patientLabelsExpireAt(T0)).toBe(T0 + PATIENT_LABEL_FALLBACK_LIFETIME_MS);
+    }
+  });
+
+  it("refuses a write once the rostered shift it names has ended, rather than starting a fresh stamp", () => {
+    for (const shiftEndsAt of [T0, T0 - HOUR]) {
+      window.localStorage.clear();
+      expect(writePatientLabels("timers", "Bed 4", { now: T0, shiftEndsAt })).toBe(false);
+      expect(labelKeyCount()).toBe(0);
     }
   });
 
@@ -420,6 +428,37 @@ describe("the auth provider", () => {
       ).toBe(true);
     });
   }
+
+  it("clears patient labels when boot rejects a stored session, and keeps them for a plain guest boot", async () => {
+    const reject = () => {
+      authApi.getUser.mockResolvedValueOnce({
+        data: { user: null },
+        error: Object.assign(new Error("invalid JWT"), { status: 401, name: "AuthApiError" }),
+      } as never);
+    };
+    writePatientLabels("timers", "Bed 4");
+    reject();
+    render(
+      <AuthProvider>
+        <AuthActions />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).not.toHaveTextContent("loading"));
+    expect(screen.getByTestId("status")).not.toHaveTextContent("authenticated");
+    expect(labelKeyCount()).toBe(0);
+
+    cleanup();
+    writePatientLabels("timers", "Bed 4");
+    authApi.getUser.mockResolvedValueOnce({ data: { user: null }, error: null } as never);
+    authApi.getSession.mockResolvedValueOnce({ data: { session: null }, error: null } as never);
+    render(
+      <AuthProvider>
+        <AuthActions />
+      </AuthProvider>,
+    );
+    await waitFor(() => expect(screen.getByTestId("status")).toHaveTextContent("signed_out"));
+    expect(readPatientLabels("timers")).toBe("Bed 4");
+  });
 
   it("runs the end-of-shift watcher on mount, signed in or not", async () => {
     writePatientLabels("timers", "Bed 4", { now: Date.now() - 13 * HOUR });
