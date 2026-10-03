@@ -10,6 +10,7 @@ import { modeModuleSurface } from "@/components/mode-kit/recipes";
 import { perthDateKey, perthTime, shortDayLabel } from "@/components/teaching/teaching-dates";
 import { defaultCpdHours } from "@/components/teaching/log-to-cpd-sheet";
 import { TeachingCpdBridgeSheet } from "@/components/teaching/teaching-cpd-bridge-sheet";
+import { withUnit } from "@/components/teaching/teaching-number";
 import { TeachingStateNotice } from "@/components/teaching/teaching-states";
 import { useSessionDetail } from "@/components/teaching/use-session-detail";
 import { useTeachingNow } from "@/components/teaching/use-teaching-now";
@@ -177,6 +178,18 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
         {state.kind === "done" ? (
           <>
             <p className="text-sm text-[color:var(--text-heading)]">{attendanceLabels[state.mark.method]}</p>
+            {sessionDetail.status === "error" ||
+            sessionDetail.status === "offline" ||
+            sessionDetail.status === "signed-out" ? (
+              <div className="grid gap-2" role="alert" data-testid="teaching-scan-end-time-error">
+                <ModeNotice tone="warning">
+                  The session end time could not be loaded, so CPD logging is on hold.
+                </ModeNotice>
+                <Button variant="secondary" block onClick={() => sessionDetail.retry()}>
+                  Try again
+                </Button>
+              </div>
+            ) : null}
             {!hasEnded && sessionEndsAt ? (
               <p className="text-xs text-[color:var(--text-muted)]">
                 You can log this session to CPD once it has ended at {perthTime(sessionEndsAt)}.
@@ -189,7 +202,7 @@ export function TeachingScanLanding({ token }: { token: string | null }) {
               onClick={() => setCpdBridgeOpen(true)}
               data-testid="teaching-scan-cpd-bridge-open"
             >
-              {hasEnded ? `Log ${cpdHours.toFixed(1)} h to CPD` : "Available once session ends"}
+              {hasEnded ? `Log ${withUnit(cpdHours.toFixed(1), "h")} to CPD` : "Available once session ends"}
             </Button>
             <Link
               href={`/teaching/session/${state.mark.occurrenceId}`}

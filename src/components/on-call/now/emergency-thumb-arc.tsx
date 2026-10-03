@@ -61,19 +61,24 @@ export function EmergencyThumbArc({
   }, [open]);
 
   const emergencyDial = pins[0]?.mobileDial ?? pins[0]?.dial;
-  const emergencyNumber = (emergencyDial && "display" in emergencyDial ? emergencyDial.display : null) ?? "55";
+  // No reviewed pin, no emergency row: a default "55" would be invented, and is only valid from a hospital phone.
+  const emergencyNumber = emergencyDial && "display" in emergencyDial ? emergencyDial.display : null;
 
   // Priority contacts: Code Black / Emergency Pin -> Switchboard -> Consultant -> Med Reg
   // Contacts without a verified number are omitted to prevent dialing fabricated fallback numbers in emergencies.
   const defaultActions: EmergencyThumbAction[] = [
-    {
-      id: "emergency-code-black",
-      label: "Code Black / Emergency",
-      role: "Immediate Emergency",
-      number: emergencyNumber,
-      icon: ShieldAlert,
-      urgent: true,
-    },
+    ...(emergencyNumber
+      ? [
+          {
+            id: "emergency-code-black",
+            label: "Code Black / Emergency",
+            role: "Immediate Emergency",
+            number: emergencyNumber,
+            icon: ShieldAlert,
+            urgent: true,
+          },
+        ]
+      : []),
     ...(switchboardNumber
       ? [
           {
@@ -143,14 +148,13 @@ export function EmergencyThumbArc({
           <ul className="flex flex-col gap-1.5" role="list">
             {defaultActions.map((action) => {
               const Icon = action.icon;
-              const tel =
-                onCallTelHref(action.number) ??
-                (action.number.startsWith("tel:") ? action.number : `tel:${action.number.replace(/\s+/g, "")}`);
+              // Hospital-only extensions and pager IDs get no mobile dial link (onCallTelHref refuses them).
+              const tel = onCallTelHref(action.number);
+              const Row = tel ? "a" : "div";
               return (
                 <li key={action.id} className="contents" role="listitem">
-                  <a
-                    href={tel}
-                    onClick={triggerHaptic}
+                  <Row
+                    {...(tel ? { href: tel, onClick: triggerHaptic } : {})}
                     data-testid={`${testId}-action-${action.id}`}
                     className={cn(
                       "flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors active:scale-98",
@@ -175,10 +179,13 @@ export function EmergencyThumbArc({
                       <span className="truncate text-sm font-medium leading-tight">{action.label}</span>
                       <span className="truncate text-2xs text-[color:var(--text-muted)]">
                         {action.role} · {action.number}
+                        {tel ? "" : " · From a hospital phone"}
                       </span>
                     </div>
-                    <Phone className="size-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
-                  </a>
+                    {tel ? (
+                      <Phone className="size-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
+                    ) : null}
+                  </Row>
                 </li>
               );
             })}

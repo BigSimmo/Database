@@ -151,7 +151,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
                 aria-label={`${c.label}: ${c.realValue || "Tap to set"}`}
                 onClick={() => void handleCopy(c.key, c.realValue)}
                 className={cn(
-                  "relative flex min-h-16 flex-col justify-between rounded-xl border p-2.5 text-left transition-colors active:scale-97",
+                  "relative flex min-h-16 flex-col justify-between rounded-xl border p-2.5 text-left transition-colors",
                   hasValue
                     ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] hover:border-[color:var(--command)] hover:bg-[color:var(--surface-inset)]"
                     : "border-dashed border-[color:var(--border-dashed)] bg-transparent text-[color:var(--text-muted)]",
@@ -188,7 +188,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
                     role="status"
                     className="absolute inset-0 grid place-items-center rounded-xl bg-[color:var(--surface-raised)]/95 shadow-sm backdrop-blur-xs animate-in fade-in duration-[var(--duration-quick)]"
                   >
-                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--danger-solid)] px-2 py-0.5 text-2xs font-medium text-[color:var(--danger-solid-contrast)] shadow-xs">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-[color:var(--border)] bg-[color:var(--surface-raised)] px-2 py-0.5 text-2xs font-medium text-[color:var(--text-heading)] shadow-xs">
                       Copy failed
                     </span>
                   </div>
@@ -221,7 +221,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
           </p>
 
           {saveError && (
-            <p role="alert" className="text-xs font-medium text-[color:var(--danger-text)]">
+            <p role="alert" className="text-xs font-medium text-[color:var(--text-heading)]">
               {saveError}
             </p>
           )}

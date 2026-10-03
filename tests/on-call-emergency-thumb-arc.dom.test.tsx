@@ -59,4 +59,20 @@ describe("EmergencyThumbArc", () => {
     expect(screen.queryByTestId("on-call-emergency-thumb-arc-action-on-call-consultant")).toBeNull();
     expect(screen.queryByTestId("on-call-emergency-thumb-arc-action-med-reg")).toBeNull();
   });
+
+  it("offers no emergency row without a reviewed pin and never dials an invented 55", () => {
+    render(<EmergencyThumbArc switchboardNumber="08 9224 2244" />);
+    fireEvent.click(screen.getByTestId("on-call-emergency-thumb-arc-trigger"));
+    expect(screen.queryByTestId("on-call-emergency-thumb-arc-action-emergency-code-black")).toBeNull();
+    expect(document.querySelector('a[href="tel:55"]')).toBeNull();
+  });
+
+  it("shows a hospital-only extension as text with no dial link", () => {
+    const pin = { mobileDial: null, dial: { kind: "extension", display: "55", tel: null } } as never;
+    render(<EmergencyThumbArc pins={[pin]} />);
+    fireEvent.click(screen.getByTestId("on-call-emergency-thumb-arc-trigger"));
+    const row = screen.getByTestId("on-call-emergency-thumb-arc-action-emergency-code-black");
+    expect(row.getAttribute("href")).toBeNull();
+    expect(row.textContent).toContain("From a hospital phone");
+  });
 });

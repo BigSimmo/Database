@@ -66,4 +66,40 @@ describe("RosterFatigueRestRing", () => {
     const { container } = render(<RosterFatigueRestRing shifts={shifts} now={now} sample={true} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("treats back-to-back shifts as a breach with no recovery", () => {
+    const now = new Date("2026-10-04T12:00:00+08:00");
+    const shifts = [
+      { id: "s1", startsAt: "2026-10-04T08:00:00+08:00", endsAt: "2026-10-04T16:00:00+08:00" },
+      { id: "s2", startsAt: "2026-10-04T16:00:00+08:00", endsAt: "2026-10-05T00:00:00+08:00" },
+    ];
+    const result = calculateRestTurnaround(shifts, now);
+    expect(result.totalTurnaroundMs).toBe(0);
+    expect(result.isBreach).toBe(true);
+    render(<RosterFatigueRestRing shifts={shifts} now={now} />);
+    expect(screen.queryByText(/10 h safe recovery interval/i)).toBeNull();
+  });
+
+  it("uses the overlapping preceding shift rather than an older safe gap", () => {
+    const now = new Date("2026-10-04T09:00:00+08:00");
+    const shifts = [
+      { id: "s0", startsAt: "2026-10-01T08:00:00+08:00", endsAt: "2026-10-01T16:00:00+08:00" },
+      { id: "s1", startsAt: "2026-10-04T08:00:00+08:00", endsAt: "2026-10-04T18:00:00+08:00" },
+      { id: "s2", startsAt: "2026-10-04T16:00:00+08:00", endsAt: "2026-10-05T00:00:00+08:00" },
+    ];
+    const result = calculateRestTurnaround(shifts, now);
+    expect(result.previousShift?.id).toBe("s1");
+    expect(result.isBreach).toBe(true);
+  });
+
+  it("counts rest from the end of the shift still in progress", () => {
+    const now = new Date("2026-10-04T12:00:00+08:00"); // four hours into a shift that ends 16:00
+    const shifts = [
+      { id: "s1", startsAt: "2026-10-04T08:00:00+08:00", endsAt: "2026-10-04T16:00:00+08:00" },
+      { id: "s2", startsAt: "2026-10-05T00:00:00+08:00", endsAt: "2026-10-05T08:00:00+08:00" },
+    ];
+    const result = calculateRestTurnaround(shifts, now);
+    expect(result.restRemainingMs).toBe(8 * 60 * 60 * 1000);
+    expect(result.totalTurnaroundMs).toBe(8 * 60 * 60 * 1000);
+  });
 });

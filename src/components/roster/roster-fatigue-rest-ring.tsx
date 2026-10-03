@@ -35,10 +35,11 @@ export function calculateRestTurnaround(
     return { restRemainingMs: null, totalTurnaroundMs: null, isBreach: false, nextShift: null, previousShift: null };
   }
 
-  // Find shift immediately preceding nextShift
+  // The shift immediately before nextShift: the latest one to start before it, even if it overlaps
+  // (an overlap is a zero-rest breach, not a reason to fall back to an older, safe-looking gap).
   const nextStart = Date.parse(nextShift.startsAt);
   const previousShift =
-    [...sorted].reverse().find((s) => Date.parse(s.endsAt) <= nextStart && s.id !== nextShift.id) ?? null;
+    [...sorted].reverse().find((s) => s.id !== nextShift.id && Date.parse(s.startsAt) < nextStart) ?? null;
 
   if (!previousShift) {
     return { restRemainingMs: null, totalTurnaroundMs: null, isBreach: false, nextShift, previousShift: null };
@@ -46,8 +47,10 @@ export function calculateRestTurnaround(
 
   const previousEnd = Date.parse(previousShift.endsAt);
   const totalTurnaroundMs = Math.max(0, nextStart - previousEnd);
-  const restRemainingMs = Math.max(0, nextStart - at);
-  const isBreach = totalTurnaroundMs > 0 && totalTurnaroundMs < MIN_SAFE_REST_MS;
+  // Rest only begins when the preceding shift ends, so while it is still running its remainder
+  // is duty time, not rest.
+  const restRemainingMs = Math.max(0, nextStart - Math.max(at, previousEnd));
+  const isBreach = totalTurnaroundMs < MIN_SAFE_REST_MS;
 
   return { restRemainingMs, totalTurnaroundMs, isBreach, nextShift, previousShift };
 }
