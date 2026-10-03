@@ -1,5 +1,16 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
+const mocks = vi.hoisted(() => ({
+  createServer: vi.fn(),
+  probe: vi.fn(),
+  execFile: vi.fn(),
+}));
+vi.mock("node:http", () => ({ createServer: mocks.createServer }));
+vi.mock("node:child_process", () => ({ execFile: mocks.execFile }));
+vi.mock("../src/lib/supabase/admin", () => ({ createAdminClient: vi.fn(() => ({})) }));
+vi.mock("../src/lib/supabase/health", () => ({ probeSupabaseHealth: mocks.probe }));
+
 import {
+  createHealthCheckServer,
   computeOverallHealthStatus,
   recordClaimProcessed,
   getLastClaimProcessedAt,
@@ -71,5 +82,54 @@ describe("worker health status computation", () => {
 
     resetHealthStateForTests();
     expect(getLastClaimProcessedAt()).toBeNull();
+  });
+});
+
+describe("worker health HTTP status mapping", () => {
+  async function requestHealth() {
+    let handler: (req: unknown, res: unknown) => Promise<void> = async () => {};
+    mocks.createServer.mockImplementation((h) => {
+      handler = h;
+      return {};
+    });
+    createHealthCheckServer();
+    const res = { writeHead: vi.fn(), end: vi.fn() };
+    await handler({ method: "GET", url: "/health" }, res);
+    return { code: res.writeHead.mock.calls[0][0] as number, body: JSON.parse(res.end.mock.calls[0][0]) };
+  }
+
+  beforeEach(() => {
+    resetHealthStateForTests();
+    mocks.probe.mockReset().mockResolvedValue(undefined);
+    mocks.execFile.mockReset().mockImplementation((_bin, _args, _opts, cb) => cb(null));
+  });
+
+  it("returns 200 ok when dependencies are healthy", async () => {
+    const { code, body } = await requestHealth();
+    expect(code).toBe(200);
+    expect(body.status).toBe("ok");
+  });
+
+  it("returns 200 degraded when only the last claim is stale", async () => {
+    setLastClaimProcessedAtForTests(new Date(Date.now() - 10 * 60 * 1000));
+    const { code, body } = await requestHealth();
+    expect(code).toBe(200);
+    expect(body.status).toBe("degraded");
+  });
+
+  it("returns 503 error when Supabase fails, even with a stale claim", async () => {
+    mocks.probe.mockRejectedValue(new Error("down"));
+    setLastClaimProcessedAtForTests(new Date(Date.now() - 10 * 60 * 1000));
+    const { code, body } = await requestHealth();
+    expect(code).toBe(503);
+    expect(body.status).toBe("error");
+    expect(body.checks.supabase.status).toBe("error");
+  });
+
+  it("returns 503 error when the Python venv is unavailable", async () => {
+    mocks.execFile.mockImplementation((_bin, _args, _opts, cb) => cb(new Error("ENOENT")));
+    const { code, body } = await requestHealth();
+    expect(code).toBe(503);
+    expect(body.checks.python_venv.status).toBe("error");
   });
 });
