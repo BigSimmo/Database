@@ -297,6 +297,18 @@ const searchCommandSurfaceByMode: Partial<Record<AppModeId, SearchCommandSurface
     crossModes: ["on-call", "services", "forms"],
     remoteSearchEnabled: false,
   },
+  "my-day": {
+    // My Day gathers the owner's own records from other modes, already in the
+    // browser, so its command panel must not query the remote index.
+    examples: [...sharedHomePresentation["my-day"].suggestions],
+    suggestions: [
+      { text: "overdue", meta: "My Day" },
+      { text: "due soon", meta: "My Day" },
+      { text: "coming up", meta: "My Day" },
+    ],
+    crossModes: ["on-call", "roster", "my-work"],
+    remoteSearchEnabled: false,
+  },
 };
 
 export function searchCommandSurfaceConfig(modeId: AppModeId): SearchCommandSurfaceConfig | null {
