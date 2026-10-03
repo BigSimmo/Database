@@ -170,7 +170,7 @@ describe("MyDayDashboard cards", () => {
       />,
     );
     const card = screen.getByTestId("my-day-card-shift");
-    expect(card.textContent).toContain("Time left");
+    expect(card.textContent).toContain("On now");
     expect(card.textContent).toContain("Day shift on now, 4 hours 20 minutes left.");
     // A shift already running is the Shift card's, not Up next's.
     expect(screen.queryByTestId("my-day-card-up-next")).toBeNull();
