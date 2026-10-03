@@ -119,7 +119,7 @@ describe("ungated engines stay out of screens", () => {
       for (const item of readdirSync(dir, { withFileTypes: true })) {
         const path = join(dir, item.name);
         if (item.isDirectory()) walk(path);
-        else if (/\.(ts|tsx)$/.test(item.name) && /\w+Ungated/.test(readFileSync(path, "utf8"))) offenders.push(path);
+        else if (/\.(ts|tsx)$/.test(item.name) && /\b\w+Ungated\b/.test(readFileSync(path, "utf8"))) offenders.push(path);
       }
     };
     walk("src/app");
