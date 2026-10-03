@@ -36,16 +36,20 @@ export function myDayModeLabel(mode: MyDaySourceMode): string {
 /**
  * One My Day row, shared by the page, the dashboard and the home card. An
  * `action` (the dashboard's "Later") sits beside the link, never inside it,
- * and takes the place of the trailing state label.
+ * and takes the place of the trailing state label. `compact` (the dashboard's
+ * "Needs you") drops the detail line: there it only repeated the state the
+ * subtitle already gives, so each row is two lines.
  */
 export function MyDayItemRow({
   item,
   now,
   action,
+  compact = false,
 }: {
   readonly item: MyDayItem;
   readonly now: Date;
   readonly action?: ReactNode;
+  readonly compact?: boolean;
 }) {
   const due = formatMyDayDue(item.due, now);
   // The state word is part of the link's own text, so it never relies on colour or a dot.
@@ -70,7 +74,9 @@ export function MyDayItemRow({
       title={item.title}
       subtitle={subtitle}
       meta={
-        item.detail ? <span className={cn(modeSecondaryText, "break-words leading-5")}>{item.detail}</span> : undefined
+        item.detail && !compact ? (
+          <span className={cn(modeSecondaryText, "break-words leading-5")}>{item.detail}</span>
+        ) : undefined
       }
       href={item.href}
       testId={`my-day-item-${item.id}`}

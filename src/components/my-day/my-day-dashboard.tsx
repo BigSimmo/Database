@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowLeftRight, BookPlus, Phone, Plus, Sunrise, Users, X, type LucideIcon } from "lucide-react";
+import { BookPlus, Phone, Plus, Sunrise, Users, X, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { Fragment, useId, useMemo, useState, type ReactNode } from "react";
 
@@ -8,8 +8,8 @@ import { focusRing } from "@/components/card-recipes";
 import {
   modeModuleSurface,
   modePressable,
+  modeSummaryHairline,
   modeSummaryMutedText,
-  modeSummarySurface,
   modeTapArea,
 } from "@/components/mode-kit/recipes";
 import { modeDisplayNumberText, modeNameText, modeSecondaryText } from "@/components/mode-kit/type";
@@ -17,7 +17,6 @@ import { listNames, MyDayItemRow } from "@/components/my-day/my-day-page-parts";
 import { useMyDayDeviceState } from "@/components/my-day/my-day-device-state";
 import type { MyDayDashboardSources } from "@/components/my-day/use-my-day-dashboard-sources";
 import { kindOf } from "@/components/roster/roster-format";
-import { RosterLetter } from "@/components/roster/roster-week-strip";
 import { ActionStrip } from "@/components/teaching/teaching-actions";
 import { sessionHref } from "@/components/teaching/teaching-view-model";
 import { EmptyState } from "@/components/primitive-recipes/feedback";
@@ -38,9 +37,11 @@ import {
   weekOf,
   type MyDayCardId,
   type MyDayTimedEvent,
+  type MyDayUpNext,
 } from "@/lib/my-day/dashboard";
 import { duePerthDate } from "@/lib/my-day/merge";
 import type { MyDayItem, MyDayNextRenewal } from "@/lib/my-day/model";
+import { withMyDayReturn } from "@/lib/my-day/return-link";
 import { SHIFT_KIND_LABEL, type ShiftKind } from "@/lib/roster/shift-kind";
 import { formatPerthDay, perthDateOf, perthTimeOf } from "@/lib/roster/shifts/perth-time";
 import { summariseToday } from "@/lib/roster/today";
@@ -61,9 +62,10 @@ import type { SessionSummary } from "@/lib/teaching/model";
 const SPAN_CLASS = { full: "col-span-2", half: "col-span-1" } as const;
 const HOUR_MS = 60 * 60 * 1000;
 
+// "Handover" waits for a handover page of its own: until then it would only
+// open the On Call service handbook (design review 2026-10-03, item 3).
 const QUICK_ACTIONS: readonly { readonly label: string; readonly href: string; readonly icon: LucideIcon }[] = [
   { label: "Call", href: "/on-call/call", icon: Phone },
-  { label: "Handover", href: "/on-call/service", icon: ArrowLeftRight },
   { label: "Log CPD", href: "/cme/new", icon: BookPlus },
   { label: "Who's on", href: "/on-call/whos-on", icon: Users },
 ];
@@ -117,14 +119,17 @@ function DashboardCard({
   editing,
   onHide,
   aside,
-  summary = false,
+  hero = false,
+  className,
   children,
 }: {
   readonly id: MyDayCardId;
   readonly editing: boolean;
   readonly onHide: (id: MyDayCardId) => void;
   readonly aside?: ReactNode;
-  readonly summary?: boolean;
+  /** The "Up next" hero: the My Day blue in both themes, with the summary ink roles re-pointed at it. */
+  readonly hero?: boolean;
+  readonly className?: string;
   readonly children: ReactNode;
 }) {
   const headingId = useId();
@@ -136,11 +141,14 @@ function DashboardCard({
       className={cn(
         SPAN_CLASS[MY_DAY_CARD_SPAN[id]],
         "grid min-w-0 content-start gap-2 p-3",
-        summary ? modeSummarySurface : cn(modeModuleSurface, "overflow-visible"),
+        hero
+          ? "my-day-hero rounded-lg border shadow-[var(--e2)] forced-colors:border"
+          : cn(modeModuleSurface, "overflow-visible"),
+        className,
       )}
     >
       <div className="flex min-h-6 min-w-0 items-center justify-between gap-2">
-        <h2 id={headingId} className={cn(eyebrowText, summary && modeSummaryMutedText)}>
+        <h2 id={headingId} className={cn(eyebrowText, hero && modeSummaryMutedText)}>
           {label}
         </h2>
         <div className="flex shrink-0 items-center gap-1">
@@ -155,7 +163,7 @@ function DashboardCard({
                 modeTapArea,
                 focusRing,
                 "-my-3 -mr-3 rounded-md",
-                summary ? "text-[color:var(--surface-summary-ink)]" : "text-[color:var(--text-muted)]",
+                hero ? "text-[color:var(--surface-summary-ink)]" : "text-[color:var(--text-muted)]",
               )}
             >
               <X aria-hidden="true" className="size-icon-md" />
@@ -168,76 +176,14 @@ function DashboardCard({
   );
 }
 
-function UpNextCard({
-  event,
-  state,
-  now,
-  editing,
-  onHide,
-}: {
-  readonly event: MyDayTimedEvent;
-  readonly state: "upcoming" | "on-now";
-  readonly now: Date;
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
-}) {
-  const countdown =
-    state === "upcoming"
-      ? formatCountdown(Date.parse(event.startsAt) - now.getTime())
-      : formatCountdown(Date.parse(event.endsAt) - now.getTime());
-  const visible = state === "upcoming" ? `in ${countdown.short}` : `On now · ${countdown.short} left`;
-  const spoken =
-    state === "upcoming"
-      ? `Starts in ${countdown.spoken}, at ${perthTimeOf(event.startsAt)}.`
-      : `On now, ends in ${countdown.spoken}.`;
-  return (
-    <DashboardCard
-      id="up-next"
-      editing={editing}
-      onHide={onHide}
-      summary
-      aside={
-        <span className={cn("nums text-sm", modeSummaryMutedText)} aria-hidden="true">
-          {visible}
-        </span>
-      }
-    >
-      <div className="grid gap-0.5" data-testid="my-day-up-next">
-        <p className="sr-only">{spoken}</p>
-        <p className="flex flex-wrap items-baseline gap-x-2" aria-hidden="true">
-          <span className={cn(modeDisplayNumberText, "text-hero text-[color:var(--surface-summary-ink)]")}>
-            {perthTimeOf(event.startsAt)}
-          </span>
-          <span className={cn("nums text-base-minus", modeSummaryMutedText)}>{`–${perthTimeOf(event.endsAt)}`}</span>
-        </p>
-        <p className={cn(modeNameText, "break-words text-base-minus text-[color:var(--surface-summary-ink)]")}>
-          {event.title}
-        </p>
-        {event.where ? <p className={cn("break-words text-sm", modeSummaryMutedText)}>{event.where}</p> : null}
-      </div>
-      <ActionStrip
-        surface="summary"
-        actions={[
-          {
-            id: "open",
-            label: event.actionLabel,
-            href: event.href,
-            emphasis: "primary",
-            testId: "my-day-up-next-open",
-          },
-        ]}
-      />
-    </DashboardCard>
-  );
-}
-
 const RING_RADIUS = 27;
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+/** The countdown ring, drawn in the hero's own ink so it reads on the My Day blue in both themes. */
 function CountdownRing({ fraction, figure }: { readonly fraction: number; readonly figure: string }) {
   const clamped = Math.min(1, Math.max(0, fraction));
   return (
-    <span className="relative mx-auto grid size-24 place-items-center" aria-hidden="true" data-mode-identity="roster">
+    <span className="relative grid size-20 shrink-0 place-items-center" aria-hidden="true">
       <svg viewBox="0 0 64 64" className="absolute inset-0 size-full -rotate-90">
         <circle
           cx="32"
@@ -245,7 +191,7 @@ function CountdownRing({ fraction, figure }: { readonly fraction: number; readon
           r={RING_RADIUS}
           fill="none"
           strokeWidth="6"
-          className="stroke-[color:var(--surface-subtle)]"
+          className="stroke-[color:var(--surface-summary-line)]"
         />
         <circle
           cx="32"
@@ -257,26 +203,25 @@ function CountdownRing({ fraction, figure }: { readonly fraction: number; readon
           strokeDasharray={RING_CIRCUMFERENCE}
           strokeDashoffset={RING_CIRCUMFERENCE * (1 - clamped)}
           data-testid="my-day-shift-ring"
-          className="stroke-[color:var(--mode-identity)] motion-safe:transition-[stroke-dashoffset] motion-safe:duration-[var(--duration-slow)]"
+          className="stroke-[color:var(--surface-summary-ink)]"
         />
       </svg>
-      <span className={cn(modeDisplayNumberText, "relative text-xl text-[color:var(--text-heading)]")}>{figure}</span>
+      <span className={cn(modeDisplayNumberText, "relative text-lg text-[color:var(--surface-summary-ink)]")}>
+        {figure}
+      </span>
     </span>
   );
 }
 
-function ShiftCard({
+/** The hero's shift half: the ring (time to the shift, or time left once it runs) and the shift's name and place. */
+function HeroShift({
   shift,
   running,
   now,
-  editing,
-  onHide,
 }: {
   readonly shift: RosterDisplayShift;
   readonly running: boolean;
   readonly now: Date;
-  readonly editing: boolean;
-  readonly onHide: (id: MyDayCardId) => void;
 }) {
   const kind: ShiftKind = kindOf(shift);
   const name = kind === "on_call" ? "On call" : `${SHIFT_KIND_LABEL[kind]} shift`;
@@ -294,26 +239,107 @@ function ShiftCard({
     ? "On now"
     : `Starts ${startDay === today ? "" : `${formatPerthDay(startDay)} `}${perthTimeOf(shift.startsAt)}`;
   const endLine = `Ends ${perthTimeOf(shift.endsAt)}${endDay === startDay ? "" : ` ${formatPerthDay(endDay)}`}`;
+  const place = shift.workplace ?? shift.location ?? shift.teamName ?? null;
   const spoken = running
     ? `${name} on now, ${countdown.spoken} left. ${endLine}.`
     : `${countdown.spoken} until your ${name.toLowerCase()} starts, ${formatPerthDay(startDay)} at ${perthTimeOf(shift.startsAt)}. ${endLine}.`;
   return (
-    <DashboardCard id="shift" editing={editing} onHide={onHide}>
-      <Link
-        href="/roster"
-        data-testid="my-day-shift"
-        className={cn(focusRing, modePressable, "-m-1 grid min-h-12 gap-1 rounded-md p-1 no-underline")}
-      >
-        <span className="sr-only">{spoken}</span>
-        <CountdownRing fraction={fraction} figure={formatRingFigure(remaining)} />
-        <span aria-hidden="true" className={cn(modeSecondaryText, "text-center")}>
+    <Link
+      href={withMyDayReturn("/roster")}
+      data-testid="my-day-shift"
+      className={cn(focusRing, "-m-1 flex min-h-12 min-w-0 items-center gap-3 rounded-md p-1 no-underline")}
+    >
+      <span className="sr-only">{`${spoken}${place ? ` ${place}.` : ""}`}</span>
+      <CountdownRing fraction={fraction} figure={formatRingFigure(remaining)} />
+      <span aria-hidden="true" className="grid min-w-0 gap-0.5">
+        <span className={cn(modeNameText, "break-words text-base-minus text-[color:var(--surface-summary-ink)]")}>
           {name}
-          <br />
-          {startLine}
-          <br />
-          {endLine}
         </span>
-      </Link>
+        {place ? <span className={cn("break-words text-sm", modeSummaryMutedText)}>{place}</span> : null}
+        <span className={cn("nums break-words text-sm", modeSummaryMutedText)}>{`${startLine} · ${endLine}`}</span>
+      </span>
+    </Link>
+  );
+}
+
+/** The hero's "up next" half: the next timed session or event today. */
+function HeroUpNext({
+  event,
+  state,
+  now,
+  divided,
+}: {
+  readonly event: MyDayTimedEvent;
+  readonly state: "upcoming" | "on-now";
+  readonly now: Date;
+  /** True under the shift half, which then needs a hairline between the two. */
+  readonly divided: boolean;
+}) {
+  const countdown =
+    state === "upcoming"
+      ? formatCountdown(Date.parse(event.startsAt) - now.getTime())
+      : formatCountdown(Date.parse(event.endsAt) - now.getTime());
+  const visible = state === "upcoming" ? `in ${countdown.short}` : `On now · ${countdown.short} left`;
+  const spoken =
+    state === "upcoming"
+      ? `Starts in ${countdown.spoken}, at ${perthTimeOf(event.startsAt)}.`
+      : `On now, ends in ${countdown.spoken}.`;
+  return (
+    <div className={cn("grid gap-2", divided && cn("border-t pt-2", modeSummaryHairline))}>
+      <div className="grid gap-0.5" data-testid="my-day-up-next">
+        <p className="sr-only">{spoken}</p>
+        <p className="flex flex-wrap items-baseline gap-x-2" aria-hidden="true">
+          <span className={cn(modeDisplayNumberText, "text-hero text-[color:var(--surface-summary-ink)]")}>
+            {perthTimeOf(event.startsAt)}
+          </span>
+          <span className={cn("nums text-base-minus", modeSummaryMutedText)}>{`–${perthTimeOf(event.endsAt)}`}</span>
+          <span className={cn("nums ml-auto text-sm", modeSummaryMutedText)}>{visible}</span>
+        </p>
+        <p className={cn(modeNameText, "break-words text-base-minus text-[color:var(--surface-summary-ink)]")}>
+          {event.title}
+        </p>
+        {event.where ? <p className={cn("break-words text-sm", modeSummaryMutedText)}>{event.where}</p> : null}
+      </div>
+      <ActionStrip
+        surface="summary"
+        actions={[
+          {
+            id: "open",
+            label: event.actionLabel,
+            href: withMyDayReturn(event.href),
+            emphasis: "primary",
+            testId: "my-day-up-next-open",
+          },
+        ]}
+      />
+    </div>
+  );
+}
+
+/**
+ * The hero (design review 2026-10-03, items 6, 7 and 11): one card in the My
+ * Day blue holding the shift ring and, under it, what is up next. With no
+ * shift ahead it shows only Up next; with neither it is not drawn at all.
+ */
+function HeroCard({
+  shift,
+  shiftRunning,
+  upNext,
+  now,
+  editing,
+  onHide,
+}: {
+  readonly shift: RosterDisplayShift | null;
+  readonly shiftRunning: boolean;
+  readonly upNext: MyDayUpNext | null;
+  readonly now: Date;
+  readonly editing: boolean;
+  readonly onHide: (id: MyDayCardId) => void;
+}) {
+  return (
+    <DashboardCard id="up-next" editing={editing} onHide={onHide} hero>
+      {shift ? <HeroShift shift={shift} running={shiftRunning} now={now} /> : null}
+      {upNext ? <HeroUpNext event={upNext.event} state={upNext.state} now={now} divided={shift !== null} /> : null}
     </DashboardCard>
   );
 }
@@ -327,11 +353,11 @@ function QuickActionsCard({
 }) {
   return (
     <DashboardCard id="quick-actions" editing={editing} onHide={onHide}>
-      <ul role="list" className="grid grid-cols-2 gap-2">
+      <ul role="list" className="grid grid-cols-3 gap-2">
         {QUICK_ACTIONS.map(({ label, href, icon: ActionIcon }) => (
           <li key={label} className="min-w-0">
             <Link
-              href={href}
+              href={withMyDayReturn(href)}
               className={cn(
                 focusRing,
                 modePressable,
@@ -349,6 +375,47 @@ function QuickActionsCard({
 }
 
 const WEEKDAY_LETTER = ["S", "M", "T", "W", "T", "F", "S"] as const;
+
+/** The week tile's short code. On call is "OC", never a bare "C" (design review item 9). */
+const DAY_TILE_CODE: Readonly<Record<ShiftKind, string>> = {
+  day: "D",
+  evening: "E",
+  night: "N",
+  on_call: "OC",
+  leave: "L",
+  other: "W",
+};
+
+/** Filled for a worked day, solid for a night, dashed for leave; a rest day is a faded "off". */
+function DayTile({ kind }: { readonly kind: ShiftKind | null }) {
+  if (!kind) {
+    return (
+      <span
+        aria-hidden="true"
+        data-kind="off"
+        className="grid h-8 w-full max-w-10 place-items-center rounded-md text-xs text-[color:var(--text-muted)] opacity-70"
+      >
+        off
+      </span>
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      data-kind={kind}
+      className={cn(
+        "grid h-8 w-full max-w-10 place-items-center rounded-md border text-xs font-semibold forced-colors:border",
+        kind === "night"
+          ? "border-[color:var(--my-day-accent)] bg-[color:var(--my-day-accent)] text-[color:var(--my-day-accent-contrast)]"
+          : kind === "leave"
+            ? "border-dashed border-[color:var(--border-strong)] bg-transparent text-[color:var(--text)]"
+            : "border-transparent bg-[color:var(--my-day-tile)] text-[color:var(--my-day-tile-ink)]",
+      )}
+    >
+      {DAY_TILE_CODE[kind]}
+    </span>
+  );
+}
 
 interface AgendaLine {
   readonly key: string;
@@ -369,7 +436,7 @@ function ThisWeekCard({
 }: {
   readonly week: readonly string[];
   readonly today: string;
-  /** Null when no roster is available: then no letter is drawn, rather than a false "nothing on". */
+  /** Null when no roster is available: then no tile is drawn, rather than a false "off". */
   readonly kindsByDate: ReadonlyMap<string, readonly ShiftKind[]> | null;
   readonly dueByDate: ReadonlyMap<string, number>;
   readonly agenda: readonly AgendaLine[];
@@ -381,8 +448,10 @@ function ThisWeekCard({
       id="this-week"
       editing={editing}
       onHide={onHide}
+      // On a wide screen the card keeps its own height rather than stretching to its neighbour's.
+      className="lg:self-start"
       aside={
-        <TextLink href="/roster/shifts" className="inline-flex min-h-12 items-center px-1 text-sm">
+        <TextLink href={withMyDayReturn("/roster/shifts")} className="inline-flex min-h-12 items-center px-1 text-sm">
           Calendar
         </TextLink>
       }
@@ -393,11 +462,7 @@ function ThisWeekCard({
           const due = dueByDate.get(date) ?? 0;
           const isToday = date === today;
           const words = [
-            kindsByDate
-              ? kinds.length
-                ? kinds.map((kind) => SHIFT_KIND_LABEL[kind]).join(" and ")
-                : "Nothing on"
-              : "",
+            kindsByDate ? (kinds.length ? kinds.map((kind) => SHIFT_KIND_LABEL[kind]).join(" and ") : "Off") : "",
             due ? `${due} due` : "",
           ]
             .filter(Boolean)
@@ -420,17 +485,16 @@ function ThisWeekCard({
               </span>
               <span
                 aria-hidden="true"
-                data-mode-identity={isToday ? "roster" : undefined}
                 className={cn(
                   "nums grid size-6 place-items-center rounded-full text-xs",
                   isToday
-                    ? "bg-[color:var(--mode-identity)] text-[color:var(--mode-identity-contrast)] forced-colors:border"
+                    ? "bg-[color:var(--my-day-accent)] font-semibold text-[color:var(--my-day-accent-contrast)] forced-colors:border"
                     : "text-[color:var(--text-muted)]",
                 )}
               >
                 {Number(date.slice(8, 10))}
               </span>
-              {kindsByDate ? <RosterLetter kind={kinds[0] ?? null} /> : null}
+              {kindsByDate ? <DayTile kind={kinds[0] ?? null} /> : null}
               <span
                 aria-hidden="true"
                 data-testid={due ? `my-day-week-due-${date}` : undefined}
@@ -531,6 +595,7 @@ function NeedsYouCard({
             key={item.id}
             item={item}
             now={now}
+            compact
             action={
               <button
                 type="button"
@@ -573,7 +638,8 @@ function NeedsYouCard({
               className={cn(
                 modeTapArea,
                 focusRing,
-                "rounded-md px-2 text-sm font-medium text-[color:var(--clinical-accent)]",
+                // The 48px tap area overlaps the card padding, so it does not push the rows down.
+                "-my-3 -mr-1 rounded-md px-2 text-sm font-medium text-[color:var(--clinical-accent)]",
               )}
             >
               {`All ${total}`}
@@ -628,7 +694,7 @@ function CpdCard({
   return (
     <DashboardCard id="cpd" editing={editing} onHide={onHide}>
       <Link
-        href="/cme"
+        href={withMyDayReturn("/cme")}
         data-testid="my-day-cpd"
         className={cn(focusRing, modePressable, "-m-1 grid min-h-12 gap-1.5 rounded-md p-1 no-underline")}
       >
@@ -639,12 +705,16 @@ function CpdCard({
           </span>
           <span className={modeSecondaryText}>{`/ ${hours(targetHours)} h`}</span>
         </span>
-        <span aria-hidden="true" className="block h-1.5 overflow-hidden rounded-full bg-[color:var(--surface-subtle)]">
-          <span
-            className="block h-full rounded-full bg-[color:var(--clinical-accent)] forced-colors:bg-[CanvasText]"
-            style={{ width: `${percent}%` }}
+        {/* An SVG bar, so the fill's width is an attribute rather than an inline style. */}
+        <svg aria-hidden="true" className="block h-1.5 w-full overflow-hidden rounded-full" preserveAspectRatio="none">
+          <rect width="100%" height="100%" rx="3" className="fill-[color:var(--surface-subtle)]" />
+          <rect
+            width={`${percent}%`}
+            height="100%"
+            rx="3"
+            className="fill-[color:var(--clinical-accent)] forced-colors:fill-[CanvasText]"
           />
-        </span>
+        </svg>
         <span className={modeSecondaryText}>{left > 0 ? `${hours(left)} h to go by 31 Dec` : "Target reached"}</span>
       </Link>
     </DashboardCard>
@@ -726,9 +796,8 @@ export function MyDayDashboard({
     () => [...todaysShifts.map(shiftEvent), ...teachingSessions.map(teachingEvent)],
     [todaysShifts, teachingSessions],
   );
-  const upNext = selectUpNext(events, now);
 
-  // The Shift card: the shift on now, else the next one (today or later). Nothing ahead hides it.
+  // The hero's shift: the shift on now, else the next one (today or later). Nothing ahead leaves only Up next.
   const lead = summary?.lead;
   const leadShift =
     lead && lead.state !== "empty"
@@ -739,6 +808,8 @@ export function MyDayDashboard({
         : (byId.get(lead.shift.id) ?? null)
       : null;
   const shiftRunning = lead?.state === "on_now";
+  // The shift already has the hero's ring, so Up next is the next thing after it, never the same shift twice.
+  const upNext = selectUpNext(leadShift ? events.filter((event) => event.id !== `shift:${leadShift.id}`) : events, now);
 
   const week = useMemo(() => weekOf(today), [today]);
   const kindsByDate = useMemo(
@@ -773,8 +844,7 @@ export function MyDayDashboard({
 
   const cpd = sources.cpd;
   const visible: Record<MyDayCardId, boolean> = {
-    "up-next": upNext !== null,
-    shift: leadShift !== null,
+    "up-next": upNext !== null || leadShift !== null,
     "quick-actions": true,
     "this-week": rosterReady || agenda.length > 0 || weekHasDue,
     "needs-you": true,
@@ -789,14 +859,16 @@ export function MyDayDashboard({
   ].filter((name): name is string => name !== null);
 
   const cards: Record<MyDayCardId, () => ReactNode> = {
-    "up-next": () =>
-      upNext ? (
-        <UpNextCard event={upNext.event} state={upNext.state} now={now} editing={editing} onHide={hide} />
-      ) : null,
-    shift: () =>
-      leadShift ? (
-        <ShiftCard shift={leadShift} running={shiftRunning} now={now} editing={editing} onHide={hide} />
-      ) : null,
+    "up-next": () => (
+      <HeroCard
+        shift={leadShift}
+        shiftRunning={shiftRunning}
+        upNext={upNext}
+        now={now}
+        editing={editing}
+        onHide={hide}
+      />
+    ),
     "quick-actions": () => <QuickActionsCard editing={editing} onHide={hide} />,
     "this-week": () => (
       <ThisWeekCard

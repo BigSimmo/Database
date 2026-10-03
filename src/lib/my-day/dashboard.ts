@@ -13,13 +13,17 @@ import { duePerthDate } from "@/lib/my-day/merge";
 import type { MyDayItem } from "@/lib/my-day/model";
 import { addDaysToDate, perthDateOf } from "@/lib/roster/shifts/perth-time";
 
-/** The cards, in phone stacking order. */
-export const myDayCardIds = ["up-next", "shift", "quick-actions", "this-week", "needs-you", "cpd", "renewal"] as const;
+/**
+ * The cards, in phone stacking order. "Up next" is the hero: it carries the
+ * shift ring (the old "Shift" card, folded in so the same shift is not shown
+ * twice) and the next timed session. A stored "shift" id from before the fold
+ * is simply ignored.
+ */
+export const myDayCardIds = ["up-next", "quick-actions", "this-week", "needs-you", "cpd", "renewal"] as const;
 export type MyDayCardId = (typeof myDayCardIds)[number];
 
 export const MY_DAY_CARD_LABELS: Readonly<Record<MyDayCardId, string>> = {
   "up-next": "Up next",
-  shift: "Shift",
   "quick-actions": "Quick actions",
   "this-week": "This week",
   "needs-you": "Needs you",
@@ -30,8 +34,7 @@ export const MY_DAY_CARD_LABELS: Readonly<Record<MyDayCardId, string>> = {
 /** Full-width cards span both phone columns; the rest sit in pairs. */
 export const MY_DAY_CARD_SPAN: Readonly<Record<MyDayCardId, "full" | "half">> = {
   "up-next": "full",
-  shift: "half",
-  "quick-actions": "half",
+  "quick-actions": "full",
   "this-week": "full",
   "needs-you": "full",
   cpd: "half",
@@ -130,7 +133,7 @@ export type MyDayUpNext =
 /**
  * The next timed thing today: the earliest event starting later today. When
  * nothing else starts today, a teaching session that is on now. A shift that
- * is already running is the Shift card's to show, not this one's.
+ * is already running is the hero's ring to show, not this line's.
  */
 export function selectUpNext(events: readonly MyDayTimedEvent[], now: Date): MyDayUpNext | null {
   const at = now.getTime();

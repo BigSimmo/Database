@@ -1,7 +1,8 @@
 "use client";
 
 import { ChevronLeft, LogIn, Sunrise } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { AccountSetupDialog } from "@/components/clinical-dashboard/account-setup-dialog";
 import { InformationPageShell } from "@/components/information-page-shell";
@@ -23,6 +24,7 @@ import {
   type MyDayItem,
   type MyDayState,
 } from "@/lib/my-day/model";
+import { MY_DAY_ALL_VIEW_HREF, MY_DAY_PATH, withMyDayReturn } from "@/lib/my-day/return-link";
 import { useAuthSession } from "@/lib/supabase/client";
 
 const PAGE_WIDTH = "mx-auto grid w-full max-w-2xl gap-5 sm:gap-6 lg:max-w-5xl";
@@ -36,6 +38,29 @@ function myDayShownItems(state: MyDayState, allowSample: boolean): readonly MyDa
   if (allowSample) return state.items;
   const sampleModes = new Set(state.sources.filter((source) => source.sample === true).map((source) => source.mode));
   return sampleModes.size ? state.items.filter((item) => !sampleModes.has(item.mode)) : state.items;
+}
+
+/**
+ * True once "All N" pushed the full list's address in this tab, so "Back to
+ * dashboard" can step back through history (the same as the phone's Back)
+ * rather than stacking a second dashboard entry. A direct load of the full
+ * list's address has nothing of ours behind it, so it replaces instead.
+ */
+let fullListPushed = false;
+
+/** Open the full list at its own address, `/my-day?view=all`. Next's router follows a native pushState. */
+function openFullList() {
+  fullListPushed = true;
+  window.history.pushState(null, "", MY_DAY_ALL_VIEW_HREF);
+}
+
+function closeFullList() {
+  if (fullListPushed) {
+    fullListPushed = false;
+    window.history.back();
+    return;
+  }
+  window.history.replaceState(null, "", MY_DAY_PATH);
 }
 
 /** The full list ("All N"): every item, grouped by urgency, as My Day first shipped it. */
@@ -52,6 +77,11 @@ function MyDayFullList({
   readonly onBack: () => void;
   readonly onRetry: () => void;
 }) {
+  const backRef = useRef<HTMLButtonElement>(null);
+  // Opened from the dashboard (not a direct load): put focus, and so the view, at the top of the list.
+  useEffect(() => {
+    if (fullListPushed) backRef.current?.focus();
+  }, []);
   const sections = [
     { key: "overdue", eyebrow: "Needs you now", items: items.filter((item) => item.severity === "overdue") },
     { key: "soon", eyebrow: "Due soon", items: items.filter((item) => item.severity === "soon") },
@@ -60,7 +90,7 @@ function MyDayFullList({
   return (
     <div className="grid gap-5" data-testid="my-day-full-list">
       <div>
-        <Button variant="ghost" icon={ChevronLeft} onClick={onBack} data-testid="my-day-back">
+        <Button ref={backRef} variant="ghost" icon={ChevronLeft} onClick={onBack} data-testid="my-day-back">
           Back to dashboard
         </Button>
       </div>
@@ -112,10 +142,20 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
   const today = perthCalendarDate(now);
   const state = useMyDayItems({ enabled, now });
   const [signInOpen, setSignInOpen] = useState(false);
-  const [view, setView] = useState<"dashboard" | "all">("dashboard");
+  // The full list has its own address, so the phone's Back returns to the dashboard.
+  const searchParams = useSearchParams();
+  const view: "dashboard" | "all" = searchParams?.get("view") === "all" ? "all" : "dashboard";
   const [editing, setEditing] = useState(false);
+  useEffect(() => {
+    // Back on the dashboard (by either Back): nothing of ours is left to step back over.
+    if (view === "dashboard") fullListPushed = false;
+  }, [view]);
 
-  const items = useMemo(() => myDayShownItems(state, allowSample), [state, allowSample]);
+  // Every link out of My Day carries the "from My Day" marker, so the page it opens offers "‹ My Day".
+  const items = useMemo(
+    () => myDayShownItems(state, allowSample).map((item) => ({ ...item, href: withMyDayReturn(item.href) })),
+    [state, allowSample],
+  );
   const failed = state.sources
     .filter((source) => source.status === "failed")
     .map((source) => myDayModeLabel(source.mode));
@@ -127,13 +167,19 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
     .filter((mode) => state.sources.some((source) => source.mode === mode && source.status === "ready"))
     .map(myDayModeLabel);
   const myWorkSample = state.sources.some((source) => source.mode === "my-work" && source.sample === true);
-  const nextRenewal = state.nextRenewal && (allowSample || !myWorkSample) ? state.nextRenewal : null;
+  const nextRenewal =
+    state.nextRenewal && (allowSample || !myWorkSample)
+      ? { ...state.nextRenewal, href: withMyDayReturn(state.nextRenewal.href) }
+      : null;
+  const demoNote = allowSample && state.demoMode;
+  // Roster's "unavailable" is its team data (swaps); the others are whole modes not offered yet.
+  const notYet = [...(rosterUnavailable ? ["Roster swaps"] : []), ...otherUnavailable];
   const ready = enabled && state.status === "ready";
 
   return (
     <InformationPageShell testId="my-day-main">
       <div className={PAGE_WIDTH}>
-        <header className="flex min-w-0 items-end justify-between gap-3" data-testid="my-day-header">
+        <header className="flex min-w-0 items-end justify-between gap-3 lg:justify-start" data-testid="my-day-header">
           <div className="grid min-w-0 gap-0.5">
             <h1 className="text-2xl font-semibold text-[color:var(--text-heading)]">My Day</h1>
             <p className="text-sm text-[color:var(--text-muted)]">{formatDateEcho(today)}</p>
@@ -205,13 +251,7 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
               </div>
             ) : null}
             {view === "all" ? (
-              <MyDayFullList
-                items={items}
-                now={now}
-                checked={checked}
-                onBack={() => setView("dashboard")}
-                onRetry={state.retry}
-              />
+              <MyDayFullList items={items} now={now} checked={checked} onBack={closeFullList} onRetry={state.retry} />
             ) : (
               <MyDayDashboardView
                 key={authEpoch}
@@ -224,31 +264,24 @@ export function MyDayPage({ now: nowProp }: { now?: Date } = {}) {
                 editing={editing}
                 onShowAll={() => {
                   setEditing(false);
-                  setView("all");
+                  openFullList();
                 }}
                 onRetry={state.retry}
               />
             )}
 
-            {/* One notice at the top at most; quieter context sits in small print here. */}
-            {allowSample && state.demoMode ? (
-              <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-demo-notice">
-                Demo data: these items are invented examples.
+            {/* One notice at the top at most; the quieter context is one line of small print here. */}
+            {demoNote || notYet.length > 0 ? (
+              <p className="max-w-reading px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-small-print">
+                {demoNote ? <span data-testid="my-day-demo-notice">Demo data: invented examples.</span> : null}
+                {demoNote && notYet.length > 0 ? " " : null}
+                {notYet.length > 0 ? (
+                  <span data-testid="my-day-unavailable-notice">
+                    {`${listNames(notYet)} ${notYet.length > 1 || rosterUnavailable ? "aren't" : "isn't"} available yet.`}
+                  </span>
+                ) : null}
               </p>
             ) : null}
-            {rosterUnavailable ? (
-              <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-unavailable-notice">
-                Roster team data isn&apos;t available yet, so swaps aren&apos;t shown.
-              </p>
-            ) : null}
-            {otherUnavailable.length > 0 ? (
-              <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-unavailable-other-notice">
-                {`${listNames(otherUnavailable)} isn't available yet, so it isn't shown.`}
-              </p>
-            ) : null}
-            <p className="px-3 text-sm text-[color:var(--text-muted)]" data-testid="my-day-footer">
-              Read-only. Open an item to act on it in its own mode. Later and Edit are kept on this device only.
-            </p>
           </div>
         ) : null}
       </div>

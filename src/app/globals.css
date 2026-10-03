@@ -1322,6 +1322,66 @@ body {
   }
 }
 
+/* My Day accent (design review 2026-10-03, items 7 and 11).
+   ------------------------------------------------------------------
+   One blue for My Day: the "Up next" hero, its countdown ring, today's date
+   and the week's day tiles. Built from the existing primary ramp only. Unlike
+   the summary surface above, the hero keeps a blue fill in dark mode too, so
+   it still draws the eye first. Light: white ink on primary-600 → 900 (6.0:1
+   at the lighter end), muted ink primary-100 (4.8:1). Dark: primary-900 ink
+   on primary-300 → 100 (7.4:1), muted primary-700 (5.5:1). */
+:root {
+  --my-day-hero-from: var(--primary-600);
+  --my-day-hero-to: var(--primary-900);
+  --my-day-hero-ink: #ffffff;
+  --my-day-hero-muted: var(--primary-100);
+  --my-day-hero-line: color-mix(in srgb, var(--my-day-hero-ink) 22%, transparent);
+  --my-day-accent: var(--clinical-accent);
+  --my-day-accent-contrast: var(--clinical-accent-contrast);
+  --my-day-tile: var(--primary-100);
+  --my-day-tile-ink: var(--primary-800);
+}
+
+.dark {
+  --my-day-hero-from: var(--primary-300);
+  --my-day-hero-to: var(--primary-100);
+  --my-day-hero-ink: var(--primary-900);
+  --my-day-hero-muted: var(--primary-700);
+  --my-day-tile: var(--primary-200);
+  --my-day-tile-ink: var(--primary-800);
+}
+
+@media (forced-colors: active) {
+  :root,
+  .dark {
+    --my-day-hero-from: Canvas;
+    --my-day-hero-to: Canvas;
+    --my-day-hero-ink: CanvasText;
+    --my-day-hero-muted: CanvasText;
+    --my-day-hero-line: CanvasText;
+    --my-day-accent: Highlight;
+    --my-day-accent-contrast: HighlightText;
+    --my-day-tile: Canvas;
+    --my-day-tile-ink: CanvasText;
+  }
+}
+
+/* The hero re-points the summary-surface roles at the My Day blue, so the
+   mode kit's summary recipes (muted ink, hairlines, ActionStrip faces) read
+   correctly on it without a second set of recipes. Layered: it beats no
+   utility, and a utility on the card may still override it. */
+@layer components {
+  .my-day-hero {
+    --surface-summary: var(--my-day-hero-to);
+    --surface-summary-ink: var(--my-day-hero-ink);
+    --surface-summary-muted: var(--my-day-hero-muted);
+    --surface-summary-line: var(--my-day-hero-line);
+    border-color: var(--my-day-hero-line);
+    background: linear-gradient(135deg, var(--my-day-hero-from), var(--my-day-hero-to));
+    color: var(--my-day-hero-ink);
+  }
+}
+
 /* First Nations: olive (mode design standard v13.1 §3). Light 6.1:1 on white,
    dark 9.0:1 on a dark card, disc glyph 9.4:1. Used only on the pill, the
    current tab, module icon tiles, the hero's day track and quotation accents.
