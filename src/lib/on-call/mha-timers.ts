@@ -1,5 +1,12 @@
 import mhaTimeframes from "../../../data/mha-timeframes.json";
-import { isNamedPerson, ruleContentSha256, ruleGate, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
+import {
+  isNamedPerson,
+  ruleContentSha256,
+  ruleGate,
+  type ApprovedRuleSigner,
+  type RuleGate,
+  type RuleSignOff,
+} from "@/lib/admin/rule-sign-off";
 import { isReviewedTimeframe, timelineFor, type MhaTimeframeEntry, type MhaTimeframesFile } from "@/lib/mha-timeline";
 
 /**
@@ -78,7 +85,7 @@ export function currentMhaTimerSwitchContent(
 /** Shipped OFF and unsigned. Only a named clinician fills in `signOff`; agents never do. */
 export const MHA_TIMER_SWITCH: MhaTimerSwitch = {
   content: currentMhaTimerSwitchContent(),
-  signOff: { enabled: false, signedBy: null, signedAt: null, signedContentSha256: null },
+  signOff: { enabled: false, signedBy: null, signedByUserId: null, signedAt: null, signedContentSha256: null },
 };
 
 export type MhaTimerGate =
@@ -96,8 +103,9 @@ function isRecordedRuling(ruling: MhaTimerSwitchContent["medicalDeviceRuling"]):
 export function mhaTimerGate(
   timerSwitch: MhaTimerSwitch = MHA_TIMER_SWITCH,
   entries: readonly MhaTimeframeEntry[] = shippedEntries,
+  approvedSigners?: readonly ApprovedRuleSigner[],
 ): MhaTimerGate {
-  const signed = ruleGate(timerSwitch.signOff, timerSwitch.content);
+  const signed = ruleGate(timerSwitch.signOff, timerSwitch.content, approvedSigners);
   if (!signed.on) return signed;
   if (!isRecordedRuling(timerSwitch.content.medicalDeviceRuling)) {
     return { on: false, reason: "medical-device-ruling-pending" };
@@ -156,10 +164,14 @@ export type MhaTimersResult = { readonly gate: MhaTimerGate; readonly items: rea
 export function mhaTimers(
   inputs: readonly MhaTimerInput[],
   now: Date,
-  options: { readonly timerSwitch?: MhaTimerSwitch; readonly entries?: readonly MhaTimeframeEntry[] } = {},
+  options: {
+    readonly timerSwitch?: MhaTimerSwitch;
+    readonly entries?: readonly MhaTimeframeEntry[];
+    readonly approvedSigners?: readonly ApprovedRuleSigner[];
+  } = {},
 ): MhaTimersResult {
   const entries = options.entries ?? shippedEntries;
-  const gate = mhaTimerGate(options.timerSwitch ?? MHA_TIMER_SWITCH, entries);
+  const gate = mhaTimerGate(options.timerSwitch ?? MHA_TIMER_SWITCH, entries, options.approvedSigners);
   const nowMs = now.getTime();
   if (Number.isNaN(nowMs)) throw new Error("mhaTimers: invalid now");
 

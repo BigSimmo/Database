@@ -1,4 +1,4 @@
-import { ruleGate, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
+import { ruleGate, type ApprovedRuleSigner, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
 import { CPD_CATEGORY_RULE_SET, CPD_CATEGORY_RULES_SIGN_OFF } from "@/lib/cme/category-rules-source";
 import { evaluateRequirement, totalAllocatedHours } from "@/lib/cme/evaluate";
 import type { CmeCategory, CmeEntry, CmeRequirement, CmeRequirementSet } from "@/lib/cme/types";
@@ -214,8 +214,9 @@ export function cpdCategoryCoaching(
   set: CmeRequirementSet,
   entries: readonly CmeEntry[],
   signOff: RuleSignOff = CPD_CATEGORY_RULES_SIGN_OFF,
+  approvedSigners?: readonly ApprovedRuleSigner[],
 ): CpdCoachingResult {
-  const gate = ruleGate(signOff, CPD_CATEGORY_RULE_SET);
+  const gate = ruleGate(signOff, CPD_CATEGORY_RULE_SET, approvedSigners);
   if (!gate.on) return { gate, coaching: null };
   return { gate, coaching: cpdCategoryCoachingUngated(set, entries) };
 }

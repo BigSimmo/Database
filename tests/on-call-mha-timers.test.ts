@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { ruleContentSha256 } from "@/lib/admin/rule-sign-off";
+import { ruleContentSha256, type ApprovedRuleSigner } from "@/lib/admin/rule-sign-off";
 import { timeframeContentSha256, type MhaTimeframeEntry } from "@/lib/mha-timeline";
 import {
   currentMhaTimerSwitchContent,
@@ -45,6 +45,9 @@ function signedBy(base: MhaTimeframeEntry, reviewer: string): MhaTimeframeEntry 
 
 const named = [signedBy(entry("long", 72), "Dr Jane Example"), signedBy(entry("short", 6), "Dr Jane Example")];
 
+const SIGNER_ID = "11111111-1111-4111-8111-111111111111";
+const SIGNERS: readonly ApprovedRuleSigner[] = [{ userId: SIGNER_ID, name: "Dr Jane Example" }];
+
 function onSwitch(entries: readonly MhaTimeframeEntry[]): MhaTimerSwitch {
   const content = currentMhaTimerSwitchContent(entries, { confirmedOn: "2026-10-04", record: "invented record" });
   return {
@@ -52,6 +55,7 @@ function onSwitch(entries: readonly MhaTimeframeEntry[]): MhaTimerSwitch {
     signOff: {
       enabled: true,
       signedBy: "Dr Jane Example",
+      signedByUserId: SIGNER_ID,
       signedAt: "2026-10-04T02:00:00.000Z",
       signedContentSha256: ruleContentSha256(content),
     },
@@ -81,6 +85,7 @@ describe("mhaTimers", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
       entries: named,
       timerSwitch: onSwitch(named),
+      approvedSigners: SIGNERS,
     });
     expect(result.gate).toEqual({ on: true });
     expect(result.items.map((item) => [item.kind, item.entry.id])).toEqual([
@@ -98,6 +103,7 @@ describe("mhaTimers", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], later, {
       entries: named,
       timerSwitch: onSwitch(named),
+      approvedSigners: SIGNERS,
     });
     const short = result.items.find((item) => item.entry.id === "short")!;
     expect(short.kind === "countdown" && short.expired).toBe(true);
@@ -109,6 +115,7 @@ describe("mhaTimers", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
       entries: mixed,
       timerSwitch: onSwitch(mixed),
+      approvedSigners: SIGNERS,
     });
     const system = result.items.find((item) => item.entry.id === "system")!;
     expect(system).toMatchObject({ kind: "quote-only", reason: "awaiting-named-sign-off" });
@@ -119,6 +126,7 @@ describe("mhaTimers", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
       entries: blocked,
       timerSwitch: onSwitch(blocked),
+      approvedSigners: SIGNERS,
     });
     expect(result.items).toEqual([expect.objectContaining({ kind: "quote-only", reason: "not-calculable" })]);
   });
@@ -130,18 +138,23 @@ describe("mhaTimers", () => {
       signOff: {
         enabled: true,
         signedBy: "Dr Jane Example",
+        signedByUserId: SIGNER_ID,
         signedAt: "2026-10-04T02:00:00.000Z",
         signedContentSha256: ruleContentSha256(content),
       },
     };
-    expect(mhaTimerGate(timerSwitch, named)).toEqual({ on: false, reason: "medical-device-ruling-pending" });
+    expect(mhaTimerGate(timerSwitch, named, SIGNERS)).toEqual({ on: false, reason: "medical-device-ruling-pending" });
   });
 
   it("turns off when a timeframe is re-signed after the switch was signed", () => {
     const timerSwitch = onSwitch(named);
     const resigned = [signedBy({ ...named[0]!, anchor: "Changed anchor" }, "Dr Jane Example"), named[1]!];
-    expect(mhaTimerGate(timerSwitch, resigned)).toEqual({ on: false, reason: "stale-switch" });
-    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, { entries: resigned, timerSwitch });
+    expect(mhaTimerGate(timerSwitch, resigned, SIGNERS)).toEqual({ on: false, reason: "stale-switch" });
+    const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
+      entries: resigned,
+      timerSwitch,
+      approvedSigners: SIGNERS,
+    });
     expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "switched-off")).toBe(true);
   });
 
@@ -150,7 +163,7 @@ describe("mhaTimers", () => {
     const timerSwitch = onSwitch(system);
     const renamed = [signedBy(entry("long", 72), "Dr Jane Example")];
     expect(renamed[0]!.reviewedContentSha256).toBe(system[0]!.reviewedContentSha256);
-    expect(mhaTimerGate(timerSwitch, renamed)).toEqual({ on: false, reason: "stale-switch" });
+    expect(mhaTimerGate(timerSwitch, renamed, SIGNERS)).toEqual({ on: false, reason: "stale-switch" });
   });
 
   it("needs a real date and a written record for the medical-device ruling", () => {
@@ -165,11 +178,12 @@ describe("mhaTimers", () => {
         signOff: {
           enabled: true,
           signedBy: "Dr Jane Example",
+          signedByUserId: SIGNER_ID,
           signedAt: "2026-10-04T02:00:00.000Z",
           signedContentSha256: ruleContentSha256(content),
         },
       };
-      expect(mhaTimerGate(timerSwitch, named)).toEqual({ on: false, reason: "medical-device-ruling-pending" });
+      expect(mhaTimerGate(timerSwitch, named, SIGNERS)).toEqual({ on: false, reason: "medical-device-ruling-pending" });
     }
   });
 
@@ -177,6 +191,7 @@ describe("mhaTimers", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt: new Date("2026-10-05T00:00:00.000Z") }], now, {
       entries: named,
       timerSwitch: onSwitch(named),
+      approvedSigners: SIGNERS,
     });
     expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "future-start")).toBe(true);
   });
@@ -185,6 +200,7 @@ describe("mhaTimers", () => {
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt: new Date("not a date") }], now, {
       entries: named,
       timerSwitch: onSwitch(named),
+      approvedSigners: SIGNERS,
     });
     expect(result.items.every((item) => item.kind === "quote-only" && item.reason === "invalid-start")).toBe(true);
   });

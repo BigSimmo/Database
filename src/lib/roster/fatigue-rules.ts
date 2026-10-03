@@ -1,4 +1,4 @@
-import { ruleGate, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
+import { ruleGate, type ApprovedRuleSigner, type RuleGate, type RuleSignOff } from "@/lib/admin/rule-sign-off";
 import {
   FATIGUE_RULE_SET,
   FATIGUE_RULES_SIGN_OFF,
@@ -240,8 +240,9 @@ export function fatigueWarningsUngated(shifts: readonly FatigueShift[]): Fatigue
 export function fatigueWarnings(
   shifts: readonly FatigueShift[],
   signOff: RuleSignOff = FATIGUE_RULES_SIGN_OFF,
+  approvedSigners?: readonly ApprovedRuleSigner[],
 ): FatigueResult {
-  const gate = ruleGate(signOff, FATIGUE_RULE_SET);
+  const gate = ruleGate(signOff, FATIGUE_RULE_SET, approvedSigners);
   if (!gate.on) return { gate, warnings: [] };
   return { gate, warnings: fatigueWarningsUngated(shifts) };
 }
