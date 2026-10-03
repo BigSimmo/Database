@@ -109,6 +109,17 @@ export function CmeYearInWeeks({
         <span className="text-2xs font-normal">{weeksToGo === 0 ? "Year complete" : `${weeksToGo} weeks to go`}</span>
       </div>
 
+      {/* Accessible list of weeks for screen readers */}
+      <ol className="sr-only" aria-label={`Weekly learning breakdown for ${year}`}>
+        {weeks.map((w) => (
+          <li key={w.weekIndex}>
+            {`Week ${w.weekIndex + 1}${w.isCurrent ? " (current week)" : ""}: ${
+              w.hours > 0 ? `${w.hours.toFixed(1)} hours logged` : "no hours logged"
+            }`}
+          </li>
+        ))}
+      </ol>
+
       <div className="flex h-8 items-end justify-between gap-px pt-1" role="group" aria-hidden="true">
         {weeks.map((w) => {
           let heightPx = FUTURE_STUB_HEIGHT;
@@ -128,10 +139,9 @@ export function CmeYearInWeeks({
               title={`Week ${w.weekIndex + 1}: ${w.hours.toFixed(1)} h`}
               style={{ height: `${heightPx}px` }}
               className={cn(
-                "w-full min-w-0.5 rounded-xs transition-all",
-                w.isCurrent &&
-                  "bg-[color:var(--command,#3b82f6)] ring-1 ring-[color:var(--command,#3b82f6)] ring-offset-1",
-                w.isPast && w.hours > 0 && "bg-[color:var(--tone-indigo,#6366f1)]",
+                "w-full min-w-0.5 rounded-xs transition-colors",
+                w.isCurrent && "bg-[color:var(--command)] ring-1 ring-[color:var(--command)] ring-offset-1",
+                w.isPast && w.hours > 0 && "bg-[color:var(--tone-indigo)]",
                 w.isPast && w.hours === 0 && "bg-[color:var(--surface-inset)]",
                 w.isFuture && "bg-[color:var(--surface-inset)] opacity-60",
               )}

@@ -117,7 +117,7 @@ function WaLineMap({
           strokeWidth={1}
           role="button"
           tabIndex={0}
-          aria-label={regionLabels?.[r.id] ?? r.id}
+          aria-label={`${regionLabels?.[r.id] ?? r.id} on map`}
           aria-pressed={r.id === selectedId}
           data-testid={`fn-map-region-${r.id}`}
           onClick={() => onSelect?.(r.id)}
@@ -128,7 +128,7 @@ function WaLineMap({
             }
           }}
           className={cn(
-            "cursor-pointer transition-colors duration-150 outline-none focus-visible:stroke-[color:var(--clinical-accent)] focus-visible:stroke-2",
+            "cursor-pointer transition-colors duration-[var(--duration-quick)] outline-none focus-visible:stroke-[color:var(--clinical-accent)] focus-visible:stroke-2",
             r.id === selectedId
               ? "fill-[color:var(--clinical-accent-soft)] stroke-[color:var(--clinical-accent)]"
               : "fill-[color:var(--surface-subtle)] stroke-[color:var(--border-strong)] hover:fill-[color:var(--clinical-accent-soft)]/50",

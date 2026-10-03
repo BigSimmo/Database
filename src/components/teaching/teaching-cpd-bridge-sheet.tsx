@@ -30,9 +30,11 @@ export function TeachingCpdBridgeSheet({
   readonly hours?: number;
   readonly testId?: string;
 }) {
-  const [loggedEntryId, setLoggedEntryId] = useState<string | null>(null);
+  const [savedResult, setSavedResult] = useState<{ entryId: string; created: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [undoBusy, setUndoBusy] = useState(false);
+  const [undoError, setUndoError] = useState<string | null>(null);
   const [undoProgress, setUndoProgress] = useState(1); // 1 to 0
   const undoTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
@@ -49,29 +51,32 @@ export function TeachingCpdBridgeSheet({
   async function handleLog() {
     setBusy(true);
     setError(null);
+    setUndoError(null);
     try {
       const result = await teachingPost<{ entryId: string; created: boolean }>("/api/teaching/cpd", {
         occurrenceId,
         hours,
         requestId: crypto.randomUUID(),
       });
-      setLoggedEntryId(result.entryId);
+      setSavedResult(result);
 
-      // Start 6-second radial undo timer
-      startTimeRef.current = Date.now();
-      const tick = () => {
-        const elapsed = Date.now() - (startTimeRef.current ?? Date.now());
-        const remaining = Math.max(0, 1 - elapsed / UNDO_DURATION_MS);
-        setUndoProgress(remaining);
-        if (remaining > 0) {
-          animFrameRef.current = requestAnimationFrame(tick);
-        }
-      };
-      animFrameRef.current = requestAnimationFrame(tick);
+      if (result.created) {
+        // Start 6-second radial undo timer only for newly created entries
+        startTimeRef.current = Date.now();
+        const tick = () => {
+          const elapsed = Date.now() - (startTimeRef.current ?? Date.now());
+          const remaining = Math.max(0, 1 - elapsed / UNDO_DURATION_MS);
+          setUndoProgress(remaining);
+          if (remaining > 0) {
+            animFrameRef.current = requestAnimationFrame(tick);
+          }
+        };
+        animFrameRef.current = requestAnimationFrame(tick);
 
-      undoTimerRef.current = setTimeout(() => {
-        setUndoProgress(0);
-      }, UNDO_DURATION_MS);
+        undoTimerRef.current = setTimeout(() => {
+          setUndoProgress(0);
+        }, UNDO_DURATION_MS);
+      }
     } catch (err) {
       setError(teachingErrorMessage(err, "cpd"));
     } finally {
@@ -80,22 +85,26 @@ export function TeachingCpdBridgeSheet({
   }
 
   async function handleUndo() {
-    if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
-    if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
-    const entryIdToArchive = loggedEntryId;
-    setLoggedEntryId(null);
-    setUndoProgress(1);
-
-    if (entryIdToArchive) {
-      try {
-        await fetch(`/api/cme/entries/${entryIdToArchive}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ archived: true }),
-        });
-      } catch {
-        // Silently tolerate offline / network failure during optimistic undo
+    if (!savedResult?.created || !savedResult.entryId) return;
+    setUndoBusy(true);
+    setUndoError(null);
+    try {
+      const res = await fetch(`/api/cme/entries/${savedResult.entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ archived: true }),
+      });
+      if (!res.ok) {
+        throw new Error(`Failed to undo CPD log (${res.status})`);
       }
+      if (undoTimerRef.current) clearTimeout(undoTimerRef.current);
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      setSavedResult(null);
+      setUndoProgress(1);
+    } catch (err) {
+      setUndoError(err instanceof Error ? err.message : "Failed to undo CPD log");
+    } finally {
+      setUndoBusy(false);
     }
   }
 
@@ -108,7 +117,7 @@ export function TeachingCpdBridgeSheet({
       title="Attendance & CPD"
       testId={testId}
       footer={
-        loggedEntryId ? (
+        savedResult ? (
           <Button block onClick={onClose} testId={`${testId}-done`}>
             Done
           </Button>
@@ -138,29 +147,31 @@ export function TeachingCpdBridgeSheet({
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-rose-600 dark:text-rose-400">
+          <p role="alert" className="text-sm text-[color:var(--danger-text)]">
             {error}
           </p>
         )}
 
-        {loggedEntryId && (
+        {savedResult && (
           <div
             data-testid={`${testId}-confirmed`}
-            className="flex flex-col gap-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-3.5"
+            className="flex flex-col gap-3 rounded-xl border border-[color:var(--success-border)] bg-[color:var(--success-soft)] p-3.5"
           >
             <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+              <div className="flex items-center gap-2 text-[color:var(--success-text)]">
                 <span
-                  className="grid size-6 place-items-center rounded-full bg-emerald-600 text-white"
+                  className="grid size-6 place-items-center rounded-full bg-[color:var(--success)] text-[color:var(--command-contrast)]"
                   aria-hidden="true"
                 >
                   <Check className="size-3.5" />
                 </span>
-                <span className="text-sm font-medium">Logged 1.0 h to CPD</span>
+                <span className="text-sm font-medium">
+                  {savedResult.created ? `Logged ${hours.toFixed(1)} h to CPD` : "Already in your CPD record"}
+                </span>
               </div>
 
-              {/* Radial 6-Second Animated Undo Button */}
-              {undoProgress > 0 && (
+              {/* Radial 6-Second Animated Undo Button - only for new creations */}
+              {savedResult.created && undoProgress > 0 && (
                 <div className="relative grid size-10 place-items-center">
                   <svg viewBox="0 0 44 44" className="size-10 -rotate-90 transform" aria-hidden="true">
                     <circle
@@ -170,7 +181,7 @@ export function TeachingCpdBridgeSheet({
                       fill="none"
                       stroke="currentColor"
                       strokeWidth="2.5"
-                      className="text-emerald-500/20"
+                      className="text-[color:var(--success-border)]"
                     />
                     <circle
                       cx="22"
@@ -182,16 +193,17 @@ export function TeachingCpdBridgeSheet({
                       strokeDasharray={CIRCUMFERENCE}
                       strokeDashoffset={strokeDashoffset}
                       strokeLinecap="round"
-                      className="text-emerald-600 transition-all duration-75"
+                      className="text-[color:var(--success)]"
                     />
                   </svg>
                   <button
                     type="button"
+                    disabled={undoBusy}
                     onClick={() => void handleUndo()}
                     data-testid={`${testId}-undo-button`}
                     aria-label="Undo CPD log"
                     className={cn(
-                      "absolute inset-0 grid place-items-center text-xs font-semibold text-emerald-800 dark:text-emerald-200 active:scale-95",
+                      "absolute inset-0 grid place-items-center text-xs font-semibold text-[color:var(--success-text)] active:scale-95",
                       focusRing,
                     )}
                   >
@@ -201,8 +213,14 @@ export function TeachingCpdBridgeSheet({
               )}
             </div>
 
+            {undoError && (
+              <p role="alert" className="text-xs font-medium text-[color:var(--danger-text)]">
+                {undoError}
+              </p>
+            )}
+
             <Link
-              href={teachingCpdEntryHref(loggedEntryId)}
+              href={teachingCpdEntryHref(savedResult.entryId)}
               className={cn("text-xs text-[color:var(--primary)] underline underline-offset-2", focusRing)}
             >
               Add reflection or attach slide notes in CPD

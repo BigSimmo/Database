@@ -44,4 +44,16 @@ describe("RosterFatigueRestRing", () => {
     expect(screen.getByText(/10 h safe recovery interval/i)).toBeTruthy();
     expect(screen.getByText("6.0h")).toBeTruthy(); // 6 hours remaining
   });
+
+  it("does not infer turnaround or flag breach when there is no preceding shift", () => {
+    const now = new Date("2026-10-05T08:00:00+08:00");
+    const shifts = [{ id: "s1", startsAt: "2026-10-05T10:00:00+08:00", endsAt: "2026-10-05T18:00:00+08:00" }];
+    const result = calculateRestTurnaround(shifts, now);
+    expect(result.isBreach).toBe(false);
+    expect(result.restRemainingMs).toBeNull();
+    expect(result.previousShift).toBeNull();
+
+    const { container } = render(<RosterFatigueRestRing shifts={shifts} now={now} />);
+    expect(container.firstChild).toBeNull();
+  });
 });

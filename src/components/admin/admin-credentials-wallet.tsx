@@ -45,6 +45,9 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
     }
   }, []);
 
+  const [copyFailedKey, setCopyFailedKey] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const handleCopy = useCallback(
     async (key: string, value: string) => {
       if (!value.trim()) {
@@ -52,15 +55,27 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
         return;
       }
       triggerHaptic();
-      await copyTextToClipboard(value.trim());
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey(null), 1800);
+      try {
+        await copyTextToClipboard(value.trim());
+        setCopyFailedKey(null);
+        setCopiedKey(key);
+        setTimeout(() => setCopiedKey(null), 1800);
+      } catch {
+        setCopiedKey(null);
+        setCopyFailedKey(key);
+        setTimeout(() => setCopyFailedKey(null), 2500);
+      }
     },
     [triggerHaptic],
   );
 
   const handleSave = () => {
-    saveDoctorCredentials(draft);
+    const ok = saveDoctorCredentials(draft);
+    if (!ok) {
+      setSaveError("Failed to save credentials to local device storage.");
+      return;
+    }
+    setSaveError(null);
     setCreds(draft);
     setEditing(false);
   };
@@ -78,7 +93,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
       value: creds.prescriberNumber || "7 digits",
       realValue: creds.prescriberNumber,
     },
-    ...creds.providerNumbers.map((p, idx) => ({
+    ...creds.providerNumbers.map((p) => ({
       key: `provider-${p.id}`,
       label: `Provider (${p.site})`,
       value: p.number || "Provider #",
@@ -113,6 +128,7 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
             data-testid={`${testId}-edit-button`}
             onClick={() => {
               setDraft(creds);
+              setSaveError(null);
               setEditing(true);
             }}
             className={cn(
@@ -127,55 +143,74 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
       </div>
 
       {/* Grid of Micro-Passcards */}
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="list">
+      <ul className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="list">
         {cards.map((c) => {
           const isCopied = copiedKey === c.key;
+          const isFailed = copyFailedKey === c.key;
           const hasValue = Boolean(c.realValue);
           return (
-            <button
-              key={c.key}
-              type="button"
-              role="listitem"
-              data-testid={`${testId}-card-${c.key}`}
-              aria-label={`${c.label}: ${c.realValue || "Tap to set"}`}
-              onClick={() => void handleCopy(c.key, c.realValue)}
-              className={cn(
-                "relative flex min-h-16 flex-col justify-between rounded-xl border p-2.5 text-left transition-all active:scale-97",
-                hasValue
-                  ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] hover:border-[color:var(--command)] hover:bg-[color:var(--surface-inset)]"
-                  : "border-dashed border-[color:var(--border-subtle)] bg-transparent text-[color:var(--text-muted)]",
-                focusRing,
-              )}
-            >
-              <div className="flex items-center justify-between gap-1">
-                <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">{c.label}</span>
-                <Copy className="size-2.5 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
-              </div>
-
-              <span className="mt-1 font-mono text-sm tracking-tight text-[color:var(--text-heading)]">{c.value}</span>
-
-              {/* Floating "Copied!" Pill Tooltip */}
-              {isCopied && (
-                <div
-                  data-testid={`${testId}-copied-${c.key}`}
-                  role="status"
-                  className="absolute inset-0 grid place-items-center rounded-xl bg-[color:var(--surface-raised)]/95 shadow-sm backdrop-blur-xs animate-in fade-in duration-150"
-                >
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2 py-0.5 text-2xs font-medium text-white shadow-xs">
-                    <Check className="size-2.5" aria-hidden="true" />
-                    Copied!
-                  </span>
+            <li key={c.key} className="contents" role="listitem">
+              <button
+                type="button"
+                data-testid={`${testId}-card-${c.key}`}
+                aria-label={`${c.label}: ${c.realValue || "Tap to set"}`}
+                onClick={() => void handleCopy(c.key, c.realValue)}
+                className={cn(
+                  "relative flex min-h-16 flex-col justify-between rounded-xl border p-2.5 text-left transition-colors active:scale-97",
+                  hasValue
+                    ? "border-[color:var(--border)] bg-[color:var(--surface-subtle)] hover:border-[color:var(--command)] hover:bg-[color:var(--surface-inset)]"
+                    : "border-dashed border-[color:var(--border-subtle)] bg-transparent text-[color:var(--text-muted)]",
+                  focusRing,
+                )}
+              >
+                <div className="flex items-center justify-between gap-1">
+                  <span className="truncate text-2xs font-medium text-[color:var(--text-muted)]">{c.label}</span>
+                  <Copy className="size-2.5 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
                 </div>
-              )}
-            </button>
+
+                <span className="mt-1 font-mono text-sm tracking-tight text-[color:var(--text-heading)]">
+                  {c.value}
+                </span>
+
+                {/* Floating "Copied!" Pill Tooltip */}
+                {isCopied && (
+                  <div
+                    data-testid={`${testId}-copied-${c.key}`}
+                    role="status"
+                    className="absolute inset-0 grid place-items-center rounded-xl bg-[color:var(--surface-raised)]/95 shadow-sm backdrop-blur-xs animate-in fade-in duration-[var(--duration-quick)]"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--success)] px-2 py-0.5 text-2xs font-medium text-[color:var(--command-contrast)] shadow-xs">
+                      <Check className="size-2.5" aria-hidden="true" />
+                      Copied!
+                    </span>
+                  </div>
+                )}
+
+                {/* Floating "Copy failed" Pill Tooltip */}
+                {isFailed && (
+                  <div
+                    data-testid={`${testId}-failed-${c.key}`}
+                    role="status"
+                    className="absolute inset-0 grid place-items-center rounded-xl bg-[color:var(--surface-raised)]/95 shadow-sm backdrop-blur-xs animate-in fade-in duration-[var(--duration-quick)]"
+                  >
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[color:var(--danger-solid)] px-2 py-0.5 text-2xs font-medium text-[color:var(--danger-solid-contrast)] shadow-xs">
+                      Copy failed
+                    </span>
+                  </div>
+                )}
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ul>
 
       {/* Edit Sheet */}
       <Sheet
         open={editing}
-        onClose={() => setEditing(false)}
+        onClose={() => {
+          setSaveError(null);
+          setEditing(false);
+        }}
         title="Edit Doctor Credentials"
         testId={`${testId}-sheet`}
         footer={
@@ -189,6 +224,12 @@ export function AdminCredentialsWallet({ testId = "admin-credentials-wallet" }: 
             These numbers stay securely in this browser on your device for fast copy-pasting onto drug charts and
             referral slips.
           </p>
+
+          {saveError && (
+            <p role="alert" className="text-xs font-medium text-[color:var(--danger-text)]">
+              {saveError}
+            </p>
+          )}
 
           <TextField
             label="Ahpra Registration Number"

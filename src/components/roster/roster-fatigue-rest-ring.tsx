@@ -4,6 +4,7 @@ import { ArrowLeftRight, Clock, ShieldCheck, TriangleAlert } from "lucide-react"
 import Link from "next/link";
 import { useMemo } from "react";
 
+import { focusRing } from "@/components/card-recipes";
 import { modeSummaryHairline, modeSummaryMutedText, modeSummarySurface } from "@/components/mode-kit/recipes";
 import { modeDisplayNumberText, modeNumberText } from "@/components/mode-kit/type";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,11 @@ export function calculateRestTurnaround(
   const previousShift =
     [...sorted].reverse().find((s) => Date.parse(s.endsAt) <= nextStart && s.id !== nextShift.id) ?? null;
 
-  const previousEnd = previousShift ? Date.parse(previousShift.endsAt) : at;
+  if (!previousShift) {
+    return { restRemainingMs: null, totalTurnaroundMs: null, isBreach: false, nextShift, previousShift: null };
+  }
+
+  const previousEnd = Date.parse(previousShift.endsAt);
   const totalTurnaroundMs = Math.max(0, nextStart - previousEnd);
   const restRemainingMs = Math.max(0, nextStart - at);
   const isBreach = totalTurnaroundMs > 0 && totalTurnaroundMs < MIN_SAFE_REST_MS;
@@ -79,7 +84,7 @@ export function RosterFatigueRestRing({
         modeSummarySurface,
         "grid gap-3.5 p-4 rounded-xl border border-[color:var(--border)] transition-colors",
         isBreach
-          ? "border-amber-500/40 bg-amber-500/5 dark:bg-amber-950/20"
+          ? "border-[color:var(--warning-border)] bg-[color:var(--warning-soft)]"
           : "bg-[image:radial-gradient(circle_at_100%_0%,color-mix(in_oklab,var(--mode-identity)_35%,transparent),transparent_70%)]",
       )}
     >
@@ -92,7 +97,7 @@ export function RosterFatigueRestRing({
           className={cn(
             "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-2xs font-medium",
             isBreach
-              ? "bg-amber-500/20 text-amber-700 dark:text-amber-300"
+              ? "border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] text-[color:var(--warning-text)]"
               : "bg-[color:var(--surface-inset)] text-[color:var(--text-muted)]",
           )}
         >
@@ -120,12 +125,11 @@ export function RosterFatigueRestRing({
               cy="45"
               r={RADIUS}
               fill="none"
-              stroke={isBreach ? "var(--amber-500, #f59e0b)" : "var(--tone-indigo, #6366f1)"}
+              stroke={isBreach ? "var(--warning-text)" : "var(--tone-indigo)"}
               strokeWidth="5"
               strokeDasharray={CIRCUMFERENCE}
               strokeDashoffset={strokeDashoffset}
               strokeLinecap="round"
-              className="transition-all duration-500 ease-out"
             />
           </svg>
           <div className="absolute inset-0 grid place-items-center text-center">
@@ -151,7 +155,10 @@ export function RosterFatigueRestRing({
             <div className="mt-1">
               <Link
                 href="/roster/swaps"
-                className="relative inline-flex min-h-11 items-center gap-1.5 rounded-md bg-amber-500/15 px-3 py-2 text-xs font-medium text-amber-800 transition-colors hover:bg-amber-500/25 dark:text-amber-200"
+                className={cn(
+                  "inline-flex min-h-tap items-center gap-1.5 rounded-md border border-[color:var(--warning-border)] bg-[color:var(--warning-soft)] px-3 py-2 text-xs font-medium text-[color:var(--warning-text)] hover:bg-[color:var(--warning-bg)]",
+                  focusRing,
+                )}
               >
                 <ArrowLeftRight className="size-3.5" aria-hidden="true" />
                 Find a swap

@@ -54,13 +54,69 @@ describe("TeachingCpdBridgeSheet", () => {
     });
 
     // Tap undo
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({})));
+    const fetchSpy = vi
+      .spyOn(globalThis, "fetch")
+      .mockResolvedValueOnce(new Response(JSON.stringify({}), { status: 200 }));
     fireEvent.click(screen.getByTestId("teaching-cpd-bridge-undo-button"));
     expect(fetchSpy).toHaveBeenCalledWith(
       "/api/cme/entries/cpd-entry-123",
       expect.objectContaining({ method: "PATCH" }),
     );
-    expect(screen.queryByTestId("teaching-cpd-bridge-confirmed")).toBeNull();
-    expect(screen.getByTestId("teaching-cpd-bridge-log-button")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.queryByTestId("teaching-cpd-bridge-confirmed")).toBeNull();
+      expect(screen.getByTestId("teaching-cpd-bridge-log-button")).toBeTruthy();
+    });
+  });
+
+  it("preserves confirmed state and displays error when undo request fails", async () => {
+    vi.spyOn(client, "teachingPost").mockResolvedValueOnce({
+      entryId: "cpd-entry-999",
+      created: true,
+    });
+    render(
+      <TeachingCpdBridgeSheet
+        open={true}
+        onClose={vi.fn()}
+        occurrenceId="occ-err"
+        title="Session With Undo Fail"
+        hours={1.0}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("teaching-cpd-bridge-log-button"));
+    await waitFor(() => {
+      expect(screen.getByTestId("teaching-cpd-bridge-confirmed")).toBeTruthy();
+    });
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response("Internal Server Error", { status: 500 }));
+    fireEvent.click(screen.getByTestId("teaching-cpd-bridge-undo-button"));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("Failed to undo CPD log (500)");
+      // Confirmed state must be preserved
+      expect(screen.getByTestId("teaching-cpd-bridge-confirmed")).toBeTruthy();
+    });
+  });
+
+  it("does not offer undo when occurrence is already in CPD record", async () => {
+    vi.spyOn(client, "teachingPost").mockResolvedValueOnce({
+      entryId: "cpd-existing",
+      created: false,
+    });
+    render(
+      <TeachingCpdBridgeSheet
+        open={true}
+        onClose={vi.fn()}
+        occurrenceId="occ-exist"
+        title="Already Logged Session"
+        hours={1.0}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("teaching-cpd-bridge-log-button"));
+    await waitFor(() => {
+      expect(screen.getByText("Already in your CPD record")).toBeInTheDocument();
+      expect(screen.queryByTestId("teaching-cpd-bridge-undo-button")).toBeNull();
+    });
   });
 });

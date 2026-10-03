@@ -106,7 +106,7 @@ export function EmergencyThumbArc({
         <div
           data-testid={`${testId}-backdrop`}
           onClick={() => setOpen(false)}
-          className="fixed inset-0 z-30 bg-black/40 backdrop-blur-xs transition-opacity animate-in fade-in duration-200"
+          className="fixed inset-0 z-30 bg-[color:var(--overlay-backdrop)] backdrop-blur-xs transition-opacity animate-in fade-in duration-[var(--duration-moderate)]"
           aria-hidden="true"
         />
       )}
@@ -118,7 +118,7 @@ export function EmergencyThumbArc({
           role="region"
           aria-label="Emergency Speed Dial Contacts"
           data-testid={`${testId}-tray`}
-          className="absolute bottom-16 right-0 z-40 mb-2 flex w-72 flex-col gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]/95 p-3 shadow-xl backdrop-blur-md animate-in slide-in-from-bottom-4 fade-in duration-200"
+          className="absolute bottom-16 right-0 z-40 mb-2 flex w-72 flex-col gap-2 rounded-2xl border border-[color:var(--border)] bg-[color:var(--surface-raised)]/95 p-3 shadow-xl backdrop-blur-md animate-in slide-in-from-bottom-4 fade-in duration-[var(--duration-moderate)]"
         >
           <div className="flex items-center justify-between border-b border-[color:var(--border-subtle)] pb-2 px-1">
             <span className="text-xs font-semibold uppercase tracking-wider text-[color:var(--text-muted)]">
@@ -127,49 +127,49 @@ export function EmergencyThumbArc({
             <span className="text-2xs text-[color:var(--text-muted)]">Tap to call</span>
           </div>
 
-          <div className="flex flex-col gap-1.5" role="list">
+          <ul className="flex flex-col gap-1.5" role="list">
             {defaultActions.map((action) => {
               const Icon = action.icon;
               const tel =
                 onCallTelHref(action.number) ??
                 (action.number.startsWith("tel:") ? action.number : `tel:${action.number.replace(/\s+/g, "")}`);
               return (
-                <a
-                  key={action.id}
-                  href={tel}
-                  role="listitem"
-                  onClick={triggerHaptic}
-                  data-testid={`${testId}-action-${action.id}`}
-                  className={cn(
-                    "flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors active:scale-98",
-                    action.urgent
-                      ? "bg-rose-500/10 text-rose-700 hover:bg-rose-500/20 dark:bg-rose-950/40 dark:text-rose-300"
-                      : "bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)] hover:bg-[color:var(--surface-inset)]",
-                    focusRing,
-                  )}
-                >
-                  <span
+                <li key={action.id} className="contents" role="listitem">
+                  <a
+                    href={tel}
+                    onClick={triggerHaptic}
+                    data-testid={`${testId}-action-${action.id}`}
                     className={cn(
-                      "grid size-10 shrink-0 place-items-center rounded-full",
+                      "flex min-h-14 items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors active:scale-98",
                       action.urgent
-                        ? "bg-rose-600 text-white"
-                        : "bg-[color:var(--surface-inset)] text-[color:var(--text)]",
+                        ? "bg-[color:var(--danger-soft)] text-[color:var(--danger-text)] hover:bg-[color:var(--danger-soft)]/80"
+                        : "bg-[color:var(--surface-subtle)] text-[color:var(--text-heading)] hover:bg-[color:var(--surface-inset)]",
+                      focusRing,
                     )}
-                    aria-hidden="true"
                   >
-                    <Icon className="size-5" />
-                  </span>
-                  <div className="flex min-w-0 flex-1 flex-col">
-                    <span className="truncate text-sm font-medium leading-tight">{action.label}</span>
-                    <span className="truncate text-2xs text-[color:var(--text-muted)]">
-                      {action.role} · {action.number}
+                    <span
+                      className={cn(
+                        "grid size-10 shrink-0 place-items-center rounded-full",
+                        action.urgent
+                          ? "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)]"
+                          : "bg-[color:var(--surface-inset)] text-[color:var(--text)]",
+                      )}
+                      aria-hidden="true"
+                    >
+                      <Icon className="size-5" />
                     </span>
-                  </div>
-                  <Phone className="size-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
-                </a>
+                    <div className="flex min-w-0 flex-1 flex-col">
+                      <span className="truncate text-sm font-medium leading-tight">{action.label}</span>
+                      <span className="truncate text-2xs text-[color:var(--text-muted)]">
+                        {action.role} · {action.number}
+                      </span>
+                    </div>
+                    <Phone className="size-4 shrink-0 text-[color:var(--text-muted)]" aria-hidden="true" />
+                  </a>
+                </li>
               );
             })}
-          </div>
+          </ul>
         </div>
       )}
 
@@ -185,7 +185,7 @@ export function EmergencyThumbArc({
           "relative grid size-14 place-items-center rounded-full shadow-lg transition-transform active:scale-95",
           open
             ? "bg-[color:var(--surface-raised)] text-[color:var(--text-heading)] border border-[color:var(--border)]"
-            : "bg-rose-600 text-white hover:bg-rose-700",
+            : "bg-[color:var(--danger-solid)] text-[color:var(--danger-solid-contrast)] hover:bg-[color:var(--danger-solid-hover)]",
           focusRing,
         )}
       >

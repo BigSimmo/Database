@@ -51,11 +51,12 @@ export function loadDoctorCredentials(): DoctorCredentials {
   }
 }
 
-export function saveDoctorCredentials(creds: DoctorCredentials): void {
-  if (typeof window === "undefined" || !window.localStorage) return;
+export function saveDoctorCredentials(creds: DoctorCredentials): boolean {
+  if (typeof window === "undefined" || !window.localStorage) return false;
   try {
     localStorage.setItem(CREDENTIALS_STORAGE_KEY, JSON.stringify(creds));
+    return true;
   } catch {
-    // Ignore storage quota or access errors
+    return false;
   }
 }
