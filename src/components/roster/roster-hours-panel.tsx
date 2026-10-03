@@ -33,6 +33,16 @@ const STAYED_LATE_WINDOW_MS = 8 * 60 * 60 * 1000;
 
 export type RosterExtraTime = HoursExtra;
 
+/**
+ * One extra-time record's identity: its kind and its start as an instant. The
+ * server returns database timestamps (`+00:00`) and this visit's records use
+ * `toISOString()` (`Z`), so the same start compares by instant, not spelling;
+ * a call-in and a late finish may share a start and are different records.
+ */
+function extraKey(extra: RosterExtraTime): string {
+  return `${extra.kind ?? "stayed_late"}|${Date.parse(extra.startedAt)}`;
+}
+
 /** The worked shift that finished most recently, if it ended in the last eight hours. */
 export function justFinished(shifts: readonly OnCallShift[], now: Date): OnCallShift | null {
   const at = now.getTime();
@@ -95,7 +105,7 @@ export function RosterHoursPanel({
   // This visit's records and the saved ones, once each: a record saved now is also read back later.
   const allExtras = useMemo(() => {
     const byStart = new Map<string, RosterExtraTime>();
-    for (const extra of [...saved.records, ...extras]) byStart.set(extra.startedAt, extra);
+    for (const extra of [...saved.records, ...extras]) byStart.set(extraKey(extra), extra);
     return [...byStart.values()];
   }, [saved.records, extras]);
   const summary = useMemo(
@@ -109,19 +119,23 @@ export function RosterHoursPanel({
   );
   const scale = Math.max(12, ...summary.days.map((day) => day.hours + day.extraHours));
   const finished = justFinished(shifts, now);
-  const alreadyLogged = finished ? allExtras.some((extra) => extra.startedAt === finished.endsAt) : false;
+  const alreadyLogged = finished
+    ? allExtras.some(
+        (extra) => extraKey(extra) === extraKey({ kind: "stayed_late", startedAt: finished.endsAt, endedAt: null }),
+      )
+    : false;
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ tone: "neutral" | "warning"; text: string } | null>(null);
 
   async function stayedLate() {
     if (!finished) return;
-    const extra = { startedAt: finished.endsAt, endedAt: now.toISOString() };
+    const extra = { kind: "stayed_late" as const, startedAt: finished.endsAt, endedAt: now.toISOString() };
     setSaving(true);
     try {
       const response = await fetch("/api/roster/extra-time", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ kind: "stayed_late", ...extra }),
+        body: JSON.stringify(extra),
       });
       if (!response.ok) setMessage({ tone: "warning", text: "Extra time could not be saved. Try again." });
       else {

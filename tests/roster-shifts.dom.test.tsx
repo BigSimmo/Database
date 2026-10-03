@@ -309,6 +309,31 @@ describe("Roster Shifts", () => {
     expect(String(read?.[0])).toMatch(/^\/api\/roster\/extra-time\?from=\d{4}-\d{2}-\d{2}&to=\d{4}-\d{2}-\d{2}$/);
   });
 
+  it("treats one instant as one record whatever its spelling, and a call-in as a different record", async () => {
+    mockShifts([day("2026-10-12"), night("2026-10-15")]);
+    routes.set("GET /api/roster/extra-time", () =>
+      Response.json({
+        records: [
+          // Monday's shift ended 08:30Z; the database spells it with +00:00. A call-in shares the start.
+          { kind: "called_in", startedAt: "2026-10-12T08:30:00+00:00", endedAt: "2026-10-12T09:00:00+00:00" },
+        ],
+      }),
+    );
+    routes.set("POST /api/roster/extra-time", () => Response.json({ saved: true }));
+    render(<RosterShiftsPage now={new Date("2026-10-12T09:45:00Z")} />);
+    await screen.findByText(/08:00\s*\+1/);
+    fireEvent.click(screen.getByRole("radio", { name: "Hours" }));
+    const facts = await screen.findByTestId("roster-hours-facts");
+    expect(await within(facts).findByText("0.5 h")).toBeInTheDocument();
+    // The call-in is not a late finish, so "Stayed late" is still offered.
+    const stayed = screen.getByRole("button", { name: "Stayed late" });
+    expect(stayed).toBeEnabled();
+    fireEvent.click(stayed);
+    await screen.findByText("Saved");
+    expect(within(facts).getByText("1.75 h")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Stayed late" })).toBeDisabled();
+  });
+
   it("says so when saved extra time cannot be loaded, and retries", async () => {
     mockShifts([day("2026-10-12")]);
     let reads = 0;

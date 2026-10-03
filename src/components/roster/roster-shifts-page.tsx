@@ -491,10 +491,11 @@ export function RosterShiftsPage({ now: pinnedNow }: { readonly now?: Date } = {
                 href={`/roster/requests?start=${start}&assignment=${encodeURIComponent(teamShift.assignmentId!)}${teamShift.serviceId ? `&team=${encodeURIComponent(teamShift.serviceId)}` : ""}`}
               />
             ))}
-            {teamShift.serviceId ? (
+            {teamShift.serviceId && teams.data?.actorId ? (
               <RosterWhoCanCover
                 serviceId={teamShift.serviceId}
                 assignmentId={teamShift.assignmentId}
+                actorId={teams.data.actorId}
                 startsAt={teamShift.startsAt}
               />
             ) : null}

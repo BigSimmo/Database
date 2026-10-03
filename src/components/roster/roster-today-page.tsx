@@ -46,7 +46,7 @@ import { RosterWeekStrip } from "./roster-week-strip";
 import { hasFreshLink, refreshDueRosterLinks, useRosterLinks } from "./use-roster-links";
 import { useRosterSettings } from "./use-roster-settings";
 import { useRosterShifts } from "./use-roster-shifts";
-import { useRosterTeamRules } from "./use-roster-team";
+import { useRosterTeamRules, useRosterTeams } from "./use-roster-team";
 import { RosterRestChip } from "./roster-rest-chip";
 import { RosterWhoCanCover } from "./roster-who-can-cover";
 import { ModeGroupedList } from "@/components/mode-kit/grouped-list";
@@ -288,6 +288,7 @@ function greetingFor(now: Date): { readonly text: string; readonly icon: typeof 
 export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}) {
   const now = useRosterNow(pinnedNow);
   const shifts = useRosterShifts();
+  const teams = useRosterTeams();
   const links = useRosterLinks();
   const settings = useRosterSettings();
   const [importing, setImporting] = useState(false);
@@ -330,14 +331,22 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
       ),
     [shifts.shifts, now],
   );
-  // "Who can cover?" is offered for the next team shift still to start, never one already under way.
-  const coverId =
-    summary.lead.state === "before"
-      ? summary.lead.shift.id
-      : summary.lead.state === "day_off"
-        ? (summary.lead.next?.id ?? null)
-        : null;
-  const coverShift = coverId ? byId.get(coverId) : undefined;
+  // "Who can cover?" is offered for the next team shift still to start, never one already under
+  // way, chosen on its own: the hero may be showing a shift on now or a personal shift.
+  const actorId = teams.data?.actorId ?? null;
+  const coverShift = useMemo(
+    () =>
+      shifts.shifts
+        .filter(
+          (shift) =>
+            shift.serviceId &&
+            shift.assignmentId &&
+            kindOf(shift) !== "leave" &&
+            Date.parse(shift.startsAt) > now.getTime(),
+        )
+        .sort((a, b) => Date.parse(a.startsAt) - Date.parse(b.startsAt))[0],
+    [shifts.shifts, now],
+  );
   const workplaces = useMemo(
     () => [...new Set(shifts.shifts.flatMap((shift) => (shift.workplace ? [shift.workplace] : [])))],
     [shifts.shifts],
@@ -436,11 +445,12 @@ export function RosterTodayPage({ now: pinnedNow }: { readonly now?: Date } = {}
                 onAddShift={() => setAddView("shift")}
                 cues={cues}
               />
-              {coverShift?.serviceId && coverShift.assignmentId ? (
+              {coverShift?.serviceId && coverShift.assignmentId && actorId ? (
                 <ModeGroupedList testId="roster-today-cover">
                   <RosterWhoCanCover
                     serviceId={coverShift.serviceId}
                     assignmentId={coverShift.assignmentId}
+                    actorId={actorId}
                     startsAt={coverShift.startsAt}
                   />
                 </ModeGroupedList>

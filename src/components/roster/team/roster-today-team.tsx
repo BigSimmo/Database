@@ -60,7 +60,7 @@ function TeamSummary({
     (swap) => swap.counterpartyId === actorId && swap.status === "requested",
   );
   // The same count the Manage Inbox and the Settings "Manage" row show.
-  const waiting = manage.data ? managerWaiting(manage.data).count : 0;
+  const waiting = manage.data ? managerWaiting(manage.data, { decisionsInStrip: true, actorId }).count : 0;
   const cutoff = overview.data.nextCutoffOn;
   const holiday = Array.from({ length: 8 }, (_, offset) => addDaysToDate(today, offset)).find(
     (date) =>

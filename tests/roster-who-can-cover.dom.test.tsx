@@ -82,7 +82,7 @@ function ok(what: string) {
 function openSheet(assignmentId = give.id) {
   render(
     <ul>
-      <RosterWhoCanCover serviceId={SERVICE} assignmentId={assignmentId} startsAt={give.startsAt} />
+      <RosterWhoCanCover serviceId={SERVICE} assignmentId={assignmentId} actorId={ME} startsAt={give.startsAt} />
     </ul>,
   );
   fireEvent.click(screen.getByRole("button", { name: /Who can cover\?/ }));
@@ -149,6 +149,13 @@ describe("RosterWhoCanCover", () => {
     const dialog = openSheet();
     expect(await within(dialog).findByText("Sign in to open Roster.")).toBeTruthy();
     expect(within(dialog).queryByRole("button", { name: "Try again" })).toBeNull();
+  });
+
+  it("treats a shift handed to a colleague since the page loaded as not found, never as theirs", async () => {
+    assignments = [{ ...give, userId: SAM, name: "Dr Sam Example" }, noorDay, ariSameNight];
+    const dialog = openSheet();
+    expect(await within(dialog).findByText("This shift wasn't found on the team roster.")).toBeInTheDocument();
+    expect(within(dialog).queryByText("Your shift")).toBeNull();
   });
 
   it("says so when the shift is not on the roster", async () => {

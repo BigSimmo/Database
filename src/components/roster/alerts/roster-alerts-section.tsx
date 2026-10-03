@@ -142,7 +142,7 @@ export function RosterAlertsSwitch() {
   );
 }
 
-function TeamRow({ team }: { team: RosterTeam }) {
+function TeamRow({ team, actorId }: { team: RosterTeam; actorId: string | null }) {
   const overview = useRosterRead(team.enabled ? team.serviceId : null, "overview");
   const manager = overview.data?.managers
     ?.map((person) => person.name)
@@ -151,7 +151,8 @@ function TeamRow({ team }: { team: RosterTeam }) {
   const ends = overview.data?.me.rotationEndsOn;
   const isManager = team.role === "manager" && team.enabled;
   const manage = useRosterRead(isManager ? team.serviceId : null, "manage");
-  const waiting = manage.data ? managerWaiting(manage.data).count : 0;
+  // Counted as Manage shows them: the manager's own swaps are left out, because the server refuses them.
+  const waiting = manage.data ? managerWaiting(manage.data, { decisionsInStrip: true, actorId }).count : 0;
   const subtitle = [manager ? `manager ${manager}` : null, ends ? `to ${formatPerthDay(ends)}` : null]
     .filter(Boolean)
     .join(" · ");
@@ -237,7 +238,9 @@ export function RosterAlertsSection() {
       ) : null}
       <ModeGroupedList eyebrow="Your team">
         {teams.data?.teams?.length ? (
-          teams.data.teams.map((team) => <TeamRow key={team.serviceId} team={team} />)
+          teams.data.teams.map((team) => (
+            <TeamRow key={team.serviceId} team={team} actorId={teams.data?.actorId ?? null} />
+          ))
         ) : (
           <ModeRow title={teams.status === "loading" ? "Checking your teams…" : "No team yet"} />
         )}

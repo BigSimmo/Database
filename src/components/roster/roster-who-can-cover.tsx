@@ -39,11 +39,14 @@ export function rosterRequestHref(start: "swap" | "give_away", assignmentId: str
 export function RosterWhoCanCover({
   serviceId,
   assignmentId,
+  actorId,
   startsAt,
   label = "Who can cover?",
 }: {
   readonly serviceId: string;
   readonly assignmentId: string;
+  /** The signed-in reader: the shift must still be theirs on the fresh read. */
+  readonly actorId: string;
   /** The shift's start, so the read covers its weeks. Without it the weeks from this one are read. */
   readonly startsAt?: string;
   readonly label?: string;
@@ -73,9 +76,10 @@ export function RosterWhoCanCover({
       <Sheet open={open} onClose={() => setOpen(false)} title={label} mobilePlacement="bottom">
         {open ? (
           <CoverSession
-            key={JSON.stringify([serviceId, assignmentId, startsAt ?? null])}
+            key={JSON.stringify([serviceId, assignmentId, actorId, startsAt ?? null])}
             serviceId={serviceId}
             assignmentId={assignmentId}
+            actorId={actorId}
             startsAt={startsAt}
           />
         ) : null}
@@ -87,10 +91,12 @@ export function RosterWhoCanCover({
 function CoverSession({
   serviceId,
   assignmentId,
+  actorId,
   startsAt,
 }: {
   serviceId: string;
   assignmentId: string;
+  actorId: string;
   startsAt?: string;
 }) {
   const now = useRosterNow();
@@ -109,20 +115,21 @@ function CoverSession({
   }, [serviceId, startsAt, generation]);
 
   const fresh = loaded?.ok ? loaded.fresh : null;
-  // My shift: it must be on the roster read and belong to someone, and that someone is me.
-  const give = fresh?.assignments.find((row) => row.id === assignmentId && row.userId !== null) ?? null;
+  // My shift: it must be on the fresh roster read and still be mine. A shift handed to a
+  // colleague since the page loaded reads as not found, never as the colleague's shift.
+  const give = fresh?.assignments.find((row) => row.id === assignmentId && row.userId === actorId) ?? null;
   const options = useMemo(
     () =>
-      fresh && give?.userId
+      fresh && give
         ? swapOptions({
             rows: fresh.assignments,
             give,
-            me: { userId: give.userId, grade: fresh.overview.me.grade },
+            me: { userId: actorId, grade: fresh.overview.me.grade },
             settings: fresh.overview.settings,
             now,
           })
         : null,
-    [fresh, give, now],
+    [fresh, give, actorId, now],
   );
 
   function retry() {
