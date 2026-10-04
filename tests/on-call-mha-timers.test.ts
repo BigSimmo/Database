@@ -3,7 +3,14 @@ import { describe, expect, it } from "vitest";
 import mhaTimeframesFile from "../data/mha-timeframes.json";
 import { ruleContentSha256, UNSIGNED, type ApprovedRuleSigner } from "@/lib/admin/rule-sign-off";
 import { timeframeContentSha256, type MhaTimeframeEntry } from "@/lib/mha-timeline";
-import { currentMhaTimerSwitchContent, mhaTimerGate, mhaTimers, type MhaTimerSwitch } from "@/lib/on-call/mha-timers";
+import {
+  currentMhaTimerSwitchContent,
+  isTimeframeSignedByNamedClinician,
+  mhaTimerGate,
+  OWNER_CONFIRMED_TIMEFRAMES,
+  mhaTimers,
+  type MhaTimerSwitch,
+} from "@/lib/on-call/mha-timers";
 
 /**
  * Gating and countdown arithmetic only. The fixtures use invented quotes and an invented form
@@ -69,14 +76,46 @@ describe("mhaTimers", () => {
     expect(result.items.every((item) => item.kind === "quote-only")).toBe(true);
   });
 
-  it("treats the shipped 'PsychSift' sign-offs as awaiting a named clinician", () => {
+  it("counts the shipped 'PsychSift' sign-offs as the owner's named sign-off", () => {
+    const shipped = mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[];
+    expect(shipped.every((candidate) => isTimeframeSignedByNamedClinician(candidate))).toBe(true);
     const result = mhaTimers([{ timerId: "t1", formCode: "2", madeAt }], now, {
-      timerSwitch: onSwitch(mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[]),
+      timerSwitch: onSwitch(shipped),
       approvedSigners: SIGNERS,
     });
-    const reasons = result.items.map((item) => (item.kind === "quote-only" ? item.reason : "countdown"));
-    expect(reasons).toContain("awaiting-named-sign-off");
-    expect(reasons).not.toContain("countdown");
+    expect(result.items.map((item) => item.kind)).toContain("countdown");
+  });
+
+  it("counts only the exact sign-offs the owner confirmed, not any entry labelled PsychSift", () => {
+    expect(isTimeframeSignedByNamedClinician(signedBy(entry("new-entry", 24), "PsychSift"))).toBe(false);
+    const shipped = (mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[])[0]!;
+    const resigned = signedBy({ ...shipped, anchor: "Changed anchor" }, "PsychSift");
+    expect(isTimeframeSignedByNamedClinician(resigned)).toBe(false);
+    expect(OWNER_CONFIRMED_TIMEFRAMES.map((row) => row.id)).toEqual(
+      (mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[]).map((candidate) => candidate.id),
+    );
+  });
+
+  it("turns the switch off when the owner-confirmed list changes", () => {
+    const shipped = mhaTimeframesFile.entries as unknown as MhaTimeframeEntry[];
+    const timerSwitch = onSwitch(shipped);
+    expect(mhaTimerGate(timerSwitch, shipped, SIGNERS)).toEqual({ on: true });
+    const shorter = currentMhaTimerSwitchContent(
+      shipped,
+      timerSwitch.content.medicalDeviceRuling,
+      OWNER_CONFIRMED_TIMEFRAMES.slice(1),
+    );
+    const signedOverShorter: MhaTimerSwitch = {
+      content: shorter,
+      signOff: { ...timerSwitch.signOff, signedContentSha256: ruleContentSha256(shorter) },
+    };
+    expect(mhaTimerGate(signedOverShorter, shipped, SIGNERS)).toEqual({ on: false, reason: "stale-switch" });
+  });
+
+  it("does not accept an attribution the owner has not confirmed", () => {
+    expect(isTimeframeSignedByNamedClinician(signedBy(entry("other", 24), "PsychSift Team"))).toBe(false);
+    expect(isTimeframeSignedByNamedClinician(signedBy(entry("other", 24), "System"))).toBe(false);
+    expect(isTimeframeSignedByNamedClinician(entry("drafted", 24))).toBe(false);
   });
 
   it("counts down signed entries, soonest first, once the switch is signed", () => {
@@ -108,8 +147,8 @@ describe("mhaTimers", () => {
     expect(short.kind === "countdown" && short.remainingMs).toBe(-60 * 60 * 1000);
   });
 
-  it("keeps a PsychSift-signed entry quote-only even with the switch on", () => {
-    const mixed = [named[0]!, signedBy(entry("system", 24), "PsychSift")];
+  it("keeps an entry signed by a system name quote-only even with the switch on", () => {
+    const mixed = [named[0]!, signedBy(entry("system", 24), "System")];
     const result = mhaTimers([{ timerId: "t1", formCode: "ZZ", madeAt }], now, {
       entries: mixed,
       timerSwitch: onSwitch(mixed),
