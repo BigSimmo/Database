@@ -114,16 +114,16 @@ test.describe("CME on a phone", () => {
     const list = page.getByTestId("cme-module-order");
     await expect(list).toBeVisible();
 
-    const firstItemLabel = list.getByRole("listitem").first();
-    const labelBefore = (await firstItemLabel.textContent())?.trim();
+    // Moves stay within a Today section, so reorder a module that has a same-section neighbour below it.
+    const labelsBefore = (await list.getByRole("listitem").allTextContents()).map((text) => text.trim());
 
-    const moveDown = list.getByRole("button", { name: /move .* down/i }).first();
+    const moveDown = list.getByRole("button", { name: "Move Logged today down" });
     await moveDown.focus();
     await expect(moveDown).toBeFocused();
     await page.keyboard.press("Enter");
 
-    const labelAfter = (await list.getByRole("listitem").first().textContent())?.trim();
-    expect(labelAfter).not.toBe(labelBefore);
+    const labelsAfter = (await list.getByRole("listitem").allTextContents()).map((text) => text.trim());
+    expect(labelsAfter).not.toEqual(labelsBefore);
   });
 });
 
